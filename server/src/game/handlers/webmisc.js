@@ -59,6 +59,24 @@ module.exports = (game, H) => {
     game.reply(conn, cmd, { name: game.items.name(m.attachment.itemId), itemId: m.attachment.itemId, qty: m.attachment.qty || 1 });
   };
 
+  // ---------- Abandon Loyalty ----------
+  // A Speaker drops one of the lord's ordinary cities' loyalty to 0 and raises its grievance to 100 at once (both
+  // drift back as usual, castle.js).
+  H['interior.abandonLoyalty'] = (conn, d, cmd) => {
+    const c = game.castleOr(conn, cmd, d.castleId); if (!c) return;
+    const p = conn.player, SPEAKER = 'consume.1.a';
+    if ((c.powerLevel ?? 4) < 4) return game.fail(conn, cmd, -1, 'Only an ordinary city can abandon its loyalty.');
+    game.logic.settle(c, p, game.now());
+    if (!game.items.take(p, SPEAKER)) return game.fail(conn, cmd, -44, 'You need a Speaker.');
+    c.loyalty = 0; c.complaint = 100;
+    game.store.touch(); game.pushItems(p, [SPEAKER]); game.pushResources(c);
+    game.log.info(`${p.name} abandoned the loyalty of ${c.name}`);
+    game.reply(conn, cmd, { castleId: c.id, support: 0, complaint: 100 });
+  };
+
+  // ---------- the World Boss ranking (no world boss on this server yet) ----------
+  H['rank.getWorldBossRank'] = (conn, d, cmd) => game.reply(conn, cmd, { beans: [], ranks: [], list: [], pageNo: 1, totalPage: 1, total: 0 });
+
   // ---------- barbarian cities on a held flat ----------
   // The lord gives up a flat one of his cities holds, and a barbarian city of the chosen level (1-10) rises there.
   H['city.buildNpc'] = (conn, d, cmd) => {
