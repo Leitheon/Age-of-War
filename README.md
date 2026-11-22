@@ -52,6 +52,33 @@ Game rules (speeds, prices, limits) are in `server/src/rules.js`; put the ones y
 - **Close** / **Reopen** an account;
 - **Debug tools** for a lord: coins, resources, troops, items, research, gear, gift packages, the news ticker.
 
+## Letting other people in
+
+Players need to reach `httpPort` (8090) on the PC running the server. Two ways:
+
+- **Port forwarding**: forward TCP 8090 on your router to this PC, allow it through the Windows firewall, and set
+  `publicUrl` to `http://<your public IP>:8090`. Simple, but it's plain HTTP: passwords (and the admin password)
+  cross the internet unencrypted.
+- **A tunnel with HTTPS** (Cloudflare Tunnel, playit.gg, ngrok...): it gives you an `https://` address that forwards
+  to `http://localhost:8090`. Set `publicUrl` to that address. The client switches to a secure WebSocket by itself,
+  and browsers also keep the game's art cached between visits (the service worker only runs on HTTPS).
+
+## What the server does
+
+Everything the client asks for has a handler. On top of the Evony server's game (buildings, research, troops,
+heroes, marches and battles, valleys, NPC and Historic Cities, colonies, alliances, quests, mail, items):
+
+- **Coordinated Attacks**: per-level attack presets for valleys and NPC cities; while on, each free army slot sends
+  the preset with a free hero at the nearest target of a ticked level. Settings: `rules.automation` (`radius`,
+  `dropShare`: the share of treasure it finds, 0.5).
+- **Troop Goals**: 20 priority batches of troop targets, trained automatically across the city's Barracks.
+- **The market**: lords' resource offers, filled piece by piece; deliveries take `rules.webMarket.deliveryMinutes`
+  (30), or none with a Merchant Fleet. A city has one open offer per Marketplace level.
+- **The shop**: items for gold from all of a lord's cities, account-bound gold first; price = the item's coin price
+  times `rules.webShop.goldPerCoin` (10,000).
+- **The Battle Calculator**, **Build NPC** on a held flat (`rules.buildNpc.enabled`), **castle skins**, **mail
+  attachments**, **alliance banner colours**, **Abandon Loyalty**, and the Reports window's filters and flags.
+
 ## Accounts
 
 Players register with a user name (3 to 16 characters), an e-mail address and a password (at least 6
