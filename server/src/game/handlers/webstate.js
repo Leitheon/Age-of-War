@@ -10,7 +10,7 @@ module.exports = (game, H) => {
       serverTime: now, castles: castles.map(c => b.castle(c, p)), cityOrder: p.cityOrder || '',
       items: game.items.itemBeans(p), selfArmys: game.armies.beans(p), enemyArmys: game.armies.enemies(p),
       declaredWarBeans: game.war.beans(p, now), playerBuffs: game.items.buffBeans(p, now),
-      ...b.reportCounts(p), ...b.mailCounts(p), newReportCount_automation: 0,
+      ...b.reportCounts(p), ...b.mailCounts(p),
       coins: p.coins || 0, boundGold: Math.floor(p.boundGold || 0),
       playerState: truceUntil > now ? 1 : game.war.beginner(p, now) ? 2 : 0,
       truceUntil: truceUntil > now ? truceUntil : 0, truceCooldownUntil: Math.max(0, p.truceCooldownUntil || 0),

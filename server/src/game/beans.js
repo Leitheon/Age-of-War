@@ -52,7 +52,7 @@ class Beans {
   mailCounts(p){ const m = this.game.mail.counts(p); return { newMailCount: m.count, newMaileCount_inbox: m.count_inbox, newMaileCount_system: m.count_system }; }
   reportCounts(p){
     const u = this.game.reports.unread(p);
-    return { newReportCount: u.count, newReportCount_army: u.army_count, newReportCount_other: u.other_count, newReportCount_scout: u.scout_cout, newReportCount_trade: u.trade_count };
+    return { newReportCount: u.count, newReportCount_army: u.army_count, newReportCount_other: u.other_count, newReportCount_scout: u.scout_cout, newReportCount_trade: u.trade_count, newReportCount_automation: u.automation_count || 0 };
   }
   // Place in the prestige ranking (1 = most prestige).
   prestigeRank(p){ const mine = p.prestige || 0; return 1 + Object.values(this.game.db.players).filter(o => (o.prestige || 0) > mine).length; }

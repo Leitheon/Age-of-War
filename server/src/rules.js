@@ -416,6 +416,9 @@ const DEFAULTS = {
   valleyCycle: true,
   // The web client's shop (handlers/webshop.js): gold per coin of an item's price in the client's item table.
   webShop: { goldPerCoin: 10000 },
+  // Coordinated Attacks (handlers/webauto.js): how far out it looks for targets (tiles), the share of treasure it finds
+  // (of what the lord's own attack would), and how often it runs (ms).
+  automation: { radius: 25, dropShare: 0.5, tickMs: 5000 },
   // Valleys: UNVERIFIED estimates. Troops: field -> [per level^2, from level].
   // Valley (and flat) garrisons. Levels 1-5: base + perLevel x level troops, split by `mix`. Fox's live scout
   // reports (Oct 2026): level 1 35 warriors and 12 pikemen, level 2 51 and 17, level 3 90 pikemen, level 4 pikemen

@@ -363,7 +363,11 @@ class ArmyLogic {
     const hero = c ? g.heroes.find(c, a.heroId) : null;
     const tile = world.tileAt(g.store, a.target, now);
     const here = this.placeName(a.target), home = c ? this.placeName(c.fieldId) : '';
-    const report = (pl, r) => g.reports.add(pl, { startPos: home, targetPos: here, armyType: a.mission, ...r });
+    // (an army sent by Coordinated Attacks, webauto.js, writes to the Automation tab, or nothing with No Report)
+    const report = (pl, r) => {
+      if (a.auto && pl === p){ if (a.auto.noReport) return null; r = { ...r, automation: true }; }
+      return g.reports.add(pl, { startPos: home, targetPos: here, armyType: a.mission, ...r });
+    };
     let stay = false;
     if (a.mission === MISSION.SCOUT) this.scout(a, p, c, hero, tile, report, now);
     else if (a.mission === MISSION.TRANS || a.mission === MISSION.SEND){
@@ -621,12 +625,16 @@ class ArmyLogic {
         loot = this.take(npcState.res, cap, k => npcState.res[k]);
       } else if (VALLEY_RES[tile.type] || tile.type === world.T.FLAT){
         captured = this.capture(c, tile, now);
+        // Coordinated Attacks' Auto Abandon Valley: the valley is given up as soon as it's taken.
+        if (captured && a.auto?.abandon){ const gu = this.giveUp(c, tile.id); if (!Array.isArray(gu)){ g.push(c.playerId, 'server.CastleFieldUpdate', { castleId: c.id, updateType: 1, bean: gu.bean }); g.pushResources(c); } }
       }
       if (loot) a.loot = loot;
     }
     // Treasure (rules.battleDrops, Fox's drop table): medals, gear materials, gems and scripts from NPC cities,
     // Historic Cities and valleys, amulets and teleporters from lords' cities.
-    const found = this.battleTreasure(p, tile, dc, r, now);
+    // (Coordinated Attacks find less: rules.automation.dropShare of what a lord's own attack would)
+    const share = a.auto ? Math.max(0, Math.min(1, g.rules.automation?.dropShare ?? 0.5)) : 1;
+    const found = this.battleTreasure(p, tile, dc, r, now).filter(() => share >= 1 || Math.random() < share);
     if (found.length){ for (const f of found) g.items.add(p, f.id, f.n); g.pushItems(p, found.map(f => f.id)); }
     if (dc) this.repairForts(dp, defender.forts, fortsAfter);
     if (!dc && tile.type === world.T.NPC) Object.assign(fortsAfter, g.npc.repair(tile, defender.forts || {}, fortsAfter));

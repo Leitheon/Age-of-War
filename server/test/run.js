@@ -3155,6 +3155,43 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const order = await call2('common.setCityOrder', { order: String(home.id) }), wrong = await call2('common.setCityOrder', { order: '1,2' });
       ok(order.data.ok === 1 && order.data.cityOrder === String(home.id) && wrong.data.ok < 0, 'the city order takes only the lord\'s own cities');
       ws2.close();
+    }
+    {
+      // Age of War: Troop Goals and Coordinated Attacks, through the handlers with a stand-in connection.
+      const G = srv.game, world = require('../src/game/world');
+      const acct = { name: 'Autoy', createdAt: G.now(), playerId: null }; G.db.accounts.autoy = acct;
+      const pa = G.createPlayer(acct), city = G.castlesOf(pa)[0];
+      const replies = []; const conn = { id: 'auto-test', player: pa, ip: 'test', closed: false, send: (cmd, data) => replies.push({ cmd, data }), close(){} };
+      const ask = (cmd, data) => { replies.length = 0; G.handle(conn, cmd, { ...data, castleId: city.id, packageId: 1 }); return replies.find(r => r.cmd === cmd)?.data; };
+      city.buildings[20] = { typeId: 2, level: 5, status: 0, startTime: 0, endTime: 0 };    // Barracks
+      city.buildings[21] = { typeId: 29, level: 3, status: 0, startTime: 0, endTime: 0 };   // Rally Spot
+      for (const k of ['food', 'wood', 'stone', 'iron']) city.res[k] = 1e7;
+      city.pop = 5000;
+      const off = ask('troopgoal.getConfig', {});
+      const saved = ask('troopgoal.saveConfig', { batches: [{ priority: 1, targets: [0, 300, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }], useWorkingPop: false });
+      const on = ask('troopgoal.setEnabled', { enabled: true });
+      const q = G.troops.queues(city), warriors = Object.values(q).flat().filter(x => x.type === 3).reduce((s, x) => s + x.num, 0);
+      const after = ask('troopgoal.getConfig', {});
+      ok(off.ok === 1 && off.troopOrder.length === 12 && saved.ok === 1 && on.ok === 1 && on.running === 0 && warriors === 300 && after.queued[1] === 300,
+        'Troop Goals: the running batch queues the Warriors still short of the target across the Barracks (queued counts toward it, so it\'s then met)');
+      ask('troopgoal.setEnabled', { enabled: false });
+      // Coordinated Attacks: a level 1 NPC city preset of 100 Warriors, sent with the free hero to the nearest one.
+      city.troops.militia = 1000;
+      const hero = { ...G.heroes.makeHero(5, null, new Set()), id: G.store.id(), status: 0 }; G.heroes.list(city).push(hero);
+      const npcPreset = Array.from({ length: 10 }, (_, i) => i === 0 ? [0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] : Array(12).fill(0));
+      const checked = Array.from({ length: 20 }, (_, i) => (i === 10 ? 1 : 0));
+      const cfgd = ask('automation.saveConfig', { valley: [], npc: npcPreset, checked, autoAbandonValley: true, noReport: false, valleyTypesOff: [6] });
+      const en = ask('automation.setEnabled', { enabled: true });
+      G.webTick(G.now() + 60000);
+      const sent = Object.values(G.armies.list()).find(a => a.castleId === city.id);
+      const tgt = sent && world.tileAt(G.store, sent.target);
+      const got = ask('automation.getConfig', {});
+      ok(cfgd.ok === 1 && cfgd.checked[10] === 1 && en.ok === 1 && sent && sent.auto && sent.troops.militia === 100 && sent.heroId === hero.id && tgt.type === world.T.NPC && tgt.level === 1
+        && got.heroes.some(h => h.id === hero.id) && got.valleyTypesOff.join() === '6' && got.marchLimit > 0,
+        'Coordinated Attacks: the preset goes with a free hero to the nearest NPC city of a ticked level' + (sent ? '' : ` [${JSON.stringify(en)}]`));
+      const ex = ask('automation.setHeroExcluded', { heroId: hero.id, excluded: true });
+      ok(ex.ok === 1 && G.castlesOf(pa)[0].automation.excluded.includes(hero.id), 'a hero can be left out of Coordinated Attacks');
+      ask('automation.setEnabled', { enabled: false });
       // m3.106 (Fox): battle report links. The official battle*.evony.com/default.html?logfile/....xml needs Flash; here
       // the same address is the new client drawing the report, its XML fetched from the official host once and kept.
       const rp = 'logfile/20261103/c2/3e/c23ecd68c16f29a002bd240bfecc6c8d.xml', rf = path.join(dataDir, 'cache', ...rp.split('/'));

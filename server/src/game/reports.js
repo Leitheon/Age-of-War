@@ -74,6 +74,7 @@ class Reports {
   unread(p){
     const c = { count: 0, army_count: 0, scout_cout: 0, trade_count: 0, other_count: 0 };
     for (const r of this.list(p)) if (!r.isRead){
+      if (r.automation){ c.automation_count = (c.automation_count || 0) + 1; continue; }   // (the Automation tab's own badge)
       c.count++;
       if (r.type === TYPE.ARMY) c.army_count++; else if (r.type === TYPE.SCOUT) c.scout_cout++; else if (r.type === TYPE.TRADE) c.trade_count++; else c.other_count++;
     }
@@ -84,6 +85,7 @@ class Reports {
     p.reportSeq = (p.reportSeq || 0) + 1;
     const rep = { id: p.reportSeq, type: r.type, armyType: r.armyType || 0, attack: r.attack !== false, back: !!r.back, title: r.title,
       startPos: r.startPos || '', targetPos: r.targetPos || '', eventTime: stamp(now), at: now, isRead: 0, content: r.content || '' };
+    if (r.automation) rep.automation = true;
     const list = this.list(p); list.unshift(rep);
     if (list.length > MAX_REPORTS) list.length = MAX_REPORTS;
     g.store.touch();
@@ -91,7 +93,7 @@ class Reports {
     return rep;
   }
   bean(r){ return { id: r.id, type: r.type, armyType: r.armyType, attack: r.attack, back: r.back, title: r.title, startPos: r.startPos, targetPos: r.targetPos,
-    eventTime: r.eventTime, isRead: r.isRead, content: r.content, selected: false }; }
+    eventTime: r.eventTime, isRead: r.isRead, content: r.content, selected: false, isFlagged: r.isFlagged ? 1 : 0, automation: r.automation ? 1 : 0 }; }
 }
 
 module.exports = { Reports, REPORT_TYPE: TYPE, battleXml, scoutXml, stamp };
