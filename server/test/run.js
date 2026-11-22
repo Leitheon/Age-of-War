@@ -3193,6 +3193,31 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       ok(ex.ok === 1 && G.castlesOf(pa)[0].automation.excluded.includes(hero.id), 'a hero can be left out of Coordinated Attacks');
       ask('automation.setEnabled', { enabled: false });
 
+      // The Battle Calculator, raising a barbarian city on a held flat, castle skins, mail attachments, the banner.
+      const calc = ask('army.calcBattle', { attacker: { troops: { archer: 3000 }, mt: 10, heroAtt: 80, heroLdr: 60 }, defender: { troops: { militia: 200 }, walls: 3, forts: { trap: 50 } } });
+      const none = ask('army.calcBattle', { attacker: { troops: {} }, defender: {} });
+      const troopsBefore = city.troops.archer || 0;
+      ok(calc.ok === 1 && calc.result === 1 && calc.round >= 1 && calc.defendLostTroop.militia === 200 && none.ok < 0 && (city.troops.archer || 0) === troopsBefore,
+        'the Battle Calculator works a battle out with the server\'s engine and changes nothing');
+      const { x: fx0, y: fy0 } = world.xy(city.fieldId);
+      let flat = null;
+      for (let r = 1; r < 30 && !flat; r++) for (let dx = -r; dx <= r && !flat; dx++){ const id = world.idOf(fx0 + dx, fy0 + r), t = world.tileAt(G.store, id); if (t.type === world.T.FLAT && !G.db.tiles[id]) flat = { id, t }; }
+      const notHeld = ask('city.buildNpc', { fieldId: flat.id, level: 3 });
+      city.valleys = [...(city.valleys || []), flat.id]; G.db.tiles[flat.id] = { type: world.T.FLAT, level: flat.t.level, ownerCastle: city.id };
+      const raised = ask('city.buildNpc', { fieldId: flat.id, level: 3 }), nt = world.tileAt(G.store, flat.id);
+      ok(notHeld.ok < 0 && raised.ok === 1 && nt.type === world.T.NPC && nt.level === 3 && !city.valleys.includes(flat.id), 'a lord can raise a barbarian city of his chosen level on a flat he holds');
+      const locked = ask('city.setCastleSkin', { skin: 'halloween', historic: false });
+      G.items.add(pa, 'player.castle.skin.halloween', 1);
+      const unlock = ask('shop.useGoods', { itemId: 'player.castle.skin.halloween' });
+      const worn = ask('city.setCastleSkin', { skin: 'halloween', historic: false }), hollow = ask('city.setCastleSkin', { skin: 'hollow', historic: true });
+      ok(locked.ok < 0 && unlock.ok === 1 && unlock.castleSkins === 'halloween' && worn.ok === 1 && worn.castleSkin === 'halloween' && hollow.ok < 0 && !pa.items['player.castle.skin.halloween'],
+        'a castle skin is unlocked by its item, then worn');
+      const gift = G.mail.system(pa, 'A gift', 'For you'); gift.attachment = { itemId: 'consume.2.a', qty: 2 };
+      const had = pa.items['consume.2.a'] || 0, claim = ask('mail.claimAttachment', { mailId: gift.id }), twice = ask('mail.claimAttachment', { mailId: gift.id });
+      const read = ask('mail.readMail', { mailId: gift.id });
+      ok(claim.ok === 1 && twice.ok < 0 && pa.items['consume.2.a'] === had + 2 && read.attachmentItem === 'consume.2.a' && read.attachmentClaimed === 1, 'an item attached to a mail is claimed once');
+      ok(ask('alliance.setAllianceFlagColor', { color: 'blue', textColor: 'white' }).ok < 0, 'only an alliance\'s Host or Vice Host can change its banner');
+
       // The market: Seller offers 1,000 food for 100 gold; Buyer takes half of it, then posts an order that buys the
       // rest at that price at once. Goods arrive after the delivery time, or at once with a Merchant Fleet.
       const lordOf = name => { const ac = { name, createdAt: G.now(), playerId: null }; G.db.accounts[name.toLowerCase()] = ac; const lp = G.createPlayer(ac), lc = G.castlesOf(lp)[0];

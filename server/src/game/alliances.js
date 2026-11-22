@@ -325,7 +325,7 @@ class Alliances {
     return { allianceName: a.name, allianceInfo: a.info || '', allianceNote: a.note || '', creatorName: a.creatorName || this.player(a.creator)?.name || '',
       leaderName: this.player(a.leader)?.name || '', memberCount: a.members.length, memberLimit: this.memberLimit(a), prestige: this.prestige(a), rank: this.ranking(a) };
   }
-  info(a){ return { allinaceInfo: a.info || '', creator: a.creatorName || '', leader: this.player(a.leader)?.name || '', memberCount: a.members.length, prestigeCount: this.prestige(a), ranking: this.ranking(a) }; }
+  info(a){ return { allinaceInfo: a.info || '', creator: a.creatorName || '', leader: this.player(a.leader)?.name || '', memberCount: a.members.length, prestigeCount: this.prestige(a), ranking: this.ranking(a), flagColor: a.flagColor || '', flagTextColor: a.flagTextColor || '' }; }
   query(a){
     return { name: a.name, creatorName: a.creatorName || '', leaderName: this.player(a.leader)?.name || '', curNum: a.members.length, limit: this.memberLimit(a),
       prestige: this.prestige(a), ranking: this.ranking(a), desc: a.info || '', bulletin: a.note || '' };

@@ -70,7 +70,11 @@ class Mail {
     return { mailid: m.id, title: m.title, sender: m.sender, receiver: m.receiver, receiveTime: stamp(m.at), isRead: m.isRead ? 1 : 0,
       playerId: m.senderId || 0, targetId: m.receiverId || 0, selected: false };
   }
-  detail(m){ return { ...this.bean(m), content: m.content, type_id: m.box }; }
+  detail(m){
+    const a = m.attachment;   // (an item attached to the mail, claimed with mail.claimAttachment)
+    return { ...this.bean(m), content: m.content, type_id: m.box,
+      ...(a ? { attachmentItem: a.itemId, attachmentName: this.g.items.name(a.itemId), attachmentQty: a.qty || 1, attachmentClaimed: a.claimed ? 1 : 0 } : {}) };
+  }
 }
 
 module.exports = { Mail, MAIL_BOX: BOX };

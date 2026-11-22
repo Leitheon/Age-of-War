@@ -40,7 +40,7 @@ module.exports = (game, H) => {
     if (a.closed || p.banned) return game.fail(conn, cmd, -2, 'This account is closed.');
     game.enter(conn, p);
     const castles = game.castlesOf(p), now = game.now();
-    const player = game.beans.player(p, castles, now);
+    const player = { ...game.beans.player(p, castles, now), ...game.skinFields(p) };
     game.reply(conn, cmd, { ...extra, player, castle: player.castles?.[0] ?? null, viewingLive: false });
   };
   const newSession = (conn, a) => {

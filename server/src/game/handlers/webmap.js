@@ -11,7 +11,7 @@ module.exports = (game, H) => {
   // A lord's city as the map shows it: the MapCastleBean plus its level (the art), its skin and its alliance's flag.
   const cityOnMap = (conn, t) => {
     const b = game.mapBean(conn, t), c = game.db.castles[t.castleId], p = c && game.db.players[c.playerId], a = p && game.alliances.of(p);
-    return { ...b, fieldId: t.id, level: c ? Math.max(1, game.logic.townHall(c)) : 1, castleSkin: c?.skin || '',
+    return { ...b, fieldId: t.id, level: c ? Math.max(1, game.logic.townHall(c)) : 1, castleSkin: !p ? '' : (c.powerLevel ?? 4) < 4 ? p.historicSkin || '' : p.castleSkin || '',
       allianceFlagColor: a?.flagColor || '', allianceFlagTextColor: a?.flagTextColor || '' };
   };
 
