@@ -54,6 +54,11 @@ Game rules (speeds, prices, limits) are in `server/src/rules.js`; put the ones y
 
 ## Letting other people in
 
+**`server/docs/HOSTING.md`** walks through putting it on playageofwar.com: a Cloudflare Tunnel from this PC (HTTPS,
+no router changes), and `install-autostart.bat` so the server starts with the PC and restarts if it stops.
+
+In short:
+
 Players need to reach `httpPort` (8090) on the PC running the server. Two ways:
 
 - **Port forwarding**: forward TCP 8090 on your router to this PC, allow it through the Windows firewall, and set
