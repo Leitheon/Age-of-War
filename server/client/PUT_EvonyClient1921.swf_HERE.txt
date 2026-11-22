@@ -1,0 +1,5 @@
+Copy your EvonyClient1921.swf into this folder.
+
+Optional: WarReport.swf, the official battle report viewer (download1.evony.com/WarReport.swf). Battle report
+links are drawn the way it drew them. Without it the server fetches it once from the official download host;
+if that fails, reports show in the game's own report view.

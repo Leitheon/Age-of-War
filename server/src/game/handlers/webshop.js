@@ -1,0 +1,50 @@
+'use strict';
+// The web client's shop: tabs of items priced in gold, bought with the gold of all the lord's cities together
+// (shop.buyPooled), account-bound gold spent first. Prices are each item's coin price in the client's item table
+// times rules.webShop.goldPerCoin.
+const TABS = [['hot', 'Hot'], ['宝物', 'Treasure'], ['加速', 'Speed Up'], ['生产', 'Produce'], ['宝箱', 'Chests'], ['计谋', 'Stratagems'], ['材料', 'Materials']];
+const HOT = ['consume.2.a', 'consume.2.b', 'player.resinc.1', 'player.gold.1.a'];
+
+module.exports = (game, H) => {
+  const rate = () => Number(game.rules.webShop?.goldPerCoin) > 0 ? Number(game.rules.webShop.goldPerCoin) : 10000;
+  const priceOf = it => Math.round(it.price * rate());
+  const ware = it => ({ id: it.id, name: String(it.name || it.id).trim(), icon: it.icon || '', price: priceOf(it), desc: String(it.desc || '').trim() });
+  const forSale = () => Object.values(game.data.items).filter(i => i.price > 0 && !/^hero\.taskitem\./.test(i.id));
+
+  H['shop.getCatalog'] = (conn, d, cmd) => {
+    const all = forSale(), tabs = [];
+    for (const [id, name] of TABS){
+      const items = id === 'hot' ? HOT.map(x => game.data.items[x]).filter(i => i && i.price > 0) : all.filter(i => i.type === id);
+      if (items.length) tabs.push({ id, name, items: items.map(ware) });
+    }
+    game.reply(conn, cmd, { tabs, halloweenEnabled: false });
+  };
+
+  // Gold from every city, the account-bound gold first, then the richest city's.
+  H['shop.buyPooled'] = (conn, d, cmd) => {
+    const p = conn.player, it = game.data.items[String(d.itemId || '')], n = Math.floor(Number(d.amount));
+    if (!it || !(it.price > 0) || /^hero\.taskitem\./.test(it.id)) return game.fail(conn, cmd, -44, 'That item is not for sale.');
+    if (!(n > 0) || n > 9999) return game.fail(conn, cmd, -40, 'Choose how many to buy.');
+    const now = game.now(), castles = game.castlesOf(p);
+    for (const c of castles) game.logic.settle(c, p, now);
+    const cost = priceOf(it) * n, bound = Math.floor(p.boundGold || 0);
+    const have = bound + castles.reduce((s, c) => s + Math.floor(c.res?.gold || 0), 0);
+    if (have < cost) return game.fail(conn, cmd, -28, `That costs ${cost.toLocaleString('en-US')} gold; your cities have ${have.toLocaleString('en-US')}.`);
+    let left = cost;
+    const fromBound = Math.min(bound, left); p.boundGold = bound - fromBound; left -= fromBound;
+    const touched = [];
+    for (const c of [...castles].sort((a, b) => (b.res?.gold || 0) - (a.res?.gold || 0))){
+      if (left <= 0) break;
+      const take = Math.min(Math.floor(c.res.gold || 0), left);
+      if (take > 0){ c.res.gold -= take; left -= take; touched.push(c); }
+    }
+    game.items.add(p, it.id, n);
+    game.store.touch();
+    game.log.info(`${p.name} bought ${n} ${String(it.name).trim()} for ${cost} gold`);
+    game.reply(conn, cmd, { itemId: it.id, count: p.items[it.id] });
+    game.pushItems(p, [it.id]);
+    for (const c of touched) game.pushResources(c);
+  };
+
+  H['shop.buyHalloween'] = (conn, d, cmd) => game.fail(conn, cmd, -1, 'The Halloween shop is closed.');
+};
