@@ -3192,6 +3192,34 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const ex = ask('automation.setHeroExcluded', { heroId: hero.id, excluded: true });
       ok(ex.ok === 1 && G.castlesOf(pa)[0].automation.excluded.includes(hero.id), 'a hero can be left out of Coordinated Attacks');
       ask('automation.setEnabled', { enabled: false });
+
+      // The market: Seller offers 1,000 food for 100 gold; Buyer takes half of it, then posts an order that buys the
+      // rest at that price at once. Goods arrive after the delivery time, or at once with a Merchant Fleet.
+      const lordOf = name => { const ac = { name, createdAt: G.now(), playerId: null }; G.db.accounts[name.toLowerCase()] = ac; const lp = G.createPlayer(ac), lc = G.castlesOf(lp)[0];
+        lc.buildings[22] = { typeId: 23, level: 3, status: 0, startTime: 0, endTime: 0 }; for (const k of ['food', 'wood', 'stone', 'iron', 'gold']) lc.res[k] = 5000;
+        const out = []; const cn = { id: 'mk-' + name, player: lp, ip: 'test', closed: false, send: (cmd, data) => out.push({ cmd, data }), close(){} };
+        return { p: lp, c: lc, ask: (cmd, data = {}) => { out.length = 0; G.handle(cn, cmd, { ...data, castleId: lc.id, packageId: 1 }); return out.find(r => r.cmd === cmd)?.data; } }; };
+      const S = lordOf('Seller'), B = lordOf('Buyer');
+      const posted = S.ask('market.postOffer', { giveResource: 'food', giveAmount: 1000, wantResource: 'gold', wantAmount: 100 });
+      const board = B.ask('market.getMarket', { filterGive: 'any', filterReceive: 'any' });
+      const row = board.cheapest.find(o => o.id === posted.offer.id);
+      const took = B.ask('market.acceptOffer', { offerId: posted.offer.id, payAmount: 50 });
+      const order = B.ask('market.postOffer', { giveResource: 'gold', giveAmount: 60, wantResource: 'food', wantAmount: 600 });
+      const mineAfter = S.ask('market.getMarket', {});
+      ok(posted.ok === 1 && Math.floor(S.c.res.food) === 4000 && row && row.pairCount === 1 && row.wantResource === 'gold' && took.take === 500 && took.pay === 50
+        && order.matched.fills === 1 && order.matched.bought === 500 && order.matched.spent === 50 && order.offer?.giveAmount === 10 && order.offer.wantAmount === 100
+        && Math.floor(B.c.res.gold) === 4890 && mineAfter.myOffers.length === 0,
+        'the market: an offer holds what it gives; taking part of it, then an order at its price, fill it, and the rest of the order waits on the board');
+      const ships = B.ask('market.getMarket', {}).shipments;
+      G.items.add(B.p, 'consume.transaction.1', 1);
+      const fast = B.ask('market.speedUp', { shipmentId: ships[0].id });
+      const foodNow = Math.floor(B.c.res.food);
+      G.webTick(G.now() + 31 * 60000 / Math.max(1, G.logic.speed));
+      ok(ships.length === 2 && ships.every(s => s.resource === 'food' && s.amount === 500) && fast.ok === 1 && foodNow >= 5500 && Math.floor(B.c.res.food) >= 6000
+        && Math.floor(S.c.res.gold) >= 5100 && G.db.webMarket.shipments.length === 0, 'deliveries arrive after the delivery time, or at once with a Merchant Fleet');
+      const tooMany = [1, 2, 3, 4].map(() => S.ask('market.postOffer', { giveResource: 'wood', giveAmount: 10, wantResource: 'iron', wantAmount: 10 }).ok);
+      const cancel = S.ask('market.cancelOffer', { offerId: S.ask('market.getMarket', {}).myOffers[0].id });
+      ok(tooMany.join() === '1,1,1,-1' && cancel.ok === 1 && cancel.returned === 10, 'a level 3 Marketplace has 3 open offers; cancelling returns what is left');
       // m3.106 (Fox): battle report links. The official battle*.evony.com/default.html?logfile/....xml needs Flash; here
       // the same address is the new client drawing the report, its XML fetched from the official host once and kept.
       const rp = 'logfile/20261103/c2/3e/c23ecd68c16f29a002bd240bfecc6c8d.xml', rf = path.join(dataDir, 'cache', ...rp.split('/'));

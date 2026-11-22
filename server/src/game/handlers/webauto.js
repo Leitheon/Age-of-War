@@ -198,7 +198,7 @@ module.exports = (game, H) => {
   // Every few seconds: each city's troop goals, then one attack per city with automation on.
   let last = 0;
   game.webTick = now => {
-    if (now - last < (Number(cfg().tickMs) || 5000)) return;
+    if (now >= last && now - last < (Number(cfg().tickMs) || 5000)) return;   // (and if the clock went back, carry on)
     last = now;
     for (const c of Object.values(game.db.castles)){
       const p = game.db.players[c.playerId];
