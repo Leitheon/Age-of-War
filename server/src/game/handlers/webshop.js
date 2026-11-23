@@ -1,4 +1,5 @@
 'use strict';
+const { centsRate, centsText } = require('../nocents');
 // The web client's shop: tabs of items priced in gold, bought with the gold of all the lord's cities together
 // (shop.buyPooled), account-bound gold spent first. Prices are each item's coin price in the client's item table
 // times rules.webShop.goldPerCoin.
@@ -8,7 +9,8 @@ const HOT = ['consume.2.a', 'consume.2.b', 'player.resinc.1', 'player.gold.1.a']
 module.exports = (game, H) => {
   const rate = () => Number(game.rules.webShop?.goldPerCoin) > 0 ? Number(game.rules.webShop.goldPerCoin) : 10000;
   const priceOf = it => Math.round(it.price * rate());
-  const ware = it => ({ id: it.id, name: String(it.name || it.id).trim(), icon: it.icon || '', price: priceOf(it), desc: String(it.desc || '').trim() });
+  const text = s => { const r = centsRate(game.rules); return r ? centsText(s, r) : s; };   // (no cents: nocents.js)
+  const ware = it => ({ id: it.id, name: text(String(it.name || it.id).trim()), icon: it.icon || '', price: priceOf(it), desc: text(String(it.desc || '').trim()) });
   const forSale = () => Object.values(game.data.items).filter(i => i.price > 0 && !/^hero\.taskitem\./.test(i.id));
 
   H['shop.getCatalog'] = (conn, d, cmd) => {

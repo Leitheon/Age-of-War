@@ -18,7 +18,8 @@
 // (with channel), whispers carry toUser so that the sender's copy reads "To X", and text is plain (it draws it as
 // text, not HTML). Its World chat needs no Speaker and is open to beginners (rules.chat.webFree), and it doesn't show
 // refusals, so a refused line comes back to the sender as a "(Not sent: ...)" line in the chat. On signing in it
-// gets the last rules.chat.history World and Alliance lines (kept in db.chatLog; whispers aren't kept).
+// gets the World and Alliance lines of the last rules.chat.historyHours (48; kept in db.chatLog, so through
+// restarts; whispers aren't kept). It skips lines it already shows, so a reconnect doesn't repeat them.
 const SPEAKER = 'consume.1.a';
 const BADGES = [['PlayerSpeakerBuf_GPAP', 6], ['PlayerSpeakerBuf_GPAP_15', 5], ['PlayerSpeakerBuf_SPAP', 4], ['PlayerSpeakerBuf_SPAP_15', 3], ['PlayerSpeakerBuf_BPAP', 2], ['PlayerSpeakerBuf_BPAP_15', 1]];
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -38,17 +39,21 @@ class Chat {
     }
   }
   // The last lines of the World channel and of each alliance's chat, for lords who sign in later.
+  historySince(now = this.g.now()){ return now - (this.rules.historyHours ?? 48) * 3600e3; }
   remember(key, line){
-    const log = (this.g.db.chatLog ??= {}), list = (log[key] ??= []), max = this.rules.history ?? 50;
+    const log = (this.g.db.chatLog ??= {}), list = (log[key] ??= []), max = this.rules.historyMax ?? 2000;
     list.push({ fromUser: line.fromUser, msg: line.msg, time: line.time });
-    if (list.length > max) list.splice(0, list.length - max);
+    const since = this.historySince(line.time);
+    let drop = Math.max(0, list.length - max);
+    while (drop < list.length && list[drop].time < since) drop++;
+    if (drop) list.splice(0, drop);
     this.g.store.touch();
   }
   backlog(conn){
-    const p = conn.player, log = this.g.db.chatLog || {}, a = this.g.alliances.of(p);
+    const p = conn.player, log = this.g.db.chatLog || {}, a = p && this.g.alliances.of(p), since = this.historySince();
     if (!p || !conn.web) return;
-    for (const l of log.world || []) conn.send('server.ChannelChatMsg', { ok: 1, packageId: 0, channel: 'world', ...l });
-    if (a) for (const l of log['alliance:' + a.id] || []) conn.send('server.AllianceChatMsg', { ok: 1, packageId: 0, ...l });
+    for (const l of log.world || []) if (l.time >= since) conn.send('server.ChannelChatMsg', { ok: 1, packageId: 0, channel: 'world', ...l });
+    if (a) for (const l of log['alliance:' + a.id] || []) if (l.time >= since) conn.send('server.AllianceChatMsg', { ok: 1, packageId: 0, ...l });
   }
   // A refused line, back to a web sender (the client drops the refusal itself): in the tab he wrote in.
   refused(conn, where, why){

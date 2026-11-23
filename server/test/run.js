@@ -90,8 +90,8 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'evony-test-'));
   // The tests were written for a richer first city than the live game's (which has only a Town Hall): a Cottage, four
   // fields and plenty of resources. The live start is checked on its own further down. (Age of War's level 1 Walls in
-  // every city, startWalls, are off for the live checks and tested on their own.)
-  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
+  // every city, startWalls, and its gold in place of cents, noCents, are off for the live checks and tested on their own.)
+  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
     population: 100, taxRate: 20, productionRate: 100, buildings: { '0': [1, 1], '1001': [7, 1], '1002': [4, 1], '1003': [5, 1], '1004': [6, 1] } } }));
   const srv = main({ ...PORTS, dataDir, cacheDir: path.join(dataDir, 'cache'), speed: 600, logLevel: 'warn', embedded: true, assetCdn: '', flashClient: true, legacyLogin: true, adminPassword: ADMIN.pw });
   ADMIN.token = srv.game.adminToken;
@@ -3203,6 +3203,16 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       ok(before === 0 && back.length === 1 && back[0].data.fromUser === 'Chatter' && Number.isFinite(back[0].data.time) && !C.heard('server.PrivateChatMessage', () => true).length
         && !JSON.stringify(srv.game.db.chatLog || {}).includes('psst'),
         'signing in again brings the recent World lines once, after the first heartbeat (whispers aren\'t kept)');
+      // 48 hours of it: older lines aren't sent, and go when the next line is kept.
+      srv.game.db.chatLog.world.unshift({ fromUser: 'Old', msg: 'two days ago', time: srv.game.now() - 49 * 3600e3 });
+      const D = await open();
+      await D.call('auth.login', { username: 'Chatter', password: 'secret12' });
+      await D.call('common.step', { clientTime: Date.now() }); await sleep(150);
+      const oldSent = D.heard('server.ChannelChatMsg', d => d.msg === 'two days ago').length, keptSent = D.heard('server.ChannelChatMsg', d => d.msg === said).length;
+      await D.call('common.worldChat', { msg: 'later', languageType: '' });
+      ok(oldSent === 0 && keptSent === 1 && !srv.game.db.chatLog.world.some(l => l.msg === 'two days ago') && srv.game.db.chatLog.world.some(l => l.msg === 'later'),
+        'the chat history is the last 48 hours: older lines aren\'t sent on signing in, and are dropped when the next line is kept');
+      D.ws.close();
       A.ws.close(); B.ws.close(); C.ws.close();
     }
     {
@@ -3265,6 +3275,36 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       ok(poor.ok < 0 && /costs 100,000 gold; your cities have 500/.test(poor.errorMsg) && city.buildings[18].status === 1 && Math.floor(city.res.gold) === 500,
         'without the gold it\'s refused, and nothing is spent or finished');
       city.buildings[18].status = 0;
+      // National Flag: up to 4 characters.
+      pb.items['consume.changeflag.1'] = 2;
+      const f5 = ask('city.modifyFlag', { newFlag: 'ABCDE' }), f4 = ask('city.modifyFlag', { newFlag: 'AB12' });
+      ok(f5.ok < 0 && /1 to 4 characters/.test(f5.errorMsg) && f4.ok === 1 && pb.flag === 'AB12' && pb.items['consume.changeflag.1'] === 1,
+        'a flag holds up to 4 characters (5 are refused and keep the National Flag)');
+      // No cents (rules.noCents): quests, chests and the Amulet wheel give their worth in gold, and the shop says gold.
+      G.rules.noCents = true;
+      const rw = G.quests.parseReward('Cents*10, Gold*1000');
+      const goldWas = city.res.gold, out = G.itemUse.newOut(); G.itemUse.give(pb, city, { kind: 'cents', min: 5, max: 5 }, out);
+      const pool4 = G.itemUse.wheelPool(4), pool3 = G.itemUse.wheelPool(3);
+      const cat = ask('shop.getCatalog', {}), wares = (cat.tabs || []).flatMap(t => t.items || []);
+      const centsShown = wares.filter(w => /\bcents?\b/i.test(`${w.name} ${w.desc}`));
+      G.rules.noCents = false;
+      ok(rw.res.gold === 101000 && !rw.cents && city.res.gold - goldWas === 50000 && out.text.join() === '50,000 gold' && !pool4.some(([id]) => id === 'player.box.gambling.medal.10')
+        && pool4.some(([id, n]) => id === 'player.box.gambling.gold' && n === 100000) && pool3.some(([id, n]) => id === 'player.box.gambling.gold' && n === 1000000)
+        && wares.length > 50 && centsShown.length === 0,
+        `no cents: a quest's Cents*10 is 100,000 gold, a chest's 5 cents 50,000 gold, the wheel's cents prizes gold, and no shop item mentions cents (${centsShown.slice(0, 2).map(w => w.name).join(', ')})`);
+      // Reports: the Other ones (here an opened box's troops) show and count with the Army ones; no Other tab.
+      G.reports.add(pb, { type: 2, title: 'Beginner Package: opened', content: '100 Warriors joined the army.' });
+      G.reports.add(pb, { type: 1, title: 'Battle at (1,1)', content: require('../src/game/reports').battleXml({ isAttack: true, won: true, round: 2, attacker: { king: 'Buildy', units: [{ typeId: 3, count: 100, lose: 5 }] }, defender: { king: '', units: [{ typeId: 5, count: 40, lose: 40 }] } }) });
+      const armyTab = ask('report.receiveReportList', { pageNo: 1, pageSize: 10, reportType: 1, automation: 0, armyType: -1, attack: -1 });
+      const scoutTab = ask('report.receiveReportList', { pageNo: 1, pageSize: 10, reportType: 3, automation: 0 });
+      const step = ask('common.step', {});
+      ok(armyTab.ok === 1 && armyTab.reports.some(r => r.type === 2) && armyTab.reports.some(r => r.type === 1) && scoutTab.reports.length === 0
+        && step.newReportCount_army === step.newReportCount && step.newReportCount >= 2,
+        'the Army tab lists the Other reports too, and its badge counts them (the web client has no Other tab)');
+      const battle = armyTab.reports.find(r => r.type === 1), other = armyTab.reports.find(r => r.type === 2);
+      ok(/<battleReport[^>]*><isAttack>true<\/isAttack><isAttackSuccess>true<\/isAttackSuccess>/.test(battle.content) && /<troopUnit[^>]*><typeId>3<\/typeId><count>100<\/count><lose>5<\/lose><\/troopUnit>/.test(battle.content)
+        && other.content === '<reportData><policyReport><detail>100 Warriors joined the army.</detail></policyReport></reportData>',
+        'the web client gets each report value as a child element too (it reads <count>100</count>, not count="100"), and plain-text reports as a policyReport\'s detail');
     }
     {
       // Age of War: Troop Goals and Coordinated Attacks, through the handlers with a stand-in connection.

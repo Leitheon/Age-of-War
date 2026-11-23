@@ -1,4 +1,5 @@
 'use strict';
+const { centsRate, fmt } = require('../nocents');
 // Historic heroes at the Inn (Hearsay, Hero Search, Enquire Details, accept task) and their quests under
 // Quests, Hero Quests. The logic lives in historicHeroes.js.
 const { REPORT_TYPE } = require('../reports');
@@ -32,14 +33,17 @@ module.exports = (game, H) => {
     game.reply(conn, cmd, { simpleNpcHeros: found, npcHeros: [] });
     game.store.touch();
   };
-  // "Enquire Details": the hero's exact location, portrait and a report, for 10 cents.
+  // "Enquire Details": the hero's exact location, portrait and a report, for 10 cents (with rules.noCents, their
+  // worth in gold: nocents.js).
   H['npchero.getNpcHeroInfroByID'] = (conn, d, cmd) => {
     const c = game.castleOr(conn, cmd, d.castleId); if (!c) return;
-    const p = conn.player, cents = hh.rules.detailsCents;
-    if ((p.coins || 0) < cents) return game.fail(conn, cmd, -28, `The innkeeper wants ${cents} cents for the details.`);
+    const p = conn.player, cents = hh.rules.detailsCents, rate = centsRate(game.rules), gold = cents * rate;
+    if (rate && game.goldPool(p) < gold) return game.fail(conn, cmd, -28, `The innkeeper wants ${fmt(gold)} gold for the details.`);
+    if (!rate && (p.coins || 0) < cents) return game.fail(conn, cmd, -28, `The innkeeper wants ${cents} cents for the details.`);
     const r = hh.details(p, Number(d.npcid));
     if (Array.isArray(r)) return game.fail(conn, cmd, r[0], r[1]);
-    p.coins -= cents; game.pushPlayerInfo(p); game.pushItems(p, [r.item]);
+    if (rate) game.payGold(p, gold, c, 'Enquire Details'); else { p.coins -= cents; game.pushPlayerInfo(p); }
+    game.pushItems(p, [r.item]);
     game.reply(conn, cmd, { simpleNpcHeros: [r.bean], npcHeros: [] });
     game.reports.add(p, { type: REPORT_TYPE.OTHER, title: `The innkeeper's news of ${r.bean.name}`,
       content: `${r.bean.introduce2}\n\nYou now have ${r.bean.name}'s portrait, which you need to recruit the hero. Accept the hero's quest at the Inn, then win attacks on that NPC city until the hero's loyalty falls to 0.` });

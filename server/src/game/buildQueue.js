@@ -1,4 +1,5 @@
 'use strict';
+const { centsRate, fmt } = require('./nocents');
 // Building queues (Bernini's Hammer, the client's Queue Upgrade button and its queue offers):
 //   "Allows the queuing of 1 or more buildings for construction per Title, up to a maximum of 10. For example,
 //   Barons may queue up to 4 buildings for construction. Each building added to the queue consumes 1 Bernini's
@@ -87,9 +88,15 @@ class BuildQueue {
     // The hammer: the lord's own, or one bought for its price ("Do you want to buy and use one?").
     const items = this.g.items, price = this.g.data.items[HAMMER]?.price || 5;
     let bought = 0;
+    const rate = centsRate(this.g.rules), gold = price * rate;   // (no cents: its worth in gold, nocents.js)
     if (!items.has(p, HAMMER)){
-      if ((p.coins || 0) < price) return [-28, `You need a Bernini's Hammer to queue this building (${price} cents); you have ${p.coins || 0} cents.`];
-      p.coins -= price; bought = price;
+      if (rate){
+        if (this.g.goldPool(p) < gold) return [-28, `You need a Bernini's Hammer to queue this building (${fmt(gold)} gold); your cities have ${fmt(this.g.goldPool(p))}.`];
+        this.g.payGold(p, gold, c, "Bernini's Hammer");
+      } else {
+        if ((p.coins || 0) < price) return [-28, `You need a Bernini's Hammer to queue this building (${price} cents); you have ${p.coins || 0} cents.`];
+        p.coins -= price; bought = price;
+      }
     } else items.take(p, HAMMER);
     if (cond) L.pay(c, cond, -1, 1, p);
     c.buildQSeq = (c.buildQSeq || 0) + 1;

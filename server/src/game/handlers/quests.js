@@ -1,4 +1,5 @@
 'use strict';
+const { centsRate, fmt } = require('../nocents');
 // The Quests window: Routine Quests (quests.js, with ranks and titles) and Hero Quests (historicHeroes.js).
 // The client counts the finished quests in both lists for the flashing Quests button, but it only redraws a
 // list that has something in it, so Hero Quests always has at least a guide entry.
@@ -8,10 +9,11 @@ const { QUEST_BASE } = require('../historicHeroes');
 
 module.exports = (game, H) => {
   const q = game.quests, hh = game.hh;
+  const details = () => { const n = hh.rules.detailsCents, r = centsRate(game.rules); return r ? `${fmt(n * r)} gold` : `${n} cents`; };
   const heroGuideType = () => ({ typeId: HERO_GUIDE, mainId: 4, name: 'Historic Heroes', description: 'How to recruit a historic hero', isFinish: false, recommend: false, version: 0 });
   const heroGuideQuest = () => ({ questId: HERO_GUIDE, name: 'Recruit a historic hero', isFinish: false, isCard: false, islast: false, recommend: false, version: 0, award: 'A historic hero at your Inn',
     description: 'Historic heroes wait in NPC cities around the world. Find one at the Inn, accept the hero\'s quest there, and it will show here.',
-    manual: 'At the Inn: Hearsay lists rumours, Hero Search finds a hero by name, and Enquire Details (10 cents) gives the exact place and the hero\'s portrait. Then accept the quest and conquer that NPC city: win attacks until its loyalty reaches 0.',
+    manual: `At the Inn: Hearsay lists rumours, Hero Search finds a hero by name, and Enquire Details (${details()}) gives the exact place and the hero\'s portrait. Then accept the quest and conquer that NPC city: win attacks until its loyalty reaches 0.`,
     targets: [{ name: 'Accept a historic hero\'s quest at the Inn', finished: false }] });
 
   H['quest.getQuestType'] = (conn, d, cmd) => {

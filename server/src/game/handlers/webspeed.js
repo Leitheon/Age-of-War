@@ -16,12 +16,13 @@ module.exports = (game, H) => {
     const orig = H[cmd]; if (!orig) continue;
     H[cmd] = (conn, d, c) => { here = game.db.castles[d?.castleId] || null; try { return orig(conn, d, c); } finally { here = null; } };
   }
+  // (also game.goldPool / game.payGold for anything else priced in gold: nocents.js)
   const pooled = p => {
     const now = game.now(), cs = game.castlesOf(p);
     for (const c of cs) game.logic.settle(c, p, now);
     return Math.floor(p.boundGold || 0) + cs.reduce((s, c) => s + Math.floor(c.res?.gold || 0), 0);
   };
-  const pay = (p, gold, from) => {
+  const pay = (p, gold, from, why = 'finished work') => {
     let left = gold;
     const bound = Math.floor(p.boundGold || 0), b = Math.min(bound, left);
     p.boundGold = bound - b; left -= b;
@@ -34,8 +35,11 @@ module.exports = (game, H) => {
     }
     game.store.touch();
     for (const c of touched) game.pushResources(c);
-    game.log.info(`${p.name} finished work for ${gold.toLocaleString('en-US')} gold`);
+    game.log.info(`${p.name} paid ${gold.toLocaleString('en-US')} gold: ${why}`);
   };
+
+  game.goldPool = pooled;
+  game.payGold = (p, gold, from = null, why = 'bought') => pay(p, gold, from, why);
 
   // The speed-up commands all ask items.speedup what an itemId does; gold.speed finishes, and is paid for when the
   // command applies it (reduce), so a command that then refuses costs nothing.

@@ -1,4 +1,5 @@
 'use strict';
+const { centsRate } = require('./nocents');
 // Routine quests (Quests > Routine Quests), including the rank and title promotions.
 //
 // Sources, in order of weight:
@@ -298,6 +299,7 @@ class QuestLogic {
       else if (RES_NAME[k] || k === 'lumber' || k === 'wood') r.res[k === 'lumber' ? 'wood' : k] = (r.res[k === 'lumber' ? 'wood' : k] || 0) + n;
       else if (k === 'population') r.pop += n;
       else if (k === 'prestige') r.prestige += n;
+      else if ((k === 'cents' || k === 'game coins') && centsRate(this.g.rules)) r.res.gold = (r.res.gold || 0) + n * centsRate(this.g.rules);   // (no cents: nocents.js)
       else if (k === 'cents' || k === 'game coins') r.cents += n;
       else if (FORT_WORDS[k]) r.forts[FORT_WORDS[k]] = (r.forts[FORT_WORDS[k]] || 0) + n;
       else {

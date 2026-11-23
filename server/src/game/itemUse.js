@@ -8,6 +8,7 @@ const { ChestReader } = require('./chests');
 const { STATUS: BSTATUS, POS_TOWN_HALL, POS_WALLS, addTroops } = require('./castle');
 const { HERO_STATUS, HERO_BUFF_OF } = require('./heroes');
 const { DAY } = require('./items');
+const { centsRate } = require('./nocents');
 
 const rint = (a, b, rnd = Math.random) => a + Math.floor(rnd() * (b - a + 1));
 const fmt = n => Math.round(n).toLocaleString('en-US');
@@ -96,6 +97,7 @@ class ItemUse {
       const key = e.kind === 'res' ? e.key : ['food', 'wood', 'stone', 'iron'][Math.floor(rnd() * 4)];
       c.res[key] = (c.res[key] || 0) + n; out.res = true; out.awards.push({ id: RES_PROXY[key], count: n }); out.text.push(`${fmt(n)} ${RES_NAME[key]}`);
     }
+    else if (e.kind === 'cents' && centsRate(this.g.rules)){ const g = n * centsRate(this.g.rules); c.res.gold = (c.res.gold || 0) + g; out.res = true; out.awards.push({ id: RES_PROXY.gold, count: g }); out.text.push(`${fmt(g)} gold`); }
     else if (e.kind === 'cents'){ p.coins = (p.coins || 0) + n; out.coins = true; out.awards.push({ id: 'money', count: n }); out.text.push(`${fmt(n)} cents`); }
     else if (e.kind === 'eachres'){ for (const k of ['food', 'wood', 'stone', 'iron']) this.give(p, c, { kind: 'res', key: k, min: e.min, max: e.max }, out, rnd, depth); }
     else if (e.kind === 'troop'){ c.troops[e.key] = addTroops(c.troops[e.key], n); out.troops = true; out.troopText.push(`${fmt(n)} ${this.troopName(e.key)}`); out.text.push(`${fmt(n)} ${this.troopName(e.key)}`); }
@@ -134,10 +136,12 @@ class ItemUse {
   // icon the client couldn't load (http.js), which would show as a blank tile.
   wheelPool(tier){
     const cfg = this.g.rules.wheel || {}, items = this.g.data.items;
-    const res = cfg.resources ?? 1000000, [c1, c2, c3] = cfg.cents || [10, 30, 100], mat = cfg.materials ?? 5;
+    const res = cfg.resources ?? 1000000, mat = cfg.materials ?? 5;
+    // (with rules.noCents the cents prizes are their worth in gold, on the wheel's gold tile)
+    const rate = centsRate(this.g.rules), CENTS = rate ? 'player.box.gambling.gold' : WHEEL_CENTS, [c1, c2, c3] = (cfg.cents || [10, 30, 100]).map(n => n * (rate || 1));
     let pool = this.prizes[tier].filter(([id]) => !MATERIALS.includes(id));
-    if (tier === 3){ if (res > 0) pool.push(...Object.keys(WHEEL_RES).map(id => [id, res, res])); if (c3 > 0) pool.push([WHEEL_CENTS, c3, c3]); }
-    if (tier === 4){ if (c1 > 0) pool.push([WHEEL_CENTS, c1, c1]); if (c2 > 0) pool.push([WHEEL_CENTS, c2, c2], [WHEEL_CENTS, c2, c2]); if (mat > 0) pool.push(...MATERIALS.map(id => [id, mat, mat])); }
+    if (tier === 3){ if (res > 0) pool.push(...Object.keys(WHEEL_RES).map(id => [id, res, res])); if (c3 > 0) pool.push([CENTS, c3, c3]); }
+    if (tier === 4){ if (c1 > 0) pool.push([CENTS, c1, c1]); if (c2 > 0) pool.push([CENTS, c2, c2], [CENTS, c2, c2]); if (mat > 0) pool.push(...MATERIALS.map(id => [id, mat, mat])); }
     return pool.filter(([id]) => items[id] && !this.g.art?.has(items[id].icon));
   }
   // A board of prizes (GamblingItemBean: id, count, kind 1-4) and the one won, which is always on the board.

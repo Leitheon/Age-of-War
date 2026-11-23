@@ -11,6 +11,7 @@ module.exports = (game, H) => {
       items: game.items.itemBeans(p), selfArmys: game.armies.beans(p), enemyArmys: game.armies.enemies(p),
       declaredWarBeans: game.war.beans(p, now), playerBuffs: game.items.buffBeans(p, now),
       ...b.reportCounts(p), ...b.mailCounts(p),
+      newReportCount_army: (u => u.army_count + u.other_count)(game.reports.unread(p)),   // (the Army tab lists the Other reports too: webreports.js)
       coins: p.coins || 0, boundGold: Math.floor(p.boundGold || 0),
       playerState: truceUntil > now ? 1 : game.war.beginner(p, now) ? 2 : 0,
       truceUntil: truceUntil > now ? truceUntil : 0, truceCooldownUntil: Math.max(0, p.truceCooldownUntil || 0),

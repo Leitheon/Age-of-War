@@ -81,6 +81,12 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   (30), or none with a Merchant Fleet. A city has one open offer per Marketplace level.
 - **The shop**: items for gold from all of a lord's cities, account-bound gold first; price = the item's coin price
   times `rules.webShop.goldPerCoin` (10,000).
+- **No cents** (`rules.noCents`): whatever gave cents (quests, chests, the Amulet wheel) gives their worth in gold at
+  the shop's rate, and whatever cost cents (Enquire Details, a Bernini's Hammer bought to queue) costs gold.
+- **Reports**: this client has no Other tab, so the Other reports (a city founded, what a box gave...) are with the
+  Army ones; each report's values are sent the way this client reads them.
+- **Chat**: World and Alliance chat of the last 48 hours (`rules.chat.historyHours`) is kept through restarts and
+  shown on signing in. **Flags** take up to 4 characters (`rules.flagLength`).
 - **The speed-up window**: **Instant Complete** finishes the work with the cheapest set of the lord's Guidelines (by
   their shop prices); **Pay with Gold** finishes it for those Guidelines' price in gold (`rules.webShop.goldFinish`),
   account-bound gold first, then the city doing the work.

@@ -68,11 +68,13 @@ const DEFAULTS = {
   newPlayerDoubleBuildHours: 72,
   // The Coordinates List under the map ("Add to CL"): how many cities it holds (my estimate).
   coordinates: { max: 50 },
+  // The most characters a lord's flag holds (city.modifyFlag; the web client's box takes 4).
+  flagLength: 4,
   // Chat (chat.js): speakers false lets everyone talk in the World channel without Speakers; beginnersInWorld true
   // lets lords under beginner's protection talk there too. webFree: the web client's World chat needs no Speaker and
-  // is open to beginners (it has no Beginners' channel to send in). history: how many World and Alliance lines a lord
-  // gets on signing in to the web client.
-  chat: { speakers: true, beginnersInWorld: false, maxLength: 300, webFree: true, history: 50 },
+  // is open to beginners (it has no Beginners' channel to send in). historyHours: the World and Alliance lines
+  // kept (in world.json, so through restarts) and shown to a lord signing in; historyMax: at most this many a channel.
+  chat: { speakers: true, beginnersInWorld: false, maxLength: 300, webFree: true, historyHours: 48, historyMax: 2000 },
   // Achievements (effort.js): enabled false hides them and their bonuses.
   achievements: { enabled: true },
   // Stratagems (stratagems.js): the effects are the item texts; wageWarMinutes is how long after Wage War without
@@ -425,6 +427,9 @@ const DEFAULTS = {
   // The web client's shop (handlers/webshop.js): gold per coin of an item's price in the client's item table.
   // goldFinish: the speed-up window's Pay with Gold, finishing work for its price in Guidelines at that rate (webspeed.js).
   webShop: { goldPerCoin: 10000, goldFinish: true },
+  // No cents (nocents.js): every amount of cents a lord would get (quests, chests, the Amulet wheel) or pay (Enquire
+  // Details, a Bernini's Hammer bought to queue) is gold at webShop.goldPerCoin, and texts say so. false keeps cents.
+  noCents: true,
   // Coordinated Attacks (handlers/webauto.js): how far out it looks for targets (tiles), the share of treasure it finds
   // (of what the lord's own attack would), and how often it runs (ms).
   automation: { radius: 25, dropShare: 0.5, tickMs: 5000 },

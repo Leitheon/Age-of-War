@@ -112,13 +112,15 @@ module.exports = (game, H) => {
     c.icon = Math.max(0, Math.floor(Number(d.icon) || 0)); game.store.touch();
     game.reply(conn, cmd, {}); game.pushCastle(c, 2);
   };
-  // National Flag: change the text on the flag.
+  // National Flag: change the text on the flag (rules.flagLength characters: 4, as the web client's box takes).
   H['city.modifyFlag'] = (conn, d, cmd) => {
-    const p = conn.player, flag = cleanName(d.newFlag, 3);
-    if (!flag) return game.fail(conn, cmd, -1, 'A flag holds 1 to 3 characters.');
+    const max = game.rules.flagLength || 4, p = conn.player, flag = cleanName(d.newFlag, max);
+    if (!flag) return game.fail(conn, cmd, -1, `A flag holds 1 to ${max} characters.`);
     if (!items.take(p, 'consume.changeflag.1')) return game.fail(conn, cmd, -44, "You need a National Flag to change your flag.");
     p.flag = flag; game.store.touch();
     game.reply(conn, cmd, {}); game.pushItems(p, ['consume.changeflag.1']); game.pushPlayerInfo(p);
+    // (a city update makes the web client's map fetch its cities again, so the new flag shows at once)
+    const c = game.castlesOf(p)[0]; if (c) game.pushCastle(c, 2);
   };
   // New ID: change the lord's name.
   H['city.modifyUserName'] = (conn, d, cmd) => {
