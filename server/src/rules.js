@@ -63,8 +63,10 @@ const DEFAULTS = {
   // The Coordinates List under the map ("Add to CL"): how many cities it holds (my estimate).
   coordinates: { max: 50 },
   // Chat (chat.js): speakers false lets everyone talk in the World channel without Speakers; beginnersInWorld true
-  // lets lords under beginner's protection talk there too.
-  chat: { speakers: true, beginnersInWorld: false, maxLength: 300 },
+  // lets lords under beginner's protection talk there too. webFree: the web client's World chat needs no Speaker and
+  // is open to beginners (it has no Beginners' channel to send in). history: how many World and Alliance lines a lord
+  // gets on signing in to the web client.
+  chat: { speakers: true, beginnersInWorld: false, maxLength: 300, webFree: true, history: 50 },
   // Achievements (effort.js): enabled false hides them and their bonuses.
   achievements: { enabled: true },
   // Stratagems (stratagems.js): the effects are the item texts; wageWarMinutes is how long after Wage War without

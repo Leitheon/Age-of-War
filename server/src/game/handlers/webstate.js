@@ -25,6 +25,8 @@ module.exports = (game, H) => {
     if (Number.isFinite(n) && n >= 0 && n <= 100000){ p.tutorialStep = n; game.store.touch(); }
     for (const c of game.castlesOf(p)){ game.completeDue(c, true); game.logic.settle(c, p, now); }
     game.reply(conn, cmd, state(p, now));
+    // The first heartbeat comes once the game screen (and its chat) is up: the chat's recent lines then.
+    if (!conn.chatBacklog){ conn.chatBacklog = true; game.chat.backlog(conn); }
   };
 
   // The order of the city list (dragged in the client): city ids, comma-separated.

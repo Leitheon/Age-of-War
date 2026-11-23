@@ -3157,6 +3157,54 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       ws2.close();
     }
     {
+      // Age of War: the web client's chat. It shows only what the server sends, its own lines included.
+      const open = async () => {
+        const ws = new WebSocket(`ws://127.0.0.1:${PORTS.httpPort}/json`), waiting = new Map(), pushes = [];
+        let seq = 0;
+        ws.onmessage = e => { const m = JSON.parse(e.data), w = waiting.get(m.data?.packageId); if (w){ waiting.delete(m.data.packageId); w(m); } else pushes.push(m); };
+        await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
+        const call = (cmd, data = {}) => new Promise(res => { const id = ++seq; waiting.set(id, res); ws.send(JSON.stringify({ cmd, data: { ...data, packageId: id } })); setTimeout(() => { if (waiting.delete(id)) res({ cmd, data: { ok: 'timeout' } }); }, 4000); });
+        const heard = (cmd, pred) => pushes.filter(m => m.cmd === cmd && pred(m.data));
+        return { ws, call, pushes, heard };
+      };
+      const A = await open(), B = await open();
+      await A.call('auth.register', { username: 'Chatter', email: 'chatter@example.test', password: 'secret12' });
+      await B.call('auth.register', { username: 'Listener', email: 'listener@example.test', password: 'secret12' });
+      const la = await A.call('auth.login', { username: 'Chatter', password: 'secret12' }), lb = await B.call('auth.login', { username: 'Listener', password: 'secret12' });
+      const pb = srv.game.db.players[srv.game.db.accounts.listener.playerId];
+      ok(la.data.player.name === 'Chatter' && lb.data.player.name === pb.name && lb.data.player.id === pb.id && lb.data.player.playerId === pb.id,
+        'the web sign-in reply has the lord\'s id and name on top (the chat tells its own lines by them)');
+      const said = 'a < b & "c"';
+      const w = await A.call('common.worldChat', { msg: said, languageType: '' });
+      await sleep(150);
+      const toA = A.heard('server.ChannelChatMsg', d => d.msg === said), toB = B.heard('server.ChannelChatMsg', d => d.msg === said);
+      ok(w.data.ok === 1 && srv.game.war.beginner(pb, srv.game.now()) && toA.length === 1 && toB.length === 1 && toB[0].data.channel === 'world'
+        && toB[0].data.fromUser === la.data.player.name && Number.isFinite(toB[0].data.time) && !B.heard('server.WorldChatMsg', () => true).length,
+        'web World chat: a new lord talks without a Speaker; everyone, the sender too, gets it as server.ChannelChatMsg in plain text');
+      const wh = await A.call('common.privateChat', { targetName: pb.name, msg: 'psst' });
+      await sleep(150);
+      const whA = A.heard('server.PrivateChatMessage', d => d.msg === 'psst'), whB = B.heard('server.PrivateChatMessage', d => d.msg === 'psst');
+      ok(wh.data.ok === 1 && whA.length === 1 && whB.length === 1 && whA[0].data.fromUser === 'Chatter' && whA[0].data.toUser === pb.name && whB[0].data.fromUser === 'Chatter',
+        'a web whisper reaches the lord, and the sender gets his copy with toUser (it shows as "To ...")');
+      const nobody = await A.call('common.privateChat', { targetName: 'Nobody Here', msg: 'x' }), lone = await A.call('common.allianceChat', { msg: 'hi', languageType: '' });
+      await sleep(150);
+      const noteW = A.heard('server.ChannelChatMsg', d => /^\(Not sent: There is no lord called Nobody Here/.test(d.msg) && !d.fromUser);
+      const noteA = A.heard('server.AllianceChatMsg', d => /^\(Not sent: You are not in an alliance/.test(d.msg));
+      ok(nobody.data.ok < 0 && lone.data.ok < 0 && noteW.length === 1 && noteA.length === 1 && !A.heard('server.ChannelChatMsg', d => /alliance/.test(d.msg)).length
+        && !B.heard('server.ChannelChatMsg', d => /Not sent/.test(d.msg)).length,
+        'a refused web chat line comes back to its sender only, as a "(Not sent: ...)" line in the tab he wrote in');
+      const C = await open();
+      await C.call('auth.login', { username: 'Listener', password: 'secret12' });
+      const before = C.heard('server.ChannelChatMsg', d => d.msg === said).length;
+      await C.call('common.step', { clientTime: Date.now() }); await C.call('common.step', { clientTime: Date.now() });
+      await sleep(150);
+      const back = C.heard('server.ChannelChatMsg', d => d.msg === said);
+      ok(before === 0 && back.length === 1 && back[0].data.fromUser === 'Chatter' && Number.isFinite(back[0].data.time) && !C.heard('server.PrivateChatMessage', () => true).length
+        && !JSON.stringify(srv.game.db.chatLog || {}).includes('psst'),
+        'signing in again brings the recent World lines once, after the first heartbeat (whispers aren\'t kept)');
+      A.ws.close(); B.ws.close(); C.ws.close();
+    }
+    {
       // Age of War: Troop Goals and Coordinated Attacks, through the handlers with a stand-in connection.
       const G = srv.game, world = require('../src/game/world');
       const acct = { name: 'Autoy', createdAt: G.now(), playerId: null }; G.db.accounts.autoy = acct;

@@ -34,13 +34,17 @@ module.exports = (game, H) => {
   const setPwd = (a, pwd) => { const salt = crypto.randomBytes(16).toString('hex'); a.scrypt = { salt, hash: hashPwd(pwd, salt) }; delete a.pwd; };
   const pwdProblem = pwd => String(pwd || '').length < 6 ? 'Passwords need at least 6 characters.' : String(pwd).length > 128 ? 'That password is too long.' : null;
 
-  // Into the game as account a: the lord is made on the first sign-in. The reply carries the lord and his first city.
+  // Into the game as account a: the lord is made on the first sign-in. The reply carries the lord and his first city
+  // (with his id and name on top too: the chat tells the lord's own lines by player.name). conn.web marks the
+  // connection as this client's, which some pushes are shaped for (chat.js).
   const enter = (conn, cmd, a, extra = {}) => {
     const p = a.playerId ? game.db.players[a.playerId] : game.createPlayer(a);
     if (a.closed || p.banned) return game.fail(conn, cmd, -2, 'This account is closed.');
+    conn.web = true;
     game.enter(conn, p);
     const castles = game.castlesOf(p), now = game.now();
-    const player = { ...game.beans.player(p, castles, now), ...game.skinFields(p) };
+    const bean = game.beans.player(p, castles, now);
+    const player = { ...bean, ...game.skinFields(p), id: p.id, playerId: p.id, name: p.name, userName: p.name, faceUrl: bean.playerInfo.faceUrl };
     game.reply(conn, cmd, { ...extra, player, castle: player.castles?.[0] ?? null, viewingLive: false });
   };
   const newSession = (conn, a) => {
