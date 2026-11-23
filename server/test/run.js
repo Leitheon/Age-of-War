@@ -3249,6 +3249,22 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         'with startWalls a new city has level 1 Walls, and a city without Walls gets them (once; built Walls are left alone)');
       ok(fl.ok === 1 && fl.totalSpace === G.forts.space(city) && fl.totalSpace > 0 && fl.usedSpace === G.forts.used(city),
         'the Walls window gets the wall space and what\'s used of it (totalSpace, usedSpace)');
+      // Pay with Gold: the Guidelines' coin price for the time left, times the shop's gold per coin.
+      const cities = G.castlesOf(pb);
+      for (const x of cities) x.res.gold = 0;
+      pb.boundGold = 0; city.res.gold = 2e6; nc.res.gold = 1e6;
+      Object.assign(city.buildings[18], { status: 1, startTime: G.now(), endTime: G.now() + 55 * 60e3 });
+      const price = G.items.coinsFor(55 * 60e3) * G.rules.webShop.goldPerCoin;
+      const paid = ask('castle.speedUpBuildCommand', { positionId: 18, itemId: 'gold.speed' });
+      const spent = 2e6 - Math.floor(city.res.gold);
+      ok(paid.ok === 1 && city.buildings[18].status === 0 && city.buildings[18].level === 2 && price === 100000 && Math.abs(spent - price) <= 10000 && Math.floor(nc.res.gold) >= 1e6 && nc.res.gold < 1e6 + 1000,
+        `Pay with Gold finishes the building for the Guidelines' price in gold (55 minutes: 10 coins, ${price.toLocaleString('en-US')} gold), from the city doing the work (spent ${spent})`);
+      Object.assign(city.buildings[18], { status: 1, startTime: G.now(), endTime: G.now() + 55 * 60e3 });
+      for (const x of cities) x.res.gold = 0; city.res.gold = 500;
+      const poor = ask('castle.speedUpBuildCommand', { positionId: 18, itemId: 'gold.speed' });
+      ok(poor.ok < 0 && /costs 100,000 gold; your cities have 500/.test(poor.errorMsg) && city.buildings[18].status === 1 && Math.floor(city.res.gold) === 500,
+        'without the gold it\'s refused, and nothing is spent or finished');
+      city.buildings[18].status = 0;
     }
     {
       // Age of War: Troop Goals and Coordinated Attacks, through the handlers with a stand-in connection.

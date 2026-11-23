@@ -423,7 +423,8 @@ const DEFAULTS = {
   // keeps the level it was taken at. false keeps every valley at one level.
   valleyCycle: true,
   // The web client's shop (handlers/webshop.js): gold per coin of an item's price in the client's item table.
-  webShop: { goldPerCoin: 10000 },
+  // goldFinish: the speed-up window's Pay with Gold, finishing work for its price in Guidelines at that rate (webspeed.js).
+  webShop: { goldPerCoin: 10000, goldFinish: true },
   // Coordinated Attacks (handlers/webauto.js): how far out it looks for targets (tiles), the share of treasure it finds
   // (of what the lord's own attack would), and how often it runs (ms).
   automation: { radius: 25, dropShare: 0.5, tickMs: 5000 },

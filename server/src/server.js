@@ -78,7 +78,7 @@ function main(overrides = {}){
   const onClose = conn => game.disconnect(conn);
   const gameSrv = cfg.flashClient ? startGameServer(cfg.gamePort, onMessage, onClose, log, perf) : null;
   const httpSrv = startHttp({ ...cfg, buildingQueue: rules.buildQueue?.enabled !== false }, ROOT, log, { '/coins': q => game.coinsPage(q), '/admin': q => game.adminPage(q),
-    '/welcome.js': () => ({ body: `window.AOW_WELCOME=${JSON.stringify(String(cfg.welcomeText ?? ''))};window.AOW_LINK=${JSON.stringify(String(cfg.welcomeLink ?? ''))};`, type: 'text/javascript; charset=utf-8' }),
+    '/welcome.js': () => ({ body: `window.AOW_WELCOME=${JSON.stringify(String(cfg.welcomeText ?? ''))};window.AOW_LINK=${JSON.stringify(String(cfg.welcomeLink ?? ''))};window.AOW_GOLD_PER_COIN=${Number(game.goldFinishRate?.()) || 0};`, type: 'text/javascript; charset=utf-8' }),
     '/movingText.txt': () => ({ body: game.ticker(), type: 'text/plain; charset=utf-8' }) }, faces, art, perf, { onMessage, onClose });
   const ticker = setInterval(() => { const t = perf.now(); try { game.tick(); } catch (e){ log.error('tick: ' + (e.stack || e.message)); } perf.record('tick', null, perf.now() - t); }, 1000);
   if (cfg.speed !== 1) log.info(`Game speed is ${cfg.speed}x`);

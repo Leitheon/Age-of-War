@@ -49,7 +49,7 @@ const READ_VERB = /^(get|receive|read|query|list|search|check|view|load|has|map|
 const HARMLESS = new Set(['common.step', 'common.setEventDone', 'common.addToFavorites', 'common.setReturnReport', 'common.setAutoHeal']);
 const HANDLER_FILES = ['account', 'castle', 'map', 'troops', 'shop', 'research', 'info', 'heroes', 'army', 'reports', 'field', 'forts', 'interior', 'npchero', 'city', 'equipment', 'quests', 'mail', 'market', 'capital', 'colony', 'war', 'fame', 'profile', 'signs', 'chat', 'effort', 'stratagem', 'alliance', 'commission', 'friends', 'common',
   // the web client's own commands (after the rest: they replace any of the same name)
-  'auth', 'webmap', 'webstate', 'webshop', 'webreports', 'webauto', 'webmarket', 'webcalc', 'webmisc'];
+  'auth', 'webmap', 'webstate', 'webshop', 'webreports', 'webauto', 'webmarket', 'webcalc', 'webmisc', 'webspeed'];
 
 class Game {
   constructor({ store, data, rules, speed, protocol, log, logDir, faces, art, perf, site = '' }){

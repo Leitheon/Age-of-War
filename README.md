@@ -81,6 +81,9 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   (30), or none with a Merchant Fleet. A city has one open offer per Marketplace level.
 - **The shop**: items for gold from all of a lord's cities, account-bound gold first; price = the item's coin price
   times `rules.webShop.goldPerCoin` (10,000).
+- **The speed-up window**: **Instant Complete** finishes the work with the cheapest set of the lord's Guidelines (by
+  their shop prices); **Pay with Gold** finishes it for those Guidelines' price in gold (`rules.webShop.goldFinish`),
+  account-bound gold first, then the city doing the work.
 - **Cities**: at most 6 Cottages each (`rules.typeLimits`), which keeps population, and so tax gold, down, since
   there are no coins to buy gold with; and every city has Walls from level 1 (`rules.startWalls`), as the client has
   no empty spot to build them on.
