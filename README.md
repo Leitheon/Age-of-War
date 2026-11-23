@@ -101,8 +101,8 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   (`rules.npcConquest.layout.keepCottages`). Every city has Walls from level 1 (`rules.startWalls`), as the client
   has no empty spot to build them on. **Full Demolish** (Dynamite) takes a whole building down
   (`rules.dynamiteFullDemolish`).
-- **No Capture** (the march window's box): a won attack takes the loot but no valley, flat or city, and the target
-  is full again for the next wave. An NPC city's loyalty still falls; at 0 it isn't taken, its hero (a historic hero
+- **No Capture** (the march window's box), against the game only (no lord's city, valley or flat): a won attack takes
+  the loot but no valley, flat or city, and the target is full again for the next wave. An NPC city's loyalty still falls; at 0 it isn't taken, its hero (a historic hero
   with the portrait in hand) is a prisoner in the attacking city's Feasting Hall, and the city starts afresh.
 - **The Battle Calculator**, **Build NPC** on a held flat (`rules.buildNpc.enabled`), **castle skins**, **mail
   attachments**, **alliance banner colours**, **Abandon Loyalty**, and the Reports window's filters and flags.

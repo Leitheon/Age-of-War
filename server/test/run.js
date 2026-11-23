@@ -864,6 +864,14 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       ok(!e1 && !e2 && flat != null && !(city.valleys || []).includes(flat) && (city.valleys || []).length === held && rf?.title === 'Attack Reports' && /isAttackSuccess="true"/.test(rf.content)
         && rn?.title === 'Attack Reports' && Math.floor(st.loyalty) < loyBefore && JSON.stringify(st.troops) === JSON.stringify(full.troops),
         `No Capture: a won attack on a flat leaves it unclaimed; on an NPC city it lowers the loyalty (${loyBefore} to ${Math.floor(st?.loyalty)}) without taking it; both are "Attack Reports" and the target's troops are full again` + (e1 || e2 ? ': ' + (e1 || e2) : ''));
+      // ...but not against a lord (PvP): a flat another lord holds is taken as usual.
+      { const owner = G.createPlayer({ name: 'FlatOwner' }, { userName: 'FlatOwner' }), oc = G.castlesOf(owner)[0], ft = world.tileAt(srv.store, flat);
+        db.tiles[flat] = { type: ft.type, level: ft.level, ownerCastle: oc.id }; oc.valleys = [...(oc.valleys || []), flat];
+        if (db.npc) delete db.npc[flat];
+        const ep = await hitNC(flat), rp = await lastReport();
+        ok(!ep && (city.valleys || []).includes(flat) && !oc.valleys.includes(flat) && /took/.test(rp?.title || ''),
+          `No Capture leaves battles with lords alone: a flat another lord holds is taken as usual (${rp?.title})` + (ep ? ': ' + ep : ''));
+        city.valleys = city.valleys.filter(v => v !== flat); delete db.tiles[flat]; }
       // At loyalty 0 the city isn't taken: its hero is a prisoner in the attacking city, and the city starts afresh.
       let other = null;
       for (let d = 1; d < 40 && other == null; d++) for (let dy = -d; dy <= d && other == null; dy++) for (let dx = -d; dx <= d && other == null; dx++){

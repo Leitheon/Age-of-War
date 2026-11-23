@@ -188,8 +188,8 @@ class ArmyLogic {
     if (campS){ a.campUntil = now + campS * 1000; a.campFood = campFood; }
     // The march window asks whether the troops come home once the city is built or stay to guard it.
     if (mission === MISSION.CONSTRUCT) a.backAfter = bean.backAfterConstruct !== false && bean.backAfterConstruct !== 'false';
-    // The web client's No Capture box: win the fight and take the loot, but take nothing (no valley or flat, no loss
-    // of loyalty, no conquest), and the target is refreshed for the next wave.
+    // The web client's No Capture box: win the fight and take the loot, but take nothing (no valley or flat, no
+    // conquest), and the target is refreshed for the next wave. Only against the game (battle: noCap), never a lord.
     if (mission === MISSION.OCCUPY && [true, 'true', 1, '1'].includes(bean.noCapture)) a.noCapture = true;
     this.list()[id] = a;
     g.effort.note(p, 'miles', distance(c.fieldId, target));   // (achievements: Marching)
@@ -613,6 +613,9 @@ class ArmyLogic {
     const fortsAfter = { ...(defender.forts || {}) };
     for (const [k, n] of Object.entries(r.fortsUsed)) fortsAfter[k] = Math.max(0, (fortsAfter[k] || 0) - n);
     if (defender.forts?.arrowTower) fortsAfter.arrowTower = r.towersLeft;
+    // No Capture is for battles against the game only (Fox): a lord's city, or a valley or flat a lord holds, is
+    // fought for as usual.
+    const noCap = !!a.noCapture && !dc && !tile.ownerCastle;
     // Loot and valley capture.
     let loot = null, captured = false;
     if (r.attackerWon){
@@ -627,7 +630,7 @@ class ArmyLogic {
       } else if (npcState.res){
         loot = this.take(npcState.res, cap, k => npcState.res[k]);
       } else if (VALLEY_RES[tile.type] || tile.type === world.T.FLAT){
-        captured = a.noCapture ? false : this.capture(c, tile, now);
+        captured = noCap ? false : this.capture(c, tile, now);
         // Coordinated Attacks' Auto Abandon Valley: the valley is given up as soon as it's taken.
         if (captured && a.auto?.abandon){ const gu = this.giveUp(c, tile.id); if (!Array.isArray(gu)){ g.push(c.playerId, 'server.CastleFieldUpdate', { castleId: c.id, updateType: 1, bean: gu.bean }); g.pushResources(c); } }
       }
@@ -650,7 +653,7 @@ class ArmyLogic {
       npcState.loyalty = Math.max(0, before - drop);
       conquest = { drop, loyalty: Math.floor(npcState.loyalty) };
       // No Capture: at 0 the city isn't taken; its hero is the attacking city's prisoner, and it starts afresh.
-      if (npcState.loyalty < 1 && a.noCapture) conquest.freed = this.zeroNoCapture(p, c, tile, npcHero, now);
+      if (npcState.loyalty < 1 && noCap) conquest.freed = this.zeroNoCapture(p, c, tile, npcHero, now);
       else if (npcState.loyalty < 1){   // (the report shows the whole points: 0.4 is "loyalty 0")
         const why = this.cantConquer(p, tile);
         if (why) conquest.problem = why;
@@ -660,14 +663,14 @@ class ArmyLogic {
     if (dc){ dc.troops = cityLeft; dc.forts = fortsAfter; g.pushTroops(dc); g.pushResources(dc); g.push(dp.id, 'server.FortificationsUpdate', { castleId: dc.id, fortification: g.beans.forts(dc) }); }
     // (No Capture: troops, defenses and goods full again for the next wave, its loyalty as the attack left it; at 0,
     // all of it afresh)
-    else if (a.noCapture && r.attackerWon){
+    else if (noCap && r.attackerWon){
       if (conquest?.freed){ if (this.db.npc) delete this.db.npc[tile.id]; }
       else { const f = g.npc.full(tile, now); g.npc.save(this.db, tile, { ...npcState, troops: f.troops, forts: f.forts, res: f.res }, now); }
     }
     else if (!conquest?.city){ npcState.troops = r.defLeft; npcState.forts = fortsAfter; g.npc.save(this.db, tile, npcState, now); }
     // A Historic City a lord holds (Fox): won attacks lower its loyalty the same way, and at 0 it is taken; every
     // hero still in it becomes the new lord's prisoner.
-    if (r.attackerWon && dc && (dc.powerLevel ?? 4) !== 4 && !colonize && !rising && !a.noCapture && g.rules.npcConquest?.lords !== false){
+    if (r.attackerWon && dc && (dc.powerLevel ?? 4) !== 4 && !colonize && !rising && g.rules.npcConquest?.lords !== false){
       const before = dc.loyalty ?? (100 - dc.taxRate), drop = this.loyaltyDrop(before, r.round);
       dc.loyalty = Math.max(0, before - drop);
       conquest = { drop, loyalty: Math.floor(dc.loyalty) };
