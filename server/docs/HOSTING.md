@@ -37,7 +37,15 @@ from this PC.
 3. When the tunnel shows **Healthy**, select **Continue**.
 4. Under **Routes** > **Add route** > **Published application**: hostname `playageofwar.com` (no subdomain),
    service URL `http://localhost:8090`. Add a second one for `www`, the same service URL.
-5. In the domain's **Network** settings, make sure **WebSockets** is on (the game's connection is one).
+5. Open the domain's **DNS** > **Records**. The routes should have added two **CNAME** records, `playageofwar.com`
+   and `www`, each pointing to `<tunnel ID>.cfargotunnel.com`, Proxied (orange cloud). If the list is empty (routes
+   added before the domain was active don't add them), add both by hand: **Add record**, type **CNAME**, name `@`,
+   target `<tunnel ID>.cfargotunnel.com` (the tunnel ID is the long code on the tunnel's page), **Proxied** on; then
+   the same with name `www`.
+6. In the domain's **Network** settings, make sure **WebSockets** is on (the game's connection is one).
+
+To check the name before the rest of the internet catches up, ask Cloudflare directly:
+`nslookup playageofwar.com <one of the domain's Cloudflare nameservers>`. Addresses back means it's working.
 
 Open `https://playageofwar.com`: the sign-in page should come up. Register, sign in, and look at the map.
 
