@@ -265,7 +265,9 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
     if (artFile.startsWith(artDir + path.sep) && fs.existsSync(artFile) && fs.statSync(artFile).isFile()) return sendFile(res, artFile);
     // Not in art/: this client's /flash/... is the Evony client's own images/..., from the cache or the Evony art
     // server (assetCdn), the same as the Evony server's.
+    // Nothing else goes there: any other address that isn't a file here is simply not found.
     if (/^flash[\\/]/.test(rel)) rel = rel.slice(6);
+    else if (!/^images[\\/]/.test(rel)) return send(res, 404, 'Not found', 'text/plain');
     const cached = path.join(cache, rel);
     if (!cached.startsWith(cache + path.sep)) return send(res, 400, 'Bad path', 'text/plain');
     if (fs.existsSync(cached)){ if (perf) perf.art.cache++; return sendFile(res, cached); }
