@@ -15,7 +15,7 @@
  * Safety: every Cache Storage access is wrapped so a storage failure (quota, private mode, corrupt profile)
  * falls back to a plain network fetch and can never brick the app. Recovery: post {type:'PURGE'} to wipe caches.
  */
-const VERSION = 'bmvm99d5m9j8o' // replaced per build by the asset-manifest Vite plugin; literal in dev (SW off in dev)
+const VERSION = 'aow-0.1.18' // replaced per build by the asset-manifest Vite plugin; Age of War: changed by hand when kept art must go
 const CACHE = 'evony-assets-' + VERSION
 const STATIC_RE = /\.(png|jpe?g|gif|svg|webp|ico|woff2?|ttf|otf|wasm|swf|css|js)$/i
 
@@ -57,7 +57,8 @@ self.addEventListener('fetch', (e) => {
       // reused (an old page that lazy-imports a chunk after a deploy still gets it, instead of a 404 from origin).
       const immutable = url.pathname.startsWith('/assets/')
       const res = await fetch(req, immutable ? undefined : { cache: 'reload' })
-      if (res && res.status === 200 && res.type === 'basic') { try { await cache.put(req, res.clone()) } catch { /* quota */ } }
+      // (Age of War: not what the server marks no-store, a stand-in portrait it would rather replace soon)
+      if (res && res.status === 200 && res.type === 'basic' && !/no-store/i.test(res.headers.get('Cache-Control') || '')) { try { await cache.put(req, res.clone()) } catch { /* quota */ } }
       return res
     } catch {
       return fetch(req) // any Cache Storage failure -> plain network; never brick the app

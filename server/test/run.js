@@ -78,7 +78,7 @@ const policyRequest = port => new Promise((resolve, reject) => {
 // (the admin pages need the admin password, and the debug menu's changes its token: srv.game.adminToken)
 const ADMIN = { pw: 'test-admin-pw', token: '' };
 const adminify = p => /^\/coins\?/.test(p) && ADMIN.token ? p + '&t=' + ADMIN.token : p;
-const get = p => new Promise((resolve, reject) => http.get(`http://127.0.0.1:${PORTS.httpPort}${adminify(p)}`, /^\/(coins|admin)\b/.test(p) ? { headers: { Authorization: 'Basic ' + Buffer.from('admin:' + ADMIN.pw).toString('base64') } } : {}, res => { const c = []; res.on('data', d => c.push(d)); res.on('end', () => resolve({ status: res.statusCode, body: Buffer.concat(c), type: res.headers['content-type'] })); }).on('error', reject));
+const get = p => new Promise((resolve, reject) => http.get(`http://127.0.0.1:${PORTS.httpPort}${adminify(p)}`, /^\/(coins|admin)\b/.test(p) ? { headers: { Authorization: 'Basic ' + Buffer.from('admin:' + ADMIN.pw).toString('base64') } } : {}, res => { const c = []; res.on('data', d => c.push(d)); res.on('end', () => resolve({ status: res.statusCode, body: Buffer.concat(c), type: res.headers['content-type'], headers: res.headers })); }).on('error', reject));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
 
@@ -3457,6 +3457,15 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       ok(heroes.some(h => h.id === 758 && h.name === 'Amanirenas') && f709.status === 200 && /png/.test(f709.type) && f709.body.equals(unknown)
         && (!doa || f700.status === 200 && f700.body.equals(fs.readFileSync(art('heroes/700.png')))) && (!evony || f1.status === 200 && !f1.body.equals(unknown)),
         `the Heroes page lists DoA's heroes; a portrait nobody has is "portrait unknown" (709)${doa ? ', and DoA\'s own come from art/heroes (700)' : ''}`);
+      // Evony's own portrait comes first (here one in the cache, as fetched from the Evony art server); a blank
+      // stand-in doesn't count; DoA's and "portrait unknown" are only lent (no-store), so Evony's shows once there.
+      const evonyDir = path.join(dataDir, 'cache', 'images', 'icon', 'hero'); fs.mkdirSync(evonyDir, { recursive: true });
+      const fake = Buffer.concat([Buffer.from('\x89PNG evony portrait '), Buffer.alloc(200, 7)]);
+      fs.writeFileSync(path.join(evonyDir, '700.png'), fake); fs.writeFileSync(path.join(evonyDir, '709.png'), Buffer.alloc(70, 1));
+      const [e700, e709] = await Promise.all(['/flash/images/icon/hero/700.png', '/flash/images/icon/hero/709.png'].map(get));
+      ok(e700.status === 200 && e700.body.equals(fake) && e709.body.equals(unknown) && /no-store/.test(e709.headers['cache-control']) && /no-store/.test(f709.headers['cache-control']) && !/no-store/.test(e700.headers['cache-control'] || ''),
+        'a hero\'s portrait is Evony\'s own when there is one (the cache before DoA\'s art/heroes), a blank stand-in counts as none, and DoA\'s or "portrait unknown" is sent no-store');
+      fs.rmSync(path.join(evonyDir, '700.png')); fs.rmSync(path.join(evonyDir, '709.png'));
     }
     {
       // Age of War: Troop Goals and Coordinated Attacks, through the handlers with a stand-in connection.

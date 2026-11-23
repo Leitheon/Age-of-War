@@ -147,6 +147,45 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
   // (the client's /assets/ files have the build's hash in their names, so they never change; art changes rarely)
   const cacheFor = file => file.includes(path.sep + 'assets' + path.sep) ? 'public, max-age=31536000, immutable' : file.startsWith(artDir + path.sep) ? 'public, max-age=86400' : 'no-cache';
   const sendFile = (res, file) => fs.readFile(file, (e, b) => e ? send(res, 404, 'Not found', 'text/plain') : (res.writeHead(200, { 'Content-Type': typeOf(file), 'Content-Length': b.length, 'Cache-Control': cacheFor(file) }), res.end(b)));
+  // Historic heroes' portraits, images/icon/hero/N.png (Fox, Nov 2026: "the original Evony portraits whenever
+  // possible, and the DoA portraits as backup"): Evony's own from the cache, else from the Evony art server (kept in
+  // the cache); else DoA's (art/flash/images/icon/hero/, art/heroes/N.png, the only ones the heroes DoA added have);
+  // else "portrait unknown". A blank 1-pixel stand-in counts as none. A number the art server hasn't got is
+  // remembered (cache/hero-faces.json); if it can't be reached, no portrait is asked of it for 10 minutes.
+  let faceServerDown = 0;
+  const realFile = f => { try { const st = fs.statSync(f); return st.isFile() && st.size >= 100; } catch (e){ return false; } };
+  const heroPortrait = async (res, n) => {
+    const rel = path.join('images', 'icon', 'hero', `${n}.png`), cached = path.join(cache, rel);
+    if (realFile(cached)){ if (perf) perf.art.cache++; return sendFile(res, cached); }
+    // (sent as no-store, so the browser and the web client's service worker ask again next time: Evony's own
+    // turns up as soon as the cache or the art server has it)
+    const backup = () => {
+      const f = [path.join(artDir, 'flash', rel), path.join(artDir, 'heroes', `${n}.png`), UNKNOWN_FACE].find(realFile);
+      if (!f) return send(res, 404, 'Not found', 'text/plain');
+      fs.readFile(f, (e, b) => e ? send(res, 404, 'Not found', 'text/plain') : (res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': b.length, 'Cache-Control': 'no-store' }), res.end(b)));
+    };
+    if (!cfg.assetCdn || faces?.missing(n) || Date.now() < faceServerDown || fs.existsSync(cached)) return backup();
+    const fetchStart = perf?.now();
+    try {
+      if (!inflight.has(rel)){
+        inflight.set(rel, fetchUpstream(cfg.assetCdn.replace(/\/$/, '') + `/images/icon/hero/${n}.png`)
+          .then(b => { fs.mkdirSync(path.dirname(cached), { recursive: true }); fs.writeFileSync(cached, b); return b; })
+          .finally(() => setTimeout(() => inflight.delete(rel), 1000)));
+      }
+      const b = await inflight.get(rel);
+      if (perf) perf.record('art', rel, perf.now() - fetchStart);
+      if (b.length < 100){ faces?.markMissing(n); return backup(); }
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': b.length, 'Cache-Control': 'public, max-age=86400' }); res.end(b);
+    } catch (e){
+      if (perf) perf.record('art', rel, perf.now() - fetchStart);
+      if (/HTTP (403|404|410)/.test(e.message)) faces?.markMissing(n);   // (some art servers say 403 for a file they haven't got)
+      else if (/^HTTP 5|timeout|ECONN|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|EHOSTUNREACH|socket hang up/i.test(e.message)){
+        if (Date.now() >= faceServerDown) log.info(`The art server (${cfg.assetCdn}) couldn't be reached for hero portraits (${e.message}); DoA's are used for 10 minutes`);
+        faceServerDown = Date.now() + 10 * 60000;
+      }
+      backup();
+    }
+  };
 
   // /logfile/<date>/<xx>/<xx>/<hash>.xml from the official report host: only battle*.evony.com, only that shape of path.
   const reportXml = async (res, p, query) => {
@@ -263,16 +302,11 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
     if (rel.startsWith('..') || path.isAbsolute(rel)) return send(res, 400, 'Bad path', 'text/plain');
     const local = path.join(pub, rel);
     if (local.startsWith(pub + path.sep) && fs.existsSync(local) && fs.statSync(local).isFile()) return sendFile(res, local);
+    // A historic hero's portrait (images/icon/hero/N.png): Evony's own first, then DoA's, then "portrait unknown".
+    const face = /^(?:flash[\\/])?images[\\/]icon[\\/]hero[\\/](\d+)\.png$/.exec(rel);
+    if (face) return heroPortrait(res, Number(face[1]));
     const artFile = path.join(artDir, rel);
-    // A historic hero's portrait (images/icon/hero/N.png) that art/flash/ doesn't have may be in DoA's own folder,
-    // art/heroes/N.png (the only place the heroes DoA added, 700 and up, have one). One that art/flash/ has only as
-    // a blank 1-pixel stand-in is "portrait unknown".
-    const doaFace = /^(?:flash[\\/])?images[\\/]icon[\\/]hero[\\/](\d+)\.png$/.exec(rel);
-    if (artFile.startsWith(artDir + path.sep) && fs.existsSync(artFile) && fs.statSync(artFile).isFile()){
-      if (doaFace && fs.statSync(artFile).size < 100 && fs.existsSync(UNKNOWN_FACE)) return sendFile(res, UNKNOWN_FACE);
-      return sendFile(res, artFile);
-    }
-    if (doaFace){ const f = path.join(artDir, 'heroes', `${Number(doaFace[1])}.png`); if (fs.existsSync(f)) return sendFile(res, f); }
+    if (artFile.startsWith(artDir + path.sep) && fs.existsSync(artFile) && fs.statSync(artFile).isFile()) return sendFile(res, artFile);
     // Not in art/: this client's /flash/... is the Evony client's own images/..., from the cache or the Evony art
     // server (assetCdn), the same as the Evony server's.
     // Nothing else goes there: any other address that isn't a file here is simply not found.
@@ -283,10 +317,6 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
     if (fs.existsSync(cached)){ if (perf) perf.art.cache++; return sendFile(res, cached); }
     // Art the art server doesn't have (or couldn't be reached for, in the last 10 minutes) is answered at once
     // instead of asking it again every time the client wants that file.
-    const heroFace = /^images[\\/]icon[\\/]hero[\\/](\d+)\.png$/.exec(rel);
-    if (heroFace && faces?.missing(Number(heroFace[1]))){ const alt = faces.fallbackFile(Number(heroFace[1])); if (alt){ if (perf) perf.art.cache++; return sendFile(res, alt); } }
-    // (with no art server to ask, a portrait nobody has here is "portrait unknown" too)
-    if (heroFace && !cfg.assetCdn && faces){ const alt = faces.fallbackFile(Number(heroFace[1])); if (alt) return sendFile(res, alt); }
     if (art?.has(rel)){ if (perf) perf.art.missing++; return send(res, 404, 'Not found', 'text/plain'); }
     if (!cfg.assetCdn){ art?.mark(rel, 'not cached, and no assetCdn is set'); if (perf) perf.art.missing++; return send(res, 404, 'Not found', 'text/plain'); }
     const fetchStart = perf?.now();
@@ -302,14 +332,7 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
     } catch (e){
       if (perf){ perf.art.missing++; perf.record('art', rel, perf.now() - fetchStart); }
       log.debug(`asset ${rel}: ${e.message}`);
-      if (!/^images[\\/]icon[\\/]hero[\\/]/.test(rel)) art?.mark(rel, `art server: ${e.message}`);
-      const hero = /^images[\\/]icon[\\/]hero[\\/](\d+)\.png$/.exec(rel);
-      // (a portrait the art server hasn't got, or couldn't be asked for just now, is "portrait unknown" meanwhile)
-      if (hero && faces){
-        if (/HTTP 404/.test(e.message)) faces.markMissing(Number(hero[1]));
-        const alt = faces.fallbackFile(Number(hero[1]));
-        if (alt) return sendFile(res, alt);
-      }
+      art?.mark(rel, `art server: ${e.message}`);
       send(res, 404, 'Not found', 'text/plain');
     }
   });
