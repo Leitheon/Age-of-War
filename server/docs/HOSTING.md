@@ -37,15 +37,22 @@ from this PC.
 3. When the tunnel shows **Healthy**, select **Continue**.
 4. Under **Routes** > **Add route** > **Published application**: hostname `playageofwar.com` (no subdomain),
    service URL `http://localhost:8090`. Add a second one for `www`, the same service URL.
-5. Open the domain's **DNS** > **Records**. The routes should have added two **CNAME** records, `playageofwar.com`
-   and `www`, each pointing to `<tunnel ID>.cfargotunnel.com`, Proxied (orange cloud). If the list is empty (routes
-   added before the domain was active don't add them), add both by hand: **Add record**, type **CNAME**, name `@`,
-   target `<tunnel ID>.cfargotunnel.com` (the tunnel ID is the long code on the tunnel's page), **Proxied** on; then
-   the same with name `www`.
+5. Open the domain's **DNS** > **Records**. The routes should have added two records, `playageofwar.com` and `www`,
+   pointing to the tunnel. If the list is empty (routes added before the domain was active don't add them), delete
+   both routes and add them again, which adds the records. Failing that, add them by hand: **Add record**, type
+   **CNAME**, name `@`, target `<tunnel ID>.cfargotunnel.com`, **Proxied** on; then the same with name `www`. The
+   tunnel ID is the **Tunnel ID** on the tunnel's page (8-4-4-4-12 letters and digits), not a Connector ID.
 6. In the domain's **Network** settings, make sure **WebSockets** is on (the game's connection is one).
 
 To check the name before the rest of the internet catches up, ask Cloudflare directly:
 `nslookup playageofwar.com <one of the domain's Cloudflare nameservers>`. Addresses back means it's working.
+
+If a Cloudflare error page comes up instead of the game:
+
+- **1016** (Origin DNS error): a record's target isn't a tunnel of this Cloudflare account: a mistyped or wrong ID
+  (a Connector ID), or a tunnel made in another account. Fix the target, or delete the records and re-add the routes.
+- **1033**: the tunnel isn't connected; check `cloudflared` is running (the tunnel shows **Healthy**).
+- **502**: the tunnel can't reach the game; check the server is running and `http://localhost:8090/` opens.
 
 Open `https://playageofwar.com`: the sign-in page should come up. Register, sign in, and look at the map.
 
