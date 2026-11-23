@@ -79,7 +79,7 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
 - **Troop Goals**: 20 priority batches of troop targets, trained automatically across the city's Barracks.
 - **The market**: lords' resource offers, filled piece by piece; deliveries take `rules.webMarket.deliveryMinutes`
   (30), or none with a Merchant Fleet. A city has one open offer per Marketplace level.
-- **The shop**: items for gold from all of a lord's cities, account-bound gold first; price = the item's coin price
+- **The shop** (tabs Items, Speed Up, Produce, Chests, Stratagems, Materials): items for gold from all of a lord's cities, account-bound gold first; price = the item's coin price
   times `rules.webShop.goldPerCoin` (10,000).
 - **No cents** (`rules.noCents`): whatever gave cents (quests, chests, the Amulet wheel) gives their worth in gold at
   the shop's rate, and whatever cost cents (Enquire Details, a Hero Hunting or a Bernini's Hammer bought on the spot)

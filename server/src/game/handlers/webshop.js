@@ -2,9 +2,8 @@
 const { centsRate, centsText } = require('../nocents');
 // The web client's shop: tabs of items priced in gold, bought with the gold of all the lord's cities together
 // (shop.buyPooled), account-bound gold spent first. Prices are each item's coin price in the client's item table
-// times rules.webShop.goldPerCoin.
-const TABS = [['hot', 'Hot'], ['宝物', 'Treasure'], ['加速', 'Speed Up'], ['生产', 'Produce'], ['宝箱', 'Chests'], ['计谋', 'Stratagems'], ['材料', 'Materials']];
-const HOT = ['consume.2.a', 'consume.2.b', 'player.resinc.1', 'player.gold.1.a'];
+// times rules.webShop.goldPerCoin. Tabs by the item table's types (Fox: no Hot tab, and Treasure is "Items").
+const TABS = [['宝物', 'Items'], ['加速', 'Speed Up'], ['生产', 'Produce'], ['宝箱', 'Chests'], ['计谋', 'Stratagems'], ['材料', 'Materials']];
 
 module.exports = (game, H) => {
   const rate = () => Number(game.rules.webShop?.goldPerCoin) > 0 ? Number(game.rules.webShop.goldPerCoin) : 10000;
@@ -16,7 +15,7 @@ module.exports = (game, H) => {
   H['shop.getCatalog'] = (conn, d, cmd) => {
     const all = forSale(), tabs = [];
     for (const [id, name] of TABS){
-      const items = id === 'hot' ? HOT.map(x => game.data.items[x]).filter(i => i && i.price > 0) : all.filter(i => i.type === id);
+      const items = all.filter(i => i.type === id);
       if (items.length) tabs.push({ id, name, items: items.map(ware) });
     }
     game.reply(conn, cmd, { tabs, halloweenEnabled: false });
