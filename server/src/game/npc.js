@@ -143,7 +143,7 @@ class NpcLogic {
     }
     for (const [pos, type] of Object.entries(lay.inside || {})) out[pos] = [type, L];
     const [from, to] = lay.cottages || [12, 31];
-    for (let pos = from; pos <= to; pos++) out[pos] = [1, L];
+    for (let pos = from; pos <= to; pos++) if (!Array.isArray(lay.keepCottages) || lay.keepCottages.includes(pos)) out[pos] = [1, L];
     const n = 13 + 3 * (L - 1);
     for (let i = 1; i <= n - 3; i++) out[1000 + i] = [7, F];
     out[1000 + n - 2] = [4, F]; out[1000 + n - 1] = [5, F]; out[1000 + n] = [6, F];

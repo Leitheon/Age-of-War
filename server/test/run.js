@@ -91,7 +91,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
   // The tests were written for a richer first city than the live game's (which has only a Town Hall): a Cottage, four
   // fields and plenty of resources. The live start is checked on its own further down. (Age of War's level 1 Walls in
   // every city, startWalls, and its gold in place of cents, noCents, are off for the live checks and tested on their own.)
-  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, heroAutoLevel: false, innRestock: false, historicHeroes: { questFree: false }, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
+  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, heroAutoLevel: false, innRestock: false, historicHeroes: { questFree: false }, npcConquest: { layout: { keepCottages: null } }, dynamiteFullDemolish: false, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
     population: 100, taxRate: 20, productionRate: 100, buildings: { '0': [1, 1], '1001': [7, 1], '1002': [4, 1], '1003': [5, 1], '1004': [6, 1] } } }));
   const srv = main({ ...PORTS, dataDir, cacheDir: path.join(dataDir, 'cache'), speed: 600, logLevel: 'warn', embedded: true, assetCdn: '', flashClient: true, legacyLogin: true, adminPassword: ADMIN.pw });
   ADMIN.token = srv.game.adminToken;
@@ -841,6 +841,46 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       db.npc[t.id] = { troops: {}, forts: {}, res: {}, loyalty: 50, hitAt: Date.now() - 360000 / sp };
       const back = G.npc.state(db, t, Date.now()).loyalty; delete db.npc[t.id];
       ok(Math.floor(back) === 52, `loyalty climbs back a point every 3 minutes (50 to ${back.toFixed(1)} in 6)`);
+    }
+    // No Capture (the web client's box): a won attack takes the loot but no flat and no loyalty, and the target is
+    // full again for the next wave.
+    {
+      const hitNC = async target => {
+        city.troops.lightCavalry = 10000;
+        const r = await c.call('army.newArmy', { castleId: city.id, newArmyBean: { missionType: 5, heroId: hero.id, targetPoint: target, troops: { lightCavalry: 10000 }, resource: {}, restTime: 0, noCapture: true } });
+        if (r.ok !== 1) return r.errorMsg;
+        for (let i = 0; i < 200 && Object.values(db.armies).some(a => a.playerId === me.id); i++) await new Promise(res => setTimeout(res, 100));
+        return null;
+      };
+      const { x: cx, y: cy } = world.xy(city.fieldId);
+      let flat = null;
+      for (let d = 1; d < 12 && flat == null; d++) for (let dy = -d; dy <= d && flat == null; dy++) for (let dx = -d; dx <= d && flat == null; dx++){
+        const id = world.idOf(cx + dx, cy + dy), t = world.tileAt(srv.store, id);
+        if (t.type === world.T.FLAT && !t.ownerCastle && !t.castleId && !db.tiles[id]) flat = id;
+      }
+      const loyBefore = loyaltyOf(npcTile), held = (city.valleys || []).length;
+      const e1 = await hitNC(flat), rf = await lastReport();
+      const e2 = await hitNC(npcTile), rn = await lastReport(), st = db.npc[npcTile], full = G.npc.full(world.tileAt(srv.store, npcTile), Date.now());
+      ok(!e1 && !e2 && flat != null && !(city.valleys || []).includes(flat) && (city.valleys || []).length === held && rf?.title === 'Attack Reports' && /isAttackSuccess="true"/.test(rf.content)
+        && rn?.title === 'Attack Reports' && Math.floor(st.loyalty) < loyBefore && JSON.stringify(st.troops) === JSON.stringify(full.troops),
+        `No Capture: a won attack on a flat leaves it unclaimed; on an NPC city it lowers the loyalty (${loyBefore} to ${Math.floor(st?.loyalty)}) without taking it; both are "Attack Reports" and the target's troops are full again` + (e1 || e2 ? ': ' + (e1 || e2) : ''));
+      // At loyalty 0 the city isn't taken: its hero is a prisoner in the attacking city, and the city starts afresh.
+      let other = null;
+      for (let d = 1; d < 40 && other == null; d++) for (let dy = -d; dy <= d && other == null; dy++) for (let dx = -d; dx <= d && other == null; dx++){
+        const id = world.idOf(cx + dx, cy + dy), t = world.tileAt(srv.store, id);
+        if (t.type === world.T.NPC && !t.historic && id !== npcTile && !G.hh.byField.has(id) && G.npc.hero(t, Date.now())) other = id;
+      }
+      const oh = G.npc.hero(world.tileAt(srv.store, other), Date.now()), cities0 = me.castles.length, pris0 = G.heroes.list(city).filter(h => h.status === 4).length;
+      // (start well below 0: loyalty comes back while the army marches on the test clock; and a free Feasting Hall seat)
+      db.npc[other] = { ...G.npc.state(db, world.tileAt(srv.store, other), Date.now()), loyalty: -1000, hitAt: Date.now() };
+      const fhPlot = [...Array(32).keys()].find(i => !city.buildings[i]), fhWas = city.buildings[fhPlot];
+      city.buildings[fhPlot] = { typeId: 27, level: 10, status: 0, startTime: 0, endTime: 0 };
+      const e3 = await hitNC(other), r3 = await lastReport();
+      const pris = G.heroes.list(city).filter(h => h.status === 4);
+      ok(!e3 && me.castles.length === cities0 && world.tileAt(srv.store, other).type === world.T.NPC && !db.npc[other] && r3?.title === 'Attack Reports'
+        && pris.length === pris0 + 1 && pris.some(h => h.name.startsWith(oh.name)) && (me.reports || []).some(x => x.title.startsWith(oh.name) && /captured/.test(x.title)),
+        `No Capture at loyalty 0: the city isn't taken, its hero (${oh?.name}) is a prisoner in the attacking city's Feasting Hall, and the city starts afresh` + (e3 ? ': ' + e3 : ''));
+      city.heroes = G.heroes.list(city).filter(h => !pris.includes(h) || pris.indexOf(h) < pris0); delete city.buildings[fhPlot]; if (fhWas) city.buildings[fhPlot] = fhWas;   // (as it was for the tests after)
     }
     // At 0, with Caesar's quest and portrait: the city is ours and Caesar is captured.
     // (The test server's clock runs fast, so start well below 0: loyalty comes back while the army marches.)
@@ -3308,6 +3348,22 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         ok(got?.captive && !got.captive.persuadeItem && !pb.items[item1] && G.db.hh[id1].status === 'seized' && !G.hh.quests(pb)[id1]
           && away?.moved && !away.needQuest && away.needPortrait,
           `no hero quests: taking the city with the hero's portrait captures ${got?.hero?.name} and uses the portrait up (persuading then takes only gold); without the portrait the hero gets away`); }
+      // A conquered barbarian city keeps six Cottages (rules.npcConquest.layout.keepCottages), the rest empty plots.
+      { const L = G.rules.npcConquest.layout, was = L.keepCottages; L.keepCottages = [14, 15, 16, 17, 18, 19];
+        const W = require('../src/game/world'); let npc = null;
+        for (let id = 1000; npc == null && id < 640000; id += 997){ const t = W.tileAt(srv.store, id); if (t.type === W.T.NPC && !t.historic) npc = t; }
+        const lay = G.npc.cityLayout(npc), cot = Object.entries(lay).filter(([, [ty]]) => ty === 1).map(([pos]) => Number(pos)).sort((a, b) => a - b);
+        L.keepCottages = was;
+        ok(cot.join() === '14,15,16,17,18,19' && !lay[12] && !lay[31] && lay[0] && lay['-1'],
+          `a conquered barbarian city has six Cottages, on plots ${cot.join(', ')}, and the other Cottage plots empty`); }
+      // Full Demolish: Dynamite on a demolition takes the whole building down (rules.dynamiteFullDemolish).
+      { G.rules.dynamiteFullDemolish = true;
+        city.buildings[24] = { typeId: 3, level: 6, status: 0, startTime: 0, endTime: 0 };   // a level 6 Warehouse
+        pb.items['player.destroy.1.a'] = 1;
+        const st = ask('castle.destructBuilding', { positionId: 24 }), dy = ask('castle.speedUpBuildCommand', { positionId: 24, itemId: 'player.destroy.1.a' });
+        G.rules.dynamiteFullDemolish = false;
+        ok(st.ok === 1 && dy.ok === 1 && !(city.buildings[24]?.level > 0) && !pb.items['player.destroy.1.a'] && !dy.castle.buildings.some(b => b.positionId === 24),
+          `Full Demolish: Dynamite takes a level 6 Warehouse down completely (${city.buildings[24] ? 'level ' + city.buildings[24].level : 'gone'})`); }
       // National Flag: up to 4 characters.
       pb.items['consume.changeflag.1'] = 2;
       const f5 = ask('city.modifyFlag', { newFlag: 'ABCDE' }), f4 = ask('city.modifyFlag', { newFlag: 'AB12' });

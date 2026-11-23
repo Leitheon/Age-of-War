@@ -190,6 +190,8 @@ const DEFAULTS = {
   heroAutoLevel: true,
   // A hero hired from the Inn is replaced by a new one at once; false leaves the slot empty until the Inn refreshes.
   innRestock: true,
+  // Dynamite on a demolition takes the whole building down at once (the web client's Full Demolish); false: one level.
+  dynamiteFullDemolish: true,
   heroExpBase: 150,                // experience to reach the next level = heroExpBase x level^2 (live: all 137 heroes in Fox's captures, 150 at 1 to 2,160,000 at 120)
   heroMaxLevel: 100,               // the highest level a hero reaches (Fox; a Legendary Ring's hero: ringHero.maxLevel)
   heroAwardGoldPerLevel: 100,      // UNVERIFIED: gold for "Reward" = this x hero level, +heroAwardLoyalty
@@ -367,7 +369,10 @@ const DEFAULTS = {
     // Town Hall allows (1032-1034 at level 8; Fox: levels 1-10 all work the same, only the number of Farms
     // changes). Every captured city keeps the wall defenses that survived the final battle (Fox).
     // A conquered NPC city is called "New city" (live).
-    layout: { inside: { 0: 25, 1: 22, 2: 28, 3: 27, 4: 23, 5: 30, 6: 20, 7: 21, 8: 29, 9: 24, 10: 26, 11: 2 }, cottages: [12, 31] },
+    layout: { inside: { 0: 25, 1: 22, 2: 28, 3: 27, 4: 23, 5: 30, 6: 20, 7: 21, 8: 29, 9: 24, 10: 26, 11: 2 }, cottages: [12, 31],
+      // Age of War (Fox): a conquered city keeps only these Cottages (the six by the west wall, within the 6-a-city
+      // limit); the other Cottage plots are left empty to build on. null keeps all twenty.
+      keepCottages: [14, 15, 16, 17, 18, 19] },
     cityName: 'New city',
     // Every conquered city starts at 10% tax with all production rates at 80 (Fox's screenshots).
     taxRate: 10, productionRate: 80,

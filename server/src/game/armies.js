@@ -188,6 +188,9 @@ class ArmyLogic {
     if (campS){ a.campUntil = now + campS * 1000; a.campFood = campFood; }
     // The march window asks whether the troops come home once the city is built or stay to guard it.
     if (mission === MISSION.CONSTRUCT) a.backAfter = bean.backAfterConstruct !== false && bean.backAfterConstruct !== 'false';
+    // The web client's No Capture box: win the fight and take the loot, but take nothing (no valley or flat, no loss
+    // of loyalty, no conquest), and the target is refreshed for the next wave.
+    if (mission === MISSION.OCCUPY && [true, 'true', 1, '1'].includes(bean.noCapture)) a.noCapture = true;
     this.list()[id] = a;
     g.effort.note(p, 'miles', distance(c.fieldId, target));   // (achievements: Marching)
     return { army: a, hero, usedItems: useUp };
@@ -624,7 +627,7 @@ class ArmyLogic {
       } else if (npcState.res){
         loot = this.take(npcState.res, cap, k => npcState.res[k]);
       } else if (VALLEY_RES[tile.type] || tile.type === world.T.FLAT){
-        captured = this.capture(c, tile, now);
+        captured = a.noCapture ? false : this.capture(c, tile, now);
         // Coordinated Attacks' Auto Abandon Valley: the valley is given up as soon as it's taken.
         if (captured && a.auto?.abandon){ const gu = this.giveUp(c, tile.id); if (!Array.isArray(gu)){ g.push(c.playerId, 'server.CastleFieldUpdate', { castleId: c.id, updateType: 1, bean: gu.bean }); g.pushResources(c); } }
       }
@@ -646,17 +649,25 @@ class ArmyLogic {
       const before = npcState.loyalty ?? g.npc.topLoyalty(tile), drop = this.loyaltyDrop(before, r.round);
       npcState.loyalty = Math.max(0, before - drop);
       conquest = { drop, loyalty: Math.floor(npcState.loyalty) };
-      if (npcState.loyalty < 1){   // (the report shows the whole points: 0.4 is "loyalty 0")
+      // No Capture: at 0 the city isn't taken; its hero is the attacking city's prisoner, and it starts afresh.
+      if (npcState.loyalty < 1 && a.noCapture) conquest.freed = this.zeroNoCapture(p, c, tile, npcHero, now);
+      else if (npcState.loyalty < 1){   // (the report shows the whole points: 0.4 is "loyalty 0")
         const why = this.cantConquer(p, tile);
         if (why) conquest.problem = why;
         else conquest.city = this.conquer(a, p, c, hero, tile, npcState, fortsAfter, npcHero, now);
       }
     }
     if (dc){ dc.troops = cityLeft; dc.forts = fortsAfter; g.pushTroops(dc); g.pushResources(dc); g.push(dp.id, 'server.FortificationsUpdate', { castleId: dc.id, fortification: g.beans.forts(dc) }); }
+    // (No Capture: troops, defenses and goods full again for the next wave, its loyalty as the attack left it; at 0,
+    // all of it afresh)
+    else if (a.noCapture && r.attackerWon){
+      if (conquest?.freed){ if (this.db.npc) delete this.db.npc[tile.id]; }
+      else { const f = g.npc.full(tile, now); g.npc.save(this.db, tile, { ...npcState, troops: f.troops, forts: f.forts, res: f.res }, now); }
+    }
     else if (!conquest?.city){ npcState.troops = r.defLeft; npcState.forts = fortsAfter; g.npc.save(this.db, tile, npcState, now); }
     // A Historic City a lord holds (Fox): won attacks lower its loyalty the same way, and at 0 it is taken; every
     // hero still in it becomes the new lord's prisoner.
-    if (r.attackerWon && dc && (dc.powerLevel ?? 4) !== 4 && !colonize && !rising && g.rules.npcConquest?.lords !== false){
+    if (r.attackerWon && dc && (dc.powerLevel ?? 4) !== 4 && !colonize && !rising && !a.noCapture && g.rules.npcConquest?.lords !== false){
       const before = dc.loyalty ?? (100 - dc.taxRate), drop = this.loyaltyDrop(before, r.round);
       dc.loyalty = Math.max(0, before - drop);
       conquest = { drop, loyalty: Math.floor(dc.loyalty) };
@@ -713,6 +724,7 @@ class ArmyLogic {
     const plain = !won && !parked && !colony && !captured && !heroSeized && !won?.captive;
     report(p, { type: REPORT_TYPE.ARMY, title: plain ? 'Attack Reports' : `Your army ${verb}${note}`, content: battleXml({ ...body, injuredPer, autoHeal: this.healXml(attHeal, c), isAttack: true, won: r.attackerWon, honor: hon?.att, prestige: prestige || undefined, items: found.length ? found.map(f => (f.n > 1 ? `${f.id}=${f.n}` : f.id)).join(',') : undefined }) });
     if (won) this.conquestReports(p, won, here);
+    if (conquest?.freed) this.heroReports(p, conquest.freed, here);
     // The allied troops' lords get the battle too; an army with nobody left, or in a city that changed hands, goes home.
     for (const ga of guests){
       const gp = this.db.players[ga.playerId]; if (!gp) continue;
@@ -904,6 +916,19 @@ class ArmyLogic {
     g.log.info(`${p.name} conquered ${this.placeName(tile.id)}${held ? `, capturing ${held.hero.name}` : ''}`);
     return { castle: nc, captive: held?.hero || null, heldIn: held?.castle || null, hh, npcHero };
   }
+  // An NPC city at loyalty 0 under a No Capture attack (Fox): not taken. Its hero, a historic hero (with the
+  // portrait, as when it's taken) or its own, is a prisoner in the attacking city's Feasting Hall, if it has a seat;
+  // the city then starts afresh (the caller clears its state).
+  zeroNoCapture(p, c, tile, npcHero, now){
+    const g = this.g;
+    const seize = tmpl => { const h = c && g.heroes.seize(c, tmpl, () => g.store.id()); return h ? { hero: h, castle: c } : null; };
+    const hh = g.hh.conquered(tile.id, p, seize);
+    const held = hh ? (hh.captive ? { hero: hh.captive, castle: hh.castle } : null) : npcHero ? seize(npcHero) : null;
+    if (held) g.pushHero(c, held.hero, 0);
+    if (held){ g.effort.note(p, 'captive'); g.log.info(`${p.name} brought ${this.placeName(tile.id)} to loyalty 0 without taking it, capturing ${held.hero.name}`); }
+    g.store.touch();
+    return { captive: held?.hero || null, heldIn: held?.castle || null, hh, npcHero: held ? null : npcHero };
+  }
   conquestReports(p, won, here){
     const g = this.g, { x, y } = world.xy(won.castle.fieldId), add = (title, content) => g.reports.add(p, { type: REPORT_TYPE.OTHER, startPos: here, targetPos: here, title, content });
     if (won.lord){
@@ -913,6 +938,11 @@ class ArmyLogic {
       return;
     }
     add(`City conquered at (${x},${y})`, `${here} is now your city ${won.castle.name}. The army that took it stays there as its garrison.`);
+    this.heroReports(p, won, here);
+  }
+  // What became of an NPC city's hero when it was taken, or brought to 0 with No Capture.
+  heroReports(p, won, here){
+    const g = this.g, add = (title, content) => g.reports.add(p, { type: REPORT_TYPE.OTHER, startPos: here, targetPos: here, title, content });
     const h = won.captive;
     if (h){
       const cost = (h.level * (g.rules.persuadeGoldPerLevel ?? 1000)).toLocaleString('en-US');

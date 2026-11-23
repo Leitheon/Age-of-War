@@ -83,7 +83,7 @@ module.exports = (game, H) => {
     const s = d.itemId === 'player.destroy.1.a'
       ? (b.status !== STATUS.DESTRUCTING ? { err: 'Dynamite only finishes a demolition.' } : game.items.ensure(p, d.itemId) ? { reduce: () => 0, item: d.itemId, dynamite: true } : { err: "You don't have any Dynamite." })
       : game.items.speedup(p, d.itemId, left, game.items.coinsFor(left));
-    if (s.dynamite) b.noRefund = true;
+    if (s.dynamite){ b.noRefund = true; if (game.rules.dynamiteFullDemolish) b.fullDemolish = true; }   // (the web client's Full Demolish)
     if (s.err) return game.fail(conn, cmd, ...(FREE ? NO_FREE : [-44, s.err]));
     if (s.item) game.items.take(p, s.item);
     if (s.coins) p.coins -= s.coins;

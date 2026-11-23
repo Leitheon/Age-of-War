@@ -306,10 +306,10 @@ class CastleLogic {
       else if (b.status === STATUS.DESTRUCTING){
         const d = this.levelData(b.typeId, b.level);
         if (d && !b.noRefund) for (const k of ['food', 'wood', 'stone', 'iron']) c.res[k] += Math.floor(d[k] * this.rules.destructRefundRate);
-        b.level -= 1;
+        b.level = b.fullDemolish ? 0 : b.level - 1;   // (Dynamite with rules.dynamiteFullDemolish: the whole building)
       }
       c.freeAt = Math.max(c.freeAt || 0, b.endTime);   // when a builder came free (building queues: buildQueue.js)
-      Object.assign(b, { status: STATUS.NORMAL, startTime: 0, endTime: 0, cost: null }); delete b.noRefund;
+      Object.assign(b, { status: STATUS.NORMAL, startTime: 0, endTime: 0, cost: null }); delete b.noRefund; delete b.fullDemolish;
       changed.push(Number(pos));
     }
     return changed;
