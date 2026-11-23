@@ -46,7 +46,9 @@ module.exports = (game, H) => {
     game.pushItems(p, [r.item]);
     game.reply(conn, cmd, { simpleNpcHeros: [r.bean], npcHeros: [] });
     game.reports.add(p, { type: REPORT_TYPE.OTHER, title: `The innkeeper's news of ${r.bean.name}`,
-      content: `${r.bean.introduce2}\n\nYou now have ${r.bean.name}'s portrait, which you need to recruit the hero. Accept the hero's quest at the Inn, then win attacks on that NPC city until the hero's loyalty falls to 0.` });
+      content: hh.rules.questFree
+        ? `${r.bean.introduce2}\n\nYou now have ${r.bean.name}'s portrait. Win attacks on that NPC city until its loyalty falls to 0: taking the city with the portrait in hand captures the hero (the portrait is used up), who then waits in your Feasting Hall to be persuaded.`
+        : `${r.bean.introduce2}\n\nYou now have ${r.bean.name}'s portrait, which you need to recruit the hero. Accept the hero's quest at the Inn, then win attacks on that NPC city until the hero's loyalty falls to 0.` });
     game.store.touch();
   };
 

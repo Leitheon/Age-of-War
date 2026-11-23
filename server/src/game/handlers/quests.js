@@ -12,9 +12,13 @@ module.exports = (game, H) => {
   const details = () => { const n = hh.rules.detailsCents, r = centsRate(game.rules); return r ? `${fmt(n * r)} gold` : `${n} cents`; };
   const heroGuideType = () => ({ typeId: HERO_GUIDE, mainId: 4, name: 'Historic Heroes', description: 'How to recruit a historic hero', isFinish: false, recommend: false, version: 0 });
   const heroGuideQuest = () => ({ questId: HERO_GUIDE, name: 'Recruit a historic hero', isFinish: false, isCard: false, islast: false, recommend: false, version: 0, award: 'A historic hero at your Inn',
-    description: 'Historic heroes wait in NPC cities around the world. Find one at the Inn, accept the hero\'s quest there, and it will show here.',
-    manual: `At the Inn: Hearsay lists rumours, Hero Search finds a hero by name, and Enquire Details (${details()}) gives the exact place and the hero\'s portrait. Then accept the quest and conquer that NPC city: win attacks until its loyalty reaches 0.`,
-    targets: [{ name: 'Accept a historic hero\'s quest at the Inn', finished: false }] });
+    ...(hh.rules.questFree ? {   // (no quests, rules.historicHeroes.questFree: the portrait alone)
+      description: 'Historic heroes wait in NPC cities around the world. Find one at the Inn and get the hero\'s portrait.',
+      manual: `At the Inn: Hearsay lists rumours, Hero Search finds a hero by name, and Enquire Details (${details()}) gives the exact place and the hero\'s portrait. Then conquer that NPC city with the portrait in hand (win attacks until its loyalty reaches 0): the hero is captured and the portrait used up.`,
+      targets: [{ name: 'Get a historic hero\'s portrait (Enquire Details at the Inn)', finished: false }] } : {
+      description: 'Historic heroes wait in NPC cities around the world. Find one at the Inn, accept the hero\'s quest there, and it will show here.',
+      manual: `At the Inn: Hearsay lists rumours, Hero Search finds a hero by name, and Enquire Details (${details()}) gives the exact place and the hero\'s portrait. Then accept the quest and conquer that NPC city: win attacks until its loyalty reaches 0.`,
+      targets: [{ name: 'Accept a historic hero\'s quest at the Inn', finished: false }] }) });
 
   H['quest.getQuestType'] = (conn, d, cmd) => {
     const c = game.castleOr(conn, cmd, d.castleId); if (!c) return;

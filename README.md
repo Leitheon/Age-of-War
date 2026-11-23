@@ -87,6 +87,8 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
 - **Heroes** level up by themselves once they have the experience, with their attribute points
   (`rules.heroAutoLevel`), and the **Inn** puts a new hero in a hired one's place at once (`rules.innRestock`).
 - **Historic Cities** show their introductions from the client's own city list.
+- **Historic heroes** need no quest (`rules.historicHeroes.questFree`): Enquire Details at the Inn gives the hero's
+  place and portrait, and taking that NPC city with the portrait in hand captures the hero, using the portrait up.
 - **Reports**: this client has no Other tab, so the Other reports (a city founded, what a box gave...) are with the
   Army ones; each report's values are sent the way this client reads them.
 - **Chat**: World and Alliance chat of the last 48 hours (`rules.chat.historyHours`) is kept through restarts and

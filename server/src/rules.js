@@ -167,6 +167,8 @@ const DEFAULTS = {
     hearsayCount: 10, hearsayRefreshMinutes: 60,  // rumours the Inn shows, and how often they change on their own
     moreHearsayGold: 100, searchGold: 1000, detailsCents: 10,
     maxQuests: 10,                                // historic hero quests a lord can hold at once
+    questFree: true,                              // no quest: the portrait (Enquire Details) alone captures the hero, and
+                                                  // is used up then (false: accept the quest too, persuading takes it)
     level: 30,                                    // wild historic heroes are always level 30 (Fox); the sheet's stats
                                                   // are their level 1 base, plus 60 points spread at random
     maxLevel: 150, pointsPerLevel: 2,             // live: the hero ranking's top 594 are historic heroes at 150,

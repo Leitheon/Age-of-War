@@ -302,24 +302,27 @@ class HistoricHeroLogic {
   // The NPC city this hero waits in was conquered by lord p (Fox, Oct 23 2026). With the hero's quest accepted
   // and the portrait in hand the hero is captured: seize(template) puts the hero in a Feasting Hall to be
   // persuaded, which takes the portrait. Otherwise (or with no empty seat) the hero moves to another NPC city.
+  // rules.historicHeroes.questFree (Age of War): no quest; the portrait alone captures the hero and is used up
+  // then, so persuading takes only gold.
   conquered(fieldId, p, seize){
     const id = this.byField.get(fieldId); if (id == null) return null;
     const s = this.state(id), h = this.roster.get(id);
     if (!s || s.status !== 'free') return null;
-    const q = this.quests(p)[id], item = `hero.taskitem.${id}`, portrait = (p.items[item] || 0) > 0;
-    if (q && portrait){
-      const held = seize({ ...this.offer(h, this.alloc(id)), persuadeItem: item });
+    const free = !!this.rules.questFree, q = this.quests(p)[id], item = `hero.taskitem.${id}`, portrait = (p.items[item] || 0) > 0;
+    if ((q || free) && portrait){
+      const held = seize({ ...this.offer(h, this.alloc(id)), ...(free ? {} : { persuadeItem: item }) });
       if (held){
         this.byField.delete(fieldId);
         this.db.hh[id] = { status: 'seized', castleId: held.castle.id, heroId: held.hero.id };
-        q.done = true;
+        if (q) q.done = true;
+        if (free && this.g.items.take(p, item)) this.g.pushItems?.(p, [item]);
         return { hero: h, captive: held.hero, castle: held.castle };
       }
       this.place(id);
       return { hero: h, full: true };
     }
     this.place(id);
-    return { hero: h, moved: true, needQuest: !q, needPortrait: !portrait };
+    return { hero: h, moved: true, needQuest: !q && !free, needPortrait: !portrait };
   }
   offer(h, alloc = this.randomAlloc()){
     const level = this.rules.level || 1;
