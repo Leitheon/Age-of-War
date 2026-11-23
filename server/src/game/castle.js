@@ -248,12 +248,23 @@ class CastleLogic {
     return 'That is not a building plot.';
   }
 
+  // rules.typeLimits: how many of a type one city may have (null: no limit), and the plots that have or will have one
+  // (built, under way, or in the city's build queue).
+  typeLimit(typeId){ const n = this.rules.typeLimits?.[typeId]; return Number.isFinite(n) ? n : null; }
+  plotsOf(c, typeId, queue = []){
+    const at = new Set(Object.entries(c.buildings).filter(([, b]) => b.typeId === typeId && (b.level > 0 || b.status)).map(([pos]) => Number(pos)));
+    for (const q of queue) if (q.typeId === typeId) at.add(Number(q.pos));
+    return at;
+  }
+  limitText(typeId, cap){ return `A city can have only ${cap} ${this.typeName(typeId)}${cap === 1 ? '' : 's'}.`; }
   newBuilding(c, p, pos, typeId, now){
     if (!this.data.buildings[typeId]) return [ERR.NO_BUILDING, 'Unknown building type.'];
     const err = this.placeError(c, pos, typeId); if (err) return [ERR.POSITION, err];
     const at = c.buildings[pos];
     if (at && (at.level > 0 || at.status !== STATUS.NORMAL)) return [ERR.POSITION, 'That plot is already in use.'];
     if (this.rules.uniqueTypes.includes(typeId) && Object.values(c.buildings).some(b => b.typeId === typeId && (b.level > 0 || b.status))) return [ERR.UNIQUE, `You can only have one ${this.typeName(typeId)}.`];
+    const cap = this.typeLimit(typeId);
+    if (cap != null && this.plotsOf(c, typeId, c.buildQ || []).size >= cap) return [ERR.UNIQUE, this.limitText(typeId, cap)];
     const cond = this.condition(c, p, typeId, 1);
     const fail = this.check(c, p, typeId, 1, cond); if (fail) return fail;
     this.pay(c, cond, -1, 1, p);

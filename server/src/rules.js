@@ -17,6 +17,9 @@ const DEFAULTS = {
     // positionId -> [typeId, level]. -1 = Town Hall, -2 = Walls, 0..31 inside, 1001.. outside.
     buildings: { '-1': [31, 1] },
   },
+  // Every city has Walls of at least this level (0: as built). The web client draws no empty spot for the Walls, so
+  // a city without them could never build them; cities made before this rule get them when the server starts.
+  startWalls: 1,
   // Building requirements, from the Evony wiki's page for each building (Fox's saved copies, Oct 2026).
   // The pages list no general Town Hall cap; true here would keep every building at or below the Town Hall's level.
   capByTownHall: false,
@@ -45,6 +48,9 @@ const DEFAULTS = {
     24: [['t', 13, 0, 1]],    // Relief Station level N needs Horseback Riding N
   },
   uniqueTypes: [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+  // At most this many of a building type in one city (built, under way or queued). Cottages: 6, which keeps the
+  // population, and so the tax gold, down (Age of War has no coins to buy gold with).
+  typeLimits: { 1: 6 },
   insideTypes: [1, 2, 3, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
   outsideTypes: [4, 5, 6, 7],
   // Outside plots available = outsideStart + outsideAdd * (Town Hall level - 1). From BuildingConstants.

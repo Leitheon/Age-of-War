@@ -89,8 +89,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
 
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'evony-test-'));
   // The tests were written for a richer first city than the live game's (which has only a Town Hall): a Cottage, four
-  // fields and plenty of resources. The live start is checked on its own further down.
-  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
+  // fields and plenty of resources. The live start is checked on its own further down. (Age of War's level 1 Walls in
+  // every city, startWalls, are off for the live checks and tested on their own.)
+  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
     population: 100, taxRate: 20, productionRate: 100, buildings: { '0': [1, 1], '1001': [7, 1], '1002': [4, 1], '1003': [5, 1], '1004': [6, 1] } } }));
   const srv = main({ ...PORTS, dataDir, cacheDir: path.join(dataDir, 'cache'), speed: 600, logLevel: 'warn', embedded: true, assetCdn: '', flashClient: true, legacyLogin: true, adminPassword: ADMIN.pw });
   ADMIN.token = srv.game.adminToken;
@@ -3203,6 +3204,51 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         && !JSON.stringify(srv.game.db.chatLog || {}).includes('psst'),
         'signing in again brings the recent World lines once, after the first heartbeat (whispers aren\'t kept)');
       A.ws.close(); B.ws.close(); C.ws.close();
+    }
+    {
+      // Age of War: the Construction timers (castle.buildCommands) and the Cottage limit.
+      const G = srv.game, now = G.now();
+      const acct = { name: 'Buildy', createdAt: now, playerId: null }; G.db.accounts.buildy = acct;
+      const pb = G.createPlayer(acct), city = G.castlesOf(pb)[0];
+      const replies = []; const conn = { id: 'build-test', web: true, player: pb, ip: 'test', closed: false, send: (cmd, data) => replies.push({ cmd, data }), close(){} };
+      const ask = (cmd, data) => { replies.length = 0; G.handle(conn, cmd, { ...data, castleId: city.id, packageId: 1 }); return replies.find(r => r.cmd === cmd)?.data; };
+      for (const k of ['food', 'wood', 'stone', 'iron', 'gold']) city.res[k] = 1e7;
+      city.pop = 5000;
+      for (const [pos, b] of Object.entries(city.buildings)) if (b.typeId === 1) delete city.buildings[pos];   // (the test lords start with one)
+      for (const pos of [12, 13, 14, 15, 16, 17]) city.buildings[pos] = { typeId: 1, level: 1, status: 0, startTime: 0, endTime: 0 };
+      const seventh = ask('castle.newBuilding', { positionId: 18, buildingType: 1 });
+      delete city.buildings[17];
+      const sixth = ask('castle.newBuilding', { positionId: 18, buildingType: 1 });
+      const cmds = G.beans.castle(city, pb).buildCommands, b18 = cmds.find(x => x.positionId === 18);
+      ok(seventh.ok < 0 && /only 6 Cottages/.test(seventh.errorMsg) && sixth.ok === 1 && cmds.length === 1 && b18 && b18.name === 'Cottage' && b18.level === 1
+        && b18.queueType === 1 && b18.startTime <= G.now() && b18.endTime > G.now(),
+        'a city can have only 6 Cottages; a building under way is in the city\'s buildCommands (the Construction timers), with the level it\'s going to');
+      Object.assign(city.buildings[14], { status: 1, startTime: G.now(), endTime: G.now() + 3600e3 });   // (both builders busy, so that it queues)
+      const queued = G.buildQueue.add(city, pb, 1, 1, 19, G.now());
+      const farm = G.buildQueue.add(city, pb, 1, 3, 19, G.now());
+      ok(Array.isArray(queued) && /only 6 Cottages/.test(queued[1]) && !Array.isArray(farm),
+        'the build queue counts Cottages built, under way and queued against the limit too (a Warehouse queues as usual)');
+      city.buildQ = []; city.buildings[14].status = 0; city.buildings[13].status = 2; city.buildings[13].startTime = G.now(); city.buildings[13].endTime = G.now() + 60000;
+      const down = G.beans.castle(city, pb).buildCommands.find(x => x.positionId === 13);
+      ok(down && down.queueType === 2 && down.level === 0, 'a demolition shows as queueType 2, going down a level');
+      city.buildings[13].status = 0;
+      pb.items = { ...(pb.items || {}), 'consume.2.a': 5 };
+      city.buildings[18].endTime = G.now() + 30 * 1000;
+      const sped = ask('castle.speedUpBuildCommand', { positionId: 18, itemId: 'free.speed' });
+      ok(sped.ok === 1 && sped.castle && !sped.castle.buildCommands.some(x => x.positionId === 18) && city.buildings[18].level === 1 && city.buildings[18].status === 0,
+        'a web speed-up that finishes the building answers with the city, the building done and gone from buildCommands (so the speed-up window stops)');
+      // Every city has Walls (the web client has no spot to build them on): new cities, and old ones on starting.
+      G.rules.startWalls = 1;
+      const nc = G.createCastle(pb, { name: 'Walled' }), walls = nc.buildings['-2'];
+      delete city.buildings['-2'];
+      const given = G.ensureWalls(city), again = G.ensureWalls(city);
+      city.buildings['-2'].level = 4; const kept = !G.ensureWalls(city) && city.buildings['-2'].level === 4;
+      G.rules.startWalls = 0;
+      const fl = ask('fortifications.getFortificationsProduceList', {});
+      ok(walls && walls.typeId === 32 && walls.level === 1 && given && !again && city.buildings['-2'].typeId === 32 && kept,
+        'with startWalls a new city has level 1 Walls, and a city without Walls gets them (once; built Walls are left alone)');
+      ok(fl.ok === 1 && fl.totalSpace === G.forts.space(city) && fl.totalSpace > 0 && fl.usedSpace === G.forts.used(city),
+        'the Walls window gets the wall space and what\'s used of it (totalSpace, usedSpace)');
     }
     {
       // Age of War: Troop Goals and Coordinated Attacks, through the handlers with a stand-in connection.

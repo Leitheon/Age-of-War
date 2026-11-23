@@ -15,6 +15,15 @@ class Beans {
     return { positionId: Number(pos), typeId: b.typeId, level: b.level, status: b.status, startTime: b.startTime || 0, endTime: b.endTime || 0,
       name: this.logic.typeName(b.typeId), appearance: 0, help: 0 };
   }
+  // The work under way in a city, for the web client's Construction timers (and its speed-up window): one per plot
+  // being built or demolished, with the level it's going to (like a build queue entry) and queueType 2 for a demolition.
+  buildCommands(c){
+    return Object.entries(c.buildings).filter(([, b]) => b.status === STATUS.UPGRADING || b.status === STATUS.DESTRUCTING).map(([pos, b]) => {
+      const down = b.status === STATUS.DESTRUCTING;
+      return { castleId: c.id, positionId: Number(pos), typeId: b.typeId, name: this.logic.typeName(b.typeId), level: down ? b.level - 1 : b.level + 1,
+        queueType: down ? 2 : 1, startTime: b.startTime || 0, endTime: b.endTime || 0 };
+    });
+  }
   // increaseRate is the gross output: the client takes troopCostFood (and adds colony and supply food) itself, both
   // for the numbers it shows and for counting the food up between updates (Context.timerHandler).
   resourceInfo(c, p, k, r){
@@ -44,7 +53,7 @@ class Beans {
     return {
       id: c.id, name: c.name, fieldId: c.fieldId, x: world.xy(c.fieldId).x, y: world.xy(c.fieldId).y, zoneId: world.zoneOf(c.fieldId), icon: c.icon || 0, logUrl: c.logUrl || null, status: 0, powerlevel: c.powerLevel ?? 4,   // (an amulet city is an ordinary city, 4, on the live server: Fox's capture)
       allowAlliance: c.allowAlliance !== false, canChangeIcon: true, goOutForBattle: this.game.armies.gateOpen(c), hasEnemy: this.game.armies.incoming(c).length > 0, colonization: this.game.colonies.colonization(c), usePACIFY_SUCCOUR_OR_PACIFY_PRAY: 0,
-      buildings, buildingQueues: this.game.buildQueue.beans(c), resource: this.resource(c, p), troop: this.troop(c), strTroop: this.troopStr(c), fortification: this.forts(c),
+      buildings, buildCommands: this.buildCommands(c), buildingQueues: this.game.buildQueue.beans(c), resource: this.resource(c, p), troop: this.troop(c), strTroop: this.troopStr(c), fortification: this.forts(c),
       heros: (c.heroes || []).map(h => this.game.heroes.bean(h)), fields: (c.valleys || []).map(id => this.game.armies.fieldBean(world.tileAt(this.game.store, id))),
       buffs: [], trades: this.game.market.ordersOf(c).map(o => this.game.market.tradeBean(o)), transingTrades: this.game.market.shipsOf(c).map(s => this.game.market.shipBean(s)), colonyBeans: this.game.colonies.beans(c), mercenaryBeans: [],
     };

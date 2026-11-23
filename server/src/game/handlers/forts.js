@@ -3,7 +3,8 @@
 module.exports = (game, H) => {
   const F = game.forts;
   const pushForts = c => game.push(c.playerId, 'server.FortificationsUpdate', { castleId: c.id, fortification: game.beans.forts(c) });
-  H['fortifications.getFortificationsProduceList'] = (conn, d, cmd) => { const c = game.castleOr(conn, cmd, d.castleId); if (c) game.reply(conn, cmd, { fortList: F.list(c, conn.player) }); };
+  // (totalSpace and usedSpace: the Walls' room and what the defenses built and queued take, for the web client)
+  H['fortifications.getFortificationsProduceList'] = (conn, d, cmd) => { const c = game.castleOr(conn, cmd, d.castleId); if (c) game.reply(conn, cmd, { fortList: F.list(c, conn.player), totalSpace: F.space(c), usedSpace: F.used(c) }); };
   H['fortifications.getProduceQueue'] = (conn, d, cmd) => { const c = game.castleOr(conn, cmd, d.castleId); if (c) game.reply(conn, cmd, { allProduceQueue: F.queueBeans(c) }); };
   H['fortifications.produceWallProtect'] = (conn, d, cmd) => {
     const c = game.castleOr(conn, cmd, d.castleId); if (!c) return;

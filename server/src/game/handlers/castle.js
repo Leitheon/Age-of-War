@@ -89,7 +89,10 @@ module.exports = (game, H) => {
     if (s.coins) p.coins -= s.coins;
     b.endTime = now + Math.max(0, s.reduce(left));
     game.store.touch();
-    game.reply(conn, cmd, {});
+    // The web client's speed-up window reads the city's buildCommands back to see whether another item is needed:
+    // finish the building first if this was enough, so it doesn't show as still under way.
+    if (conn.web) game.completeDue(c, true);
+    game.reply(conn, cmd, conn.web ? { castle: game.beans.castle(c, p) } : {});
     if (s.item) game.pushItems(p, [s.item]);
     if (s.coins) game.pushPlayerInfo(p);
     game.pushBuilding(c, d.positionId);

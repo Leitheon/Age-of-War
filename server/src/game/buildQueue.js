@@ -74,6 +74,8 @@ class BuildQueue {
         const err = L.placeError(c, pos, typeId); if (err) return [-4, err];
         const planned = t => Object.values(c.buildings).some(b => b.typeId === t && (b.level > 0 || b.status)) || list.some(q => q.typeId === t);
         if (this.g.rules.uniqueTypes.includes(typeId) && planned(typeId)) return [-3, `You can only have one ${L.typeName(typeId)}.`];
+        const cap = L.typeLimit(typeId);
+        if (cap != null && L.plotsOf(c, typeId, list).size >= cap) return [-3, L.limitText(typeId, cap)];
         level = 1;
       } else { typeId = cur.typeId; level = cur.level + 1; }
       if (level > this.logic.maxLevelOf(c, typeId)) return [-57, 'Cant queue for this building anymore.'];
@@ -161,6 +163,8 @@ class BuildQueue {
     if (fresh){
       if (L.placeError(c, q.pos, q.typeId)) return 'the plot can\'t take it';
       if (this.g.rules.uniqueTypes.includes(q.typeId) && Object.entries(c.buildings).some(([pos, x]) => Number(pos) !== q.pos && x.typeId === q.typeId && (x.level > 0 || x.status))) return 'one is already built';
+      const cap = L.typeLimit(q.typeId), others = L.plotsOf(c, q.typeId); others.delete(q.pos);
+      if (cap != null && others.size >= cap) return `the city has its ${cap} already`;
     } else if (!b || b.typeId !== q.typeId || b.status !== STATUS.NORMAL || b.level !== q.level - 1) return 'the building changed';
     const miss = this.missing(c, p, q.typeId, q.level); if (miss) return miss;
     const secs = Math.max(0, L.buildSeconds(p, q.typeId, q.level, c) - (q.saved || 0));

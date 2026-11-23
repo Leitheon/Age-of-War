@@ -175,6 +175,7 @@ class Game {
     for (const c of Object.values(this.db.castles)){
       c.troops = c.troops || {}; c.forts = c.forts || {}; c.trainQ = c.trainQ || {}; c.heroes = c.heroes || []; c.valleys = c.valleys || []; c.fortQ = c.fortQ || [];
       if (this.heroes.migrate(c, this.db.players[c.playerId])) this.store.touch?.();
+      if (this.ensureWalls(c)){ this.store.touch?.(); this.log.info(`${c.name} was given level ${this.rules.startWalls} Walls (every city has them now)`); }
       // 0.3.28: the historic hero sheet had attack and intelligence swapped; hired heroes take the corrected stats.
       let fixed = 0;
       for (const h of [...c.heroes, ...(c.innHistoric || [])]) if (this.hh.sync(h)) fixed++;
@@ -391,12 +392,20 @@ class Game {
     };
     if (r.productionRate != null){ const k = r.productionRate; c.commence = { food: k, wood: k, stone: k, iron: k }; }
     for (const [pos, [typeId, level]] of Object.entries(r.buildings)) c.buildings[pos] = { typeId, level, status: STATUS.NORMAL, startTime: 0, endTime: 0 };
+    this.ensureWalls(c);
     c.pop = Math.min(c.pop, this.logic.popTarget(c));   // no more than the tax rate lets it hold
     p.castles.push(c.id);
     this.db.castles[c.id] = c;
     this.db.tiles[fieldId] = { type: world.T.CASTLE, level: 1, castleId: c.id, playerId: p.id };
     this.store.touch();
     return c;
+  }
+  // rules.startWalls: a city without Walls gets them at that level (see rules.js).
+  ensureWalls(c){
+    const lv = Number(this.rules.startWalls) || 0, w = c.buildings['-2'];
+    if (lv <= 0 || (w && (w.level > 0 || w.status))) return false;
+    c.buildings['-2'] = { typeId: 32, level: lv, status: STATUS.NORMAL, startTime: 0, endTime: 0 };
+    return true;
   }
   // The level of the spot a city is founded or lands on (a flat's, or a barbarian city's), kept for when it is given up.
   spotLevel(id, now = this.now()){ const t = world.tileAt(this.store, id, now); return Math.max(1, Math.min(10, t.level || 1)); }
