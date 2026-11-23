@@ -93,6 +93,11 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   Army ones; each report's values are sent the way this client reads them.
 - **Chat**: World and Alliance chat of the last 48 hours (`rules.chat.historyHours`) is kept through restarts and
   shown on signing in. **Flags** take up to 4 characters (`rules.flagLength`).
+- **The sign-in screen's pages**: `/heroes` (every historic hero, with stats from the hero sheet and where each is:
+  serving or held by a lord, in a barbarian city, or no rumors; and the experience tables), `/npcs` and
+  `/droptable` (the battle drop chances, from `rules.battleDrops`). The pages are in `server/pages/`.
+- **Mayor XP** (`rules.mayorExp`): a city's mayor gains 0.1622 x (food + wood + stone + iron + build seconds) for
+  every building level, troop and wall defence the city finishes.
 - **The speed-up window**: **Instant Complete** finishes the work with the cheapest set of the lord's Guidelines (by
   their shop prices); **Pay with Gold** finishes it for those Guidelines' price in gold (`rules.webShop.goldFinish`),
   account-bound gold first, then the city doing the work.

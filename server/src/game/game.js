@@ -134,7 +134,16 @@ class Game {
     this.quests = new QuestLogic(this);
     // Prestige for what is built, researched and trained (quests.prestigeFor).
     const gain = (c, cost, n = 1) => { const p = this.playerOf(c); if (p) p.prestige = (p.prestige || 0) + this.quests.prestigeFor(cost, n, p); };
-    this.logic.hooks.built = (c, p, typeId, level) => gain(c, this.data.buildings[typeId]?.levels[level - 1]);
+    // Mayor XP (rules.mayorExp, DoA's Hero Experience page): the city's mayor gains mayorExp x (food + wood + stone +
+    // iron + build seconds) for every building level, troop and wall defence the city finishes (the fractions kept).
+    const mayor = (c, cost, n = 1) => {
+      const rate = Number(this.rules.mayorExp) || 0, h = rate > 0 && cost && this.heroes.chief(c);
+      if (!h) return;
+      const total = (h.mayorFrac || 0) + rate * n * ['food', 'wood', 'stone', 'iron', 'time'].reduce((a, k) => a + (Number(cost[k]) || 0), 0), whole = Math.floor(total);
+      h.mayorFrac = total - whole;
+      if (whole > 0) this.heroes.gainExp(h, whole);
+    };
+    this.logic.hooks.built = (c, p, typeId, level) => { const L = this.data.buildings[typeId]?.levels[level - 1]; gain(c, L); mayor(c, L); };
     // Troops arrive a few at a time (troops.js), so the prestige for training keeps its fractions until they add up.
     this.troops.onDone = (c, type, num) => {
       const p = this.playerOf(c), t = this.data.troops[type];
@@ -145,12 +154,13 @@ class Game {
         if (whole > 0){ p.prestige = (p.prestige || 0) + whole; p.trainPrestige -= whole; }
       }
       this.effort.note(p, `train:${t?.field}`, num);
+      mayor(c, t, num);
     };
     this.troops.costCut = (p, typeId) => this.effort.bonus(p, { foot: 'infantry', mounted: 'cavalry', siege: 'machine' }[CLASS[typeId]] || 'none');
     this.items.onAdd = (p, id, n) => { if (/^hero\.loyalty\.\d$/.test(id)) this.effort.note(p, `medal:${id}`, n); };
     // an item bought at the moment it's used: the coins change (after the command's own reply)
     this.items.onBuy = p => setImmediate(() => this.pushPlayerInfo(p));
-    this.forts.onDone = (c, type, num) => gain(c, this.data.forts[type], num);
+    this.forts.onDone = (c, type, num) => { gain(c, this.data.forts[type], num); mayor(c, this.data.forts[type], num); };
     for (const f of HANDLER_FILES) require('./handlers/' + f)(this, this.handlers);
     this.migrate();
     const placed = this.hh.seed();

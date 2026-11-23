@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Age of War · Drop Table</title>
+
+<meta name="description" content="What a won battle can turn up in Age of War.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+
+  :root{
+
+    /* Age II game palette — deep Evony blue with gold trim (matches the in-game castle panels). */
+
+    --bg:#0a2036; --bg2:#0e2b45; --panel:#123f66; --panel-hi:#17527f; --field:#0b2740;
+
+    --gold:#e8c66a; --gold-bright:#ffe3a0; --bronze:#b98a3c;
+
+    --ink:#eaf3fb; --muted:#9db8cf; --line:#265d84; --line-soft:#1b4468;
+
+    --lead:#f2c85a; --atk:#f0904a; --pol:#7fce6b; --int:#67b0f0;
+
+    --shadow:0 2px 8px rgba(0,4,10,.5);
+
+  }
+
+  *{box-sizing:border-box}
+
+  html{scroll-behavior:smooth}
+
+  body{margin:0; background:var(--bg);
+
+    background-image:radial-gradient(1200px 640px at 50% -12%, #15507a 0%, var(--bg) 60%), linear-gradient(180deg,#0e3050 0%, var(--bg) 42%);
+
+    background-attachment:fixed;
+
+    color:var(--ink); font-family:"Spectral",Georgia,serif; font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased;}
+
+  a{color:var(--gold-bright); text-decoration:none} a:hover{text-decoration:underline}
+
+  .wrap{max-width:1160px; margin:0 auto; padding:0 16px}
+
+
+
+  .topbar{position:sticky; top:0; z-index:20; background:rgba(18,14,9,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line);}
+
+  .topbar .wrap{display:flex; align-items:center; gap:18px; height:58px}
+
+  .brand{font-family:"Cinzel",serif; font-weight:700; color:var(--gold); letter-spacing:.02em; font-size:clamp(0.72rem, 2.85vw, 1.02rem); white-space:nowrap}
+
+  .brand span{color:var(--gold-bright)}
+
+  .brand a{color:var(--gold); text-decoration:none} .brand a:hover{color:var(--gold-bright)}
+
+  .nav{display:flex; gap:16px; margin-left:auto; padding:4px 0}
+
+  .nav a{color:var(--muted); font-size:.82rem; letter-spacing:.05em; text-transform:uppercase; white-space:nowrap}
+
+  .nav a:hover,.nav a.on{color:var(--gold-bright); text-decoration:none}
+
+
+
+  header.hero{padding:40px 0 16px; text-align:center}
+
+  header.hero h1{font-family:"Cinzel",serif; font-weight:700; font-size:clamp(2rem,5vw,3rem); margin:0 0 10px; color:var(--gold);
+
+    text-wrap:balance; letter-spacing:.03em; text-shadow:0 2px 0 #000, 0 0 22px rgba(217,180,90,.15)}
+
+  header.hero p{max-width:62ch; margin:0 auto; color:var(--muted); font-size:1.04rem}
+
+  .rule{height:2px; width:min(560px,90%); margin:20px auto 0; background:linear-gradient(90deg,transparent,var(--bronze),var(--gold),var(--bronze),transparent)}
+
+
+
+  /* tabs */
+
+  .tabs{display:flex; justify-content:center; gap:0; margin:26px 0 8px}
+
+  .tab{appearance:none; border:1px solid var(--line); background:var(--bg2); color:var(--muted); font-family:"Cinzel",serif;
+
+    font-size:.92rem; letter-spacing:.03em; padding:11px 22px; cursor:pointer; transition:background .15s,color .15s}
+
+  .tab:first-child{border-radius:9px 0 0 9px} .tab:last-child{border-radius:0 9px 9px 0} .tab+.tab{border-left:0}
+
+  .tab:hover{color:var(--gold-bright)}
+
+  .tab.on{background:linear-gradient(180deg,var(--panel-hi),var(--panel)); color:var(--gold-bright)}
+
+  .panel{display:none} .panel.on{display:block}
+
+
+
+  section{padding:24px 0 4px}
+
+  .sec-head{display:flex; align-items:center; gap:14px; margin:26px 0 6px}
+
+  .sec-head h2{font-family:"Cinzel",serif; font-weight:600; font-size:1.4rem; color:var(--gold-bright); margin:0; letter-spacing:.03em}
+
+  .sec-head .bar{flex:1; height:1px; background:linear-gradient(90deg,var(--line),transparent)}
+
+  .sec-sub{color:var(--muted); margin:0 0 16px; font-size:.98rem; max-width:80ch}
+
+
+
+  /* hero controls */
+
+  .controls{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:6px 0 18px}
+
+  .search{flex:1; min-width:200px; background:var(--field); border:1px solid var(--line); border-radius:8px; color:var(--ink);
+
+    font-family:"Spectral",serif; font-size:.98rem; padding:10px 13px}
+
+  .search::placeholder{color:var(--muted)}
+
+  .search:focus{outline:2px solid var(--gold); outline-offset:-1px}
+
+  .sortlbl{color:var(--muted); font-size:.82rem; text-transform:uppercase; letter-spacing:.05em}
+
+  .sortbtn{appearance:none; border:1px solid var(--line); background:var(--bg2); color:var(--muted); border-radius:7px;
+
+    font-family:"Cinzel",serif; font-size:.8rem; padding:7px 12px; cursor:pointer}
+
+  .sortbtn:hover{color:var(--gold-bright)} .sortbtn.on{background:var(--panel); color:var(--gold-bright); border-color:var(--bronze)}
+
+  .count{color:var(--muted); font-size:.85rem; margin-left:auto}
+
+
+
+  /* hero grid */
+
+  .hgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr)); gap:12px}
+
+  .hcard{display:flex; gap:12px; background:linear-gradient(180deg,var(--panel-hi),var(--panel)); border:1px solid var(--line);
+
+    border-radius:10px; padding:12px; box-shadow:var(--shadow)}
+
+  .hportrait{flex:0 0 auto; width:62px; height:62px; border-radius:8px; object-fit:cover;
+
+    background:radial-gradient(circle at 50% 35%, #1c5177, #0c2942); border:1px solid var(--line)}
+
+  .hbody{min-width:0; flex:1}
+
+  .hbody h3{margin:0 0 3px; font-family:"Cinzel",serif; font-weight:600; font-size:1rem; color:var(--ink); line-height:1.2}
+
+  /* Live location/ownership line under the hero name (fed by /heroes-status.json). */
+
+  .hstatus{margin:0 0 6px; font-family:"Spectral",serif; font-size:.82rem; line-height:1.25}
+
+  .hstatus.owned{color:var(--gold-bright,#f0c674)}
+
+  .hstatus.barb{color:#d98a4a}
+
+  .hstatus.hc{color:#c48ae0}
+
+  .hstatus.none{color:var(--muted); font-style:italic; opacity:.8}
+
+  .hstats{display:flex; flex-wrap:wrap; gap:5px; margin-bottom:6px}
+
+  .hstat{display:inline-flex; align-items:baseline; gap:4px; font-size:.66rem; text-transform:uppercase; letter-spacing:.03em;
+
+    color:var(--muted); background:var(--field); border:1px solid var(--line); border-radius:6px; padding:3px 7px; font-variant-numeric:tabular-nums}
+
+  .hstat b{font-size:.92rem; font-family:"Spectral",serif}
+
+  .hstat.lead b{color:var(--lead)} .hstat.atk b{color:var(--atk)} .hstat.pol b{color:var(--pol)} .hstat.int b{color:var(--int)}
+
+  .hbio{margin:0; color:var(--muted); font-size:.82rem; line-height:1.4}
+
+  .loading{color:var(--muted); text-align:center; padding:40px 0}
+
+
+
+  /* xp tab */
+
+  .callout{background:linear-gradient(180deg,#164468,#102f4b); border:1px solid var(--bronze); border-left:4px solid var(--gold);
+
+    border-radius:10px; padding:16px 18px; margin:0 0 18px; color:var(--ink)}
+
+  .callout b{color:var(--gold-bright)}
+
+  .formula{display:block; font-family:"Cinzel",serif; color:var(--gold-bright); font-size:1.05rem; text-align:center;
+
+    background:var(--field); border:1px solid var(--line); border-radius:9px; padding:14px; margin:12px 0; letter-spacing:.02em}
+
+  .tblwrap{overflow-x:auto}
+
+  table{border-collapse:collapse; width:100%; font-size:.9rem; margin:6px 0 8px; min-width:460px}
+
+  th,td{padding:8px 11px; text-align:right; border-bottom:1px solid var(--line-soft); font-variant-numeric:tabular-nums}
+
+  th{color:var(--gold); font-family:"Cinzel",serif; font-weight:500; font-size:.8rem; letter-spacing:.02em}
+
+  td:first-child,th:first-child{text-align:left; color:var(--ink)}
+
+  tbody tr:hover{background:#123a5a}
+
+  tr.hi td{color:var(--gold-bright); font-weight:600}
+
+  .muted{color:var(--muted)}
+
+
+
+  footer{margin:44px 0 30px; padding-top:20px; border-top:1px solid var(--line); text-align:center; color:var(--muted); font-size:.85rem}
+
+  @media (max-width:560px){
+
+    .tab{padding:10px 14px; font-size:.82rem} header.hero{padding:28px 0 12px}
+
+    /* Topbar: let the brand sit on its own line and the nav become a scrollable row below it. */
+
+    .topbar .wrap{height:auto; flex-wrap:wrap; gap:4px 14px; padding-top:8px; padding-bottom:8px}
+
+    .brand{font-size:clamp(0.68rem, 3.4vw, 0.92rem)}
+
+    .nav{margin-left:0; width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; gap:14px; padding-bottom:2px}
+
+    .hportrait{width:54px; height:54px}
+
+  }
+
+</style>
+
+</head>
+<body>
+
+<div class="topbar"><div class="wrap">
+  <div class="brand"><a href="/">Age of War</a> · <span>Drop Table</span></div>
+</div></div>
+
+<main class="wrap">
+  <header class="hero">
+    <h1>Drop Table</h1>
+    <p>What a won battle can turn up, by the target and its level.</p>
+    <div class="rule"></div>
+  </header>
+
+  <section class="panel on">
+    <p class="sec-sub">A battle drops treasure only when the attacker wins and kills at least <b>{{MIN_KILL}}</b> of the place's troops. Each item is rolled on its own, so one battle can turn up several. The numbers are each item's chance in percent.</p>
+    {{TABLES}}
+  </section>
+
+  <footer><p>Age of War · Drop table.</p></footer>
+</main>
+
+</body>
+</html>

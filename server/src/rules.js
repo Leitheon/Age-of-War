@@ -192,6 +192,9 @@ const DEFAULTS = {
   innRestock: true,
   // Dynamite on a demolition takes the whole building down at once (the web client's Full Demolish); false: one level.
   dynamiteFullDemolish: true,
+  // Mayor XP (DoA): a city's mayor gains this x (food + wood + stone + iron + build seconds) for every building level,
+  // troop and wall defence the city finishes; 0 gives none (the live game's mayors gain nothing from them).
+  mayorExp: 0.1622,
   heroExpBase: 150,                // experience to reach the next level = heroExpBase x level^2 (live: all 137 heroes in Fox's captures, 150 at 1 to 2,160,000 at 120)
   heroMaxLevel: 100,               // the highest level a hero reaches (Fox; a Legendary Ring's hero: ringHero.maxLevel)
   heroAwardGoldPerLevel: 100,      // UNVERIFIED: gold for "Reward" = this x hero level, +heroAwardLoyalty

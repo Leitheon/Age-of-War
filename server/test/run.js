@@ -91,7 +91,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
   // The tests were written for a richer first city than the live game's (which has only a Town Hall): a Cottage, four
   // fields and plenty of resources. The live start is checked on its own further down. (Age of War's level 1 Walls in
   // every city, startWalls, and its gold in place of cents, noCents, are off for the live checks and tested on their own.)
-  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, heroAutoLevel: false, innRestock: false, historicHeroes: { questFree: false }, npcConquest: { layout: { keepCottages: null } }, dynamiteFullDemolish: false, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
+  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, heroAutoLevel: false, innRestock: false, historicHeroes: { questFree: false }, npcConquest: { layout: { keepCottages: null } }, dynamiteFullDemolish: false, mayorExp: 0, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
     population: 100, taxRate: 20, productionRate: 100, buildings: { '0': [1, 1], '1001': [7, 1], '1002': [4, 1], '1003': [5, 1], '1004': [6, 1] } } }));
   const srv = main({ ...PORTS, dataDir, cacheDir: path.join(dataDir, 'cache'), speed: 600, logLevel: 'warn', embedded: true, assetCdn: '', flashClient: true, legacyLogin: true, adminPassword: ADMIN.pw });
   ADMIN.token = srv.game.adminToken;
@@ -3390,6 +3390,13 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       { const extra = G.castlesOf(pb).find(x => x !== city), n0 = G.castlesOf(pb).length;
         const gave = ask('city.giveupCastle', { castleId: extra.id });
         ok(gave.ok === 1 && G.castlesOf(pb).length === n0 - 1, 'a web lord abandons a city without a password'); }
+      // Mayor XP (rules.mayorExp): the city's mayor gains 0.1622 x (resources + build seconds) for what the city finishes.
+      { G.rules.mayorExp = 0.1622; const lvl = G.rules.heroAutoLevel; G.rules.heroAutoLevel = false;
+        const m = { ...G.heroes.makeHero(5, null, new Set()), id: G.store.id(), status: 1, level: 1, exp: 0 }; G.heroes.list(city).push(m);
+        G.troops.onDone(city, 3, 100); const afterTroops = m.exp;                    // 100 Warriors: 41.36 each
+        G.forts.onDone(city, 14, 10); const afterTraps = m.exp - afterTroops;        // 10 Traps: (50+500+100+50+60) x 0.1622 = 123.27 each
+        G.rules.mayorExp = 0; G.rules.heroAutoLevel = lvl; city.heroes = G.heroes.list(city).filter(h => h !== m);
+        ok(afterTroops === 4136 && afterTraps === 1232, `a mayor gains XP for what the city finishes: 100 Warriors ${afterTroops}, 10 Traps ${afterTraps}`); }
       // National Flag: up to 4 characters.
       pb.items['consume.changeflag.1'] = 2;
       const f5 = ask('city.modifyFlag', { newFlag: 'ABCDE' }), f4 = ask('city.modifyFlag', { newFlag: 'AB12' });
@@ -3420,6 +3427,16 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       ok(/<battleReport[^>]*><isAttack>true<\/isAttack><isAttackSuccess>true<\/isAttackSuccess>/.test(battle.content) && /<troopUnit[^>]*><typeId>3<\/typeId><count>100<\/count><lose>5<\/lose><\/troopUnit>/.test(battle.content)
         && other.content === '<reportData><policyReport><detail>100 Warriors joined the army.</detail></policyReport></reportData>',
         'the web client gets each report value as a child element too (it reads <count>100</count>, not count="100"), and plain-text reports as a policyReport\'s detail');
+    }
+    {
+      // Age of War: the sign-in screen's reference pages (DoA's /heroes, /npcs and /droptable), on this server's data.
+      const [hp, hj, hs, np, dp] = await Promise.all(['/heroes', '/heroes.json', '/heroes-status.json', '/npcs', '/droptable'].map(get));
+      const heroes = JSON.parse(hj.body), status = JSON.parse(hs.body), html = hp.body.toString(), drops = dp.body.toString();
+      const states = Object.values(status).map(x => x.k);
+      ok([hp, hj, hs, np, dp].every(r => r.status === 200) && heroes.length > 600 && heroes.every(h => h.id && h.name && Number.isFinite(h.attack))
+        && /<tr><td>Warrior<\/td><td>230<\/td><td>25<\/td>/.test(html) && /<tr><td>Historic<\/td><td>150<\/td><td>167,066,250<\/td>/.test(html) && !/\{\{|Dominion/.test(html + np.body + drops)
+        && states.includes('barb') && Object.values(status).every(x => !/\(\d+,\d+\)/.test(x.t)) && /Barbarian cities/.test(drops) && /Cross Medal/.test(drops) && /<td>10%<\/td>/.test(drops),
+        `the Heroes page (${heroes.length} heroes, ${states.filter(k => k === 'barb').length} in barbarian cities, none placed), the NPCs page and the Drop Table from this server's data`);
     }
     {
       // Age of War: Troop Goals and Coordinated Attacks, through the handlers with a stand-in connection.

@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Age of War · Hero Experience</title>
+
+<meta name="description" content="Every historic hero in Age of War, and how mayors earn experience.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+
+  :root{
+
+    /* Age II game palette — deep Evony blue with gold trim (matches the in-game castle panels). */
+
+    --bg:#0a2036; --bg2:#0e2b45; --panel:#123f66; --panel-hi:#17527f; --field:#0b2740;
+
+    --gold:#e8c66a; --gold-bright:#ffe3a0; --bronze:#b98a3c;
+
+    --ink:#eaf3fb; --muted:#9db8cf; --line:#265d84; --line-soft:#1b4468;
+
+    --lead:#f2c85a; --atk:#f0904a; --pol:#7fce6b; --int:#67b0f0;
+
+    --shadow:0 2px 8px rgba(0,4,10,.5);
+
+  }
+
+  *{box-sizing:border-box}
+
+  html{scroll-behavior:smooth}
+
+  body{margin:0; background:var(--bg);
+
+    background-image:radial-gradient(1200px 640px at 50% -12%, #15507a 0%, var(--bg) 60%), linear-gradient(180deg,#0e3050 0%, var(--bg) 42%);
+
+    background-attachment:fixed;
+
+    color:var(--ink); font-family:"Spectral",Georgia,serif; font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased;}
+
+  a{color:var(--gold-bright); text-decoration:none} a:hover{text-decoration:underline}
+
+  .wrap{max-width:1160px; margin:0 auto; padding:0 16px}
+
+
+
+  .topbar{position:sticky; top:0; z-index:20; background:rgba(18,14,9,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line);}
+
+  .topbar .wrap{display:flex; align-items:center; gap:18px; height:58px}
+
+  .brand{font-family:"Cinzel",serif; font-weight:700; color:var(--gold); letter-spacing:.02em; font-size:clamp(0.72rem, 2.85vw, 1.02rem); white-space:nowrap}
+
+  .brand span{color:var(--gold-bright)}
+
+  .brand a{color:var(--gold); text-decoration:none} .brand a:hover{color:var(--gold-bright)}
+
+  .nav{display:flex; gap:16px; margin-left:auto; padding:4px 0}
+
+  .nav a{color:var(--muted); font-size:.82rem; letter-spacing:.05em; text-transform:uppercase; white-space:nowrap}
+
+  .nav a:hover,.nav a.on{color:var(--gold-bright); text-decoration:none}
+
+
+
+  header.hero{padding:40px 0 16px; text-align:center}
+
+  header.hero h1{font-family:"Cinzel",serif; font-weight:700; font-size:clamp(2rem,5vw,3rem); margin:0 0 10px; color:var(--gold);
+
+    text-wrap:balance; letter-spacing:.03em; text-shadow:0 2px 0 #000, 0 0 22px rgba(217,180,90,.15)}
+
+  header.hero p{max-width:62ch; margin:0 auto; color:var(--muted); font-size:1.04rem}
+
+  .rule{height:2px; width:min(560px,90%); margin:20px auto 0; background:linear-gradient(90deg,transparent,var(--bronze),var(--gold),var(--bronze),transparent)}
+
+
+
+  /* tabs */
+
+  .tabs{display:flex; justify-content:center; gap:0; margin:26px 0 8px}
+
+  .tab{appearance:none; border:1px solid var(--line); background:var(--bg2); color:var(--muted); font-family:"Cinzel",serif;
+
+    font-size:.92rem; letter-spacing:.03em; padding:11px 22px; cursor:pointer; transition:background .15s,color .15s}
+
+  .tab:first-child{border-radius:9px 0 0 9px} .tab:last-child{border-radius:0 9px 9px 0} .tab+.tab{border-left:0}
+
+  .tab:hover{color:var(--gold-bright)}
+
+  .tab.on{background:linear-gradient(180deg,var(--panel-hi),var(--panel)); color:var(--gold-bright)}
+
+  .panel{display:none} .panel.on{display:block}
+
+
+
+  section{padding:24px 0 4px}
+
+  .sec-head{display:flex; align-items:center; gap:14px; margin:26px 0 6px}
+
+  .sec-head h2{font-family:"Cinzel",serif; font-weight:600; font-size:1.4rem; color:var(--gold-bright); margin:0; letter-spacing:.03em}
+
+  .sec-head .bar{flex:1; height:1px; background:linear-gradient(90deg,var(--line),transparent)}
+
+  .sec-sub{color:var(--muted); margin:0 0 16px; font-size:.98rem; max-width:80ch}
+
+
+
+  /* hero controls */
+
+  .controls{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:6px 0 18px}
+
+  .search{flex:1; min-width:200px; background:var(--field); border:1px solid var(--line); border-radius:8px; color:var(--ink);
+
+    font-family:"Spectral",serif; font-size:.98rem; padding:10px 13px}
+
+  .search::placeholder{color:var(--muted)}
+
+  .search:focus{outline:2px solid var(--gold); outline-offset:-1px}
+
+  .sortlbl{color:var(--muted); font-size:.82rem; text-transform:uppercase; letter-spacing:.05em}
+
+  .sortbtn{appearance:none; border:1px solid var(--line); background:var(--bg2); color:var(--muted); border-radius:7px;
+
+    font-family:"Cinzel",serif; font-size:.8rem; padding:7px 12px; cursor:pointer}
+
+  .sortbtn:hover{color:var(--gold-bright)} .sortbtn.on{background:var(--panel); color:var(--gold-bright); border-color:var(--bronze)}
+
+  .count{color:var(--muted); font-size:.85rem; margin-left:auto}
+
+
+
+  /* hero grid */
+
+  .hgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr)); gap:12px}
+
+  .hcard{display:flex; gap:12px; background:linear-gradient(180deg,var(--panel-hi),var(--panel)); border:1px solid var(--line);
+
+    border-radius:10px; padding:12px; box-shadow:var(--shadow)}
+
+  .hportrait{flex:0 0 auto; width:62px; height:62px; border-radius:8px; object-fit:cover;
+
+    background:radial-gradient(circle at 50% 35%, #1c5177, #0c2942); border:1px solid var(--line)}
+
+  .hbody{min-width:0; flex:1}
+
+  .hbody h3{margin:0 0 3px; font-family:"Cinzel",serif; font-weight:600; font-size:1rem; color:var(--ink); line-height:1.2}
+
+  /* Live location/ownership line under the hero name (fed by /heroes-status.json). */
+
+  .hstatus{margin:0 0 6px; font-family:"Spectral",serif; font-size:.82rem; line-height:1.25}
+
+  .hstatus.owned{color:var(--gold-bright,#f0c674)}
+
+  .hstatus.barb{color:#d98a4a}
+
+  .hstatus.hc{color:#c48ae0}
+
+  .hstatus.none{color:var(--muted); font-style:italic; opacity:.8}
+
+  .hstats{display:flex; flex-wrap:wrap; gap:5px; margin-bottom:6px}
+
+  .hstat{display:inline-flex; align-items:baseline; gap:4px; font-size:.66rem; text-transform:uppercase; letter-spacing:.03em;
+
+    color:var(--muted); background:var(--field); border:1px solid var(--line); border-radius:6px; padding:3px 7px; font-variant-numeric:tabular-nums}
+
+  .hstat b{font-size:.92rem; font-family:"Spectral",serif}
+
+  .hstat.lead b{color:var(--lead)} .hstat.atk b{color:var(--atk)} .hstat.pol b{color:var(--pol)} .hstat.int b{color:var(--int)}
+
+  .hbio{margin:0; color:var(--muted); font-size:.82rem; line-height:1.4}
+
+  .loading{color:var(--muted); text-align:center; padding:40px 0}
+
+
+
+  /* xp tab */
+
+  .callout{background:linear-gradient(180deg,#164468,#102f4b); border:1px solid var(--bronze); border-left:4px solid var(--gold);
+
+    border-radius:10px; padding:16px 18px; margin:0 0 18px; color:var(--ink)}
+
+  .callout b{color:var(--gold-bright)}
+
+  .formula{display:block; font-family:"Cinzel",serif; color:var(--gold-bright); font-size:1.05rem; text-align:center;
+
+    background:var(--field); border:1px solid var(--line); border-radius:9px; padding:14px; margin:12px 0; letter-spacing:.02em}
+
+  .tblwrap{overflow-x:auto}
+
+  table{border-collapse:collapse; width:100%; font-size:.9rem; margin:6px 0 8px; min-width:460px}
+
+  th,td{padding:8px 11px; text-align:right; border-bottom:1px solid var(--line-soft); font-variant-numeric:tabular-nums}
+
+  th{color:var(--gold); font-family:"Cinzel",serif; font-weight:500; font-size:.8rem; letter-spacing:.02em}
+
+  td:first-child,th:first-child{text-align:left; color:var(--ink)}
+
+  tbody tr:hover{background:#123a5a}
+
+  tr.hi td{color:var(--gold-bright); font-weight:600}
+
+  .muted{color:var(--muted)}
+
+
+
+  footer{margin:44px 0 30px; padding-top:20px; border-top:1px solid var(--line); text-align:center; color:var(--muted); font-size:.85rem}
+
+  @media (max-width:560px){
+
+    .tab{padding:10px 14px; font-size:.82rem} header.hero{padding:28px 0 12px}
+
+    /* Topbar: let the brand sit on its own line and the nav become a scrollable row below it. */
+
+    .topbar .wrap{height:auto; flex-wrap:wrap; gap:4px 14px; padding-top:8px; padding-bottom:8px}
+
+    .brand{font-size:clamp(0.68rem, 3.4vw, 0.92rem)}
+
+    .nav{margin-left:0; width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; gap:14px; padding-bottom:2px}
+
+    .hportrait{width:54px; height:54px}
+
+  }
+
+</style>
+
+</head>
+
+<body>
+
+
+
+<div class="topbar"><div class="wrap">
+
+  <div class="brand"><a href="/">Age of War</a> · <span>Hero Experience</span></div>
+
+  <nav class="nav">
+
+    <a href="#" class="navtab on" data-tab="heroes">Historic Heroes</a>
+
+    <a href="#" class="navtab" data-tab="xp">Experience &amp; XP</a>
+
+  </nav>
+
+</div></div>
+
+
+
+<main class="wrap">
+
+  <header class="hero">
+
+    <h1>Hero Experience</h1>
+
+    <p>Every historic hero you can hunt down and recruit, and how a city's mayor earns experience.</p>
+
+    <div class="rule"></div>
+
+  </header>
+
+
+
+  <div class="tabs">
+
+    <button type="button" class="tab on" data-tab="heroes">Historic Heroes</button>
+
+    <button type="button" class="tab" data-tab="xp">Experience &amp; XP</button>
+
+  </div>
+
+
+
+  <!-- ============ HISTORIC HEROES ============ -->
+
+  <section class="panel on" id="panel-heroes">
+
+    <p class="sec-sub">These famous generals hide out in barbarian camps across the map. Hear of them at the Inn (Folk Hearsay), get a hero's portrait with Enquire Details, then bring that camp's loyalty to 0 with the portrait in hand: the hero is captured into your Feasting Hall to be persuaded. The attributes below are each hero's own, before the points it gains by level.</p>
+
+    <div class="controls">
+
+      <input class="search" id="search" type="search" placeholder="Search a hero by name…" autocomplete="off">
+
+      <span class="sortlbl">Sort</span>
+
+      <button class="sortbtn on" data-sort="name">Name</button>
+
+      <button class="sortbtn" data-sort="leadership">Leadership</button>
+
+      <button class="sortbtn" data-sort="attack">Attack</button>
+
+      <button class="sortbtn" data-sort="politics">Politics</button>
+
+      <button class="sortbtn" data-sort="intelligence">Intel</button>
+
+      <span class="count" id="count"></span>
+
+    </div>
+
+    <div class="hgrid" id="hgrid"><p class="loading">Loading heroes…</p></div>
+
+  </section>
+
+
+
+  <!-- ============ EXPERIENCE & XP ============ -->
+
+  <section class="panel" id="panel-xp">
+
+    <div class="sec-head"><h2>Leveling</h2><span class="bar"></span></div>
+
+    <p class="sec-sub">Heroes level up by spending experience. Leaving level <b>L</b> costs <b>{{EXP_BASE}} × L²</b> XP. Total XP to raise a hero from level 1 to each cap:</p>
+
+    <div class="tblwrap"><table style="max-width:440px">
+
+      <thead><tr><th>Hero type</th><th>Level cap</th><th>Total XP to reach it</th></tr></thead>
+
+      <tbody>{{LEVEL_ROWS}}</tbody>
+
+    </table></div>
+
+
+
+    <div class="sec-head"><h2>Mayor XP — building your city</h2><span class="bar"></span></div>
+
+    <p class="sec-sub">The hero you appoint as a city's <b>Mayor</b> (Chief) earns experience every time the city finishes something — a <b>building upgrade</b>, a <b>trained troop</b>, or a <b>wall defence</b>. The XP is drawn from both what it cost and how long it takes to make:</p>
+
+    <span class="formula">Mayor XP = {{MAYOR_RATE}} × ( food + wood + stone + iron + build&nbsp;seconds )</span>
+
+    <p class="sec-sub"><b class="muted">XP per unit</b> for each troop, and how many it takes to fully max a mayor:</p>
+
+    <div class="tblwrap"><table>
+
+      <thead><tr><th>Troop</th><th>Resources</th><th>Build&nbsp;time&nbsp;(s)</th><th>XP&nbsp;per&nbsp;unit</th><th>Units to max a mayor</th></tr></thead>
+
+      <tbody>{{XP_ROWS}}</tbody>
+
+    </table></div>
+
+
+
+  </section>
+
+
+
+  <footer><p>Age of War · Hero reference.</p></footer>
+
+</main>
+
+
+
+<script>
+
+(function(){
+
+  // Tabs
+
+  var tabs = document.querySelectorAll('.tab'), navtabs = document.querySelectorAll('.navtab'),
+
+      panels = {heroes:document.getElementById('panel-heroes'), xp:document.getElementById('panel-xp')};
+
+  function activate(target){
+
+    tabs.forEach(function(x){ x.classList.toggle('on', x.dataset.tab===target); });
+
+    navtabs.forEach(function(x){ x.classList.toggle('on', x.dataset.tab===target); });
+
+    Object.keys(panels).forEach(function(k){ panels[k].classList.toggle('on', k===target); });
+
+  }
+
+  tabs.forEach(function(t){ t.addEventListener('click', function(){ activate(t.dataset.tab); }); });
+
+  navtabs.forEach(function(n){ n.addEventListener('click', function(e){ e.preventDefault(); activate(n.dataset.tab); window.scrollTo({top:0, behavior:'smooth'}); }); });
+
+
+
+  // Historic heroes
+
+  var grid = document.getElementById('hgrid'), search = document.getElementById('search'), count = document.getElementById('count');
+
+  var sortBtns = document.querySelectorAll('.sortbtn');
+
+  var heroes = [], sortKey = 'name', statusById = {};
+
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  function card(h){
+
+    var st = statusById[h.id];
+
+    var sk = st && st.k ? st.k : 'none';       // owned | barb | hc | none
+
+    var stext = st && st.t ? st.t : 'No Rumors';
+
+    return '<div class="hcard">'
+
+      + '<img class="hportrait" loading="lazy" src="/flash/images/icon/hero/'+h.id+'.png" alt="'+esc(h.name)+'" onerror="this.style.visibility=\'hidden\'">'
+
+      + '<div class="hbody"><h3>'+esc(h.name)+'</h3>'
+
+      + '<div class="hstatus '+sk+'">'+esc(stext)+'</div>'
+
+      + '<div class="hstats">'
+
+      + '<span class="hstat lead"><b>'+h.leadership+'</b>Lead</span>'
+
+      + '<span class="hstat atk"><b>'+h.attack+'</b>Atk</span>'
+
+      + '<span class="hstat pol"><b>'+h.politics+'</b>Pol</span>'
+
+      + '<span class="hstat int"><b>'+h.intelligence+'</b>Int</span>'
+
+      + '</div>'+(h.bio ? '<p class="hbio">'+esc(h.bio)+'</p>' : '')+'</div></div>';
+
+  }
+
+  function render(){
+
+    var q = search.value.trim().toLowerCase();
+
+    var list = heroes.filter(function(h){ return !q || h.name.toLowerCase().indexOf(q) !== -1; });
+
+    list.sort(function(a,b){ return sortKey==='name' ? a.name.localeCompare(b.name) : (b[sortKey]-a[sortKey]) || a.name.localeCompare(b.name); });
+
+    count.textContent = list.length + ' of ' + heroes.length + ' heroes';
+
+    grid.innerHTML = list.length ? list.map(card).join('') : '<p class="loading">No hero matches “'+esc(q)+'”.</p>';
+
+  }
+
+  search.addEventListener('input', render);
+
+  sortBtns.forEach(function(b){ b.addEventListener('click', function(){
+
+    sortBtns.forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on'); sortKey = b.dataset.sort; render();
+
+  }); });
+
+  Promise.all([
+
+    fetch('/heroes.json').then(function(r){ return r.json(); }),
+
+    // Live status (owned / in a barbarian city / no rumors). Best-effort: if it fails, heroes still render as "No Rumors".
+
+    fetch('/heroes-status.json').then(function(r){ return r.ok ? r.json() : {}; }).catch(function(){ return {}; })
+
+  ]).then(function(res){ heroes = res[0]; statusById = res[1] || {}; render(); })
+
+    .catch(function(){ grid.innerHTML = '<p class="loading">Could not load the hero roster.</p>'; });
+
+})();
+
+</script>
+
+</body>
+
+</html>
+
