@@ -31,7 +31,9 @@ const CROSSDOMAIN = '<?xml version="1.0"?>\n<cross-domain-policy>\n  <allow-acce
 
 // Hero portraits are images/icon/hero/N.png on the art server. Which numbers exist isn't known up front, so
 // numbers that turn out to be missing are remembered (cache/hero-faces.json) and the hero generator skips them;
-// meanwhile a missing portrait is answered with one that does exist.
+// meanwhile a missing portrait is answered with the "portrait unknown" picture (public/images/hero-unknown.png:
+// the numbered portraits are all historic heroes', so another one would show the wrong person).
+const UNKNOWN_FACE = path.join(__dirname, '..', 'public', 'images', 'hero-unknown.png');
 function createFacePool(cacheDir){
   const file = path.join(cacheDir, 'hero-faces.json');
   let missing = new Set();
@@ -42,7 +44,7 @@ function createFacePool(cacheDir){
     missing: n => missing.has(n),
     markMissing(n){ if (missing.has(n)) return; missing.add(n); try { fs.mkdirSync(cacheDir, { recursive: true }); fs.writeFileSync(file, JSON.stringify({ missing: [...missing].sort((a, b) => a - b) })); } catch (e){} },
     anyKnown(){ const k = known(); return k.length ? k[Math.floor(Math.random() * k.length)] : null; },
-    fallbackFile(n){ const k = known().filter(x => x !== n); return k.length ? path.join(dir, `${k[n % k.length]}.png`) : null; },
+    fallbackFile(n){ if (fs.existsSync(UNKNOWN_FACE)) return UNKNOWN_FACE; const k = known().filter(x => x !== n); return k.length ? path.join(dir, `${k[n % k.length]}.png`) : null; },
   };
 }
 
@@ -262,7 +264,15 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
     const local = path.join(pub, rel);
     if (local.startsWith(pub + path.sep) && fs.existsSync(local) && fs.statSync(local).isFile()) return sendFile(res, local);
     const artFile = path.join(artDir, rel);
-    if (artFile.startsWith(artDir + path.sep) && fs.existsSync(artFile) && fs.statSync(artFile).isFile()) return sendFile(res, artFile);
+    // A historic hero's portrait (images/icon/hero/N.png) that art/flash/ doesn't have may be in DoA's own folder,
+    // art/heroes/N.png (the only place the heroes DoA added, 700 and up, have one). One that art/flash/ has only as
+    // a blank 1-pixel stand-in is "portrait unknown".
+    const doaFace = /^(?:flash[\\/])?images[\\/]icon[\\/]hero[\\/](\d+)\.png$/.exec(rel);
+    if (artFile.startsWith(artDir + path.sep) && fs.existsSync(artFile) && fs.statSync(artFile).isFile()){
+      if (doaFace && fs.statSync(artFile).size < 100 && fs.existsSync(UNKNOWN_FACE)) return sendFile(res, UNKNOWN_FACE);
+      return sendFile(res, artFile);
+    }
+    if (doaFace){ const f = path.join(artDir, 'heroes', `${Number(doaFace[1])}.png`); if (fs.existsSync(f)) return sendFile(res, f); }
     // Not in art/: this client's /flash/... is the Evony client's own images/..., from the cache or the Evony art
     // server (assetCdn), the same as the Evony server's.
     // Nothing else goes there: any other address that isn't a file here is simply not found.
@@ -275,6 +285,8 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
     // instead of asking it again every time the client wants that file.
     const heroFace = /^images[\\/]icon[\\/]hero[\\/](\d+)\.png$/.exec(rel);
     if (heroFace && faces?.missing(Number(heroFace[1]))){ const alt = faces.fallbackFile(Number(heroFace[1])); if (alt){ if (perf) perf.art.cache++; return sendFile(res, alt); } }
+    // (with no art server to ask, a portrait nobody has here is "portrait unknown" too)
+    if (heroFace && !cfg.assetCdn && faces){ const alt = faces.fallbackFile(Number(heroFace[1])); if (alt) return sendFile(res, alt); }
     if (art?.has(rel)){ if (perf) perf.art.missing++; return send(res, 404, 'Not found', 'text/plain'); }
     if (!cfg.assetCdn){ art?.mark(rel, 'not cached, and no assetCdn is set'); if (perf) perf.art.missing++; return send(res, 404, 'Not found', 'text/plain'); }
     const fetchStart = perf?.now();
@@ -292,8 +304,9 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
       log.debug(`asset ${rel}: ${e.message}`);
       if (!/^images[\\/]icon[\\/]hero[\\/]/.test(rel)) art?.mark(rel, `art server: ${e.message}`);
       const hero = /^images[\\/]icon[\\/]hero[\\/](\d+)\.png$/.exec(rel);
-      if (hero && faces && /HTTP 404/.test(e.message)){
-        faces.markMissing(Number(hero[1]));
+      // (a portrait the art server hasn't got, or couldn't be asked for just now, is "portrait unknown" meanwhile)
+      if (hero && faces){
+        if (/HTTP 404/.test(e.message)) faces.markMissing(Number(hero[1]));
         const alt = faces.fallbackFile(Number(hero[1]));
         if (alt) return sendFile(res, alt);
       }

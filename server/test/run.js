@@ -777,7 +777,18 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
 
     // ---------- historic heroes ----------
     const hhLogic = srv.game.hh, me = srv.store.db.players[castle.playerId] || Object.values(srv.store.db.players)[0];
-    ok(hhLogic.roster.size === 639 && Object.values(srv.store.db.hh).filter(s => s.status === 'free' && s.fieldId != null).length === 639, 'all 639 historic heroes wait in NPC cities');
+    ok(hhLogic.roster.size === 698 && Object.values(srv.store.db.hh).filter(s => s.status === 'free' && s.fieldId != null).length === 698, 'all 698 historic heroes (the client\'s 639 and the 59 DoA added) wait in NPC cities');
+    { const R = hhLogic.roster, h700 = R.get(700), h720 = R.get(720), h715 = R.get(715), added = [...R.values()].filter(h => h.added);
+      ok(added.length === 59 && added.every(h => h.id >= 700 && h.id <= 758 && h.bio.length > 40 && !h.estimated && h.item === `hero.taskitem.${h.id}`)
+        && h700.name === 'Adolf Hitler' && h700.pol === 94 && h700.atk === 99 && h700.int === 83 && h700.ldr === 141 && !h700.female
+        && h720.name === 'Poseidon' && h720.atk === 150 && h720.ldr === 250 && h715.name === 'Maria Theresa' && h715.female && R.get(758).female && /^Quasimodo was/.test(R.get(702).bio),
+        'the 59 heroes DoA added (700 to 758) are on the hero sheet with their stats, biographies and sex (Adolf Hitler 94/99/83/141, Poseidon 150 attack and 250 leadership, Maria Theresa a woman)');
+      ok(hhLogic.item(1) === 'hero.taskitem.01' && hhLogic.item(9) === 'hero.taskitem.09' && hhLogic.item(10) === 'hero.taskitem.10' && hhLogic.item(700) === 'hero.taskitem.700',
+        'a hero\'s portrait item is named as the client names it (hero.taskitem.01 for hero 1, hero.taskitem.700 for hero 700)');
+      const pl = Object.values(srv.store.db.players)[0], had = { ...pl.items }; pl.items['hero.taskitem.3'] = 1;
+      hhLogic.seed();
+      ok(!pl.items['hero.taskitem.3'] && pl.items['hero.taskitem.03'] === (had['hero.taskitem.03'] || 0) + 1, 'a portrait given before 0.1.17 as hero.taskitem.3 becomes the client\'s hero.taskitem.03');
+      pl.items = had; }
     const say = await c.call('npchero.getNpcHerosList', { castleId: castle.id });
     ok(say.ok === 1 && say.simpleNpcHeros.length === 10 && /^images\/icon\/hero\/\d+\.png$/.test(say.simpleNpcHeros[0].logourl) && /^Rumour has it/.test(say.simpleNpcHeros[0].introduce2),
       'the Inn has hearsay about 10 historic heroes');
@@ -904,8 +915,8 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
     const cb = ch && G.heroes.bean(ch);
     ok(ch && ch.status === 4 && db.hh[146].status === 'seized' && cb.itemId === 'hero.taskitem.146' && cb.itemAmount === 1 && (me.reports || []).some(x => x.title === 'Caesar captured')
       && cb.isHero === 1 && cb.level === 30 && cb.remainPoint === 0 && cb.managementAdded + cb.powerAdded + cb.stratagemAdded === 60 && cb.logoUrl === 'images/icon/hero/146.png' && cb.leadership === [...G.hh.roster.values()].find(h => h.id === 146).ldr + 29
-      && cb.power === 75 + cb.powerAdded && cb.management === 94 + cb.managementAdded && cb.stratagem === 62 + cb.stratagemAdded && cb.infro.length > 20,
-      'with the quest and the portrait Caesar is captured: level 30 with his portrait, biography, base stats (94 politics: the live ranking), his leadership plus 29 for his levels (Fox) and 60 points spread at random (2 a level, live), to be persuaded with his portrait');
+      && cb.power === 75 + cb.powerAdded && cb.management === 95 + cb.managementAdded && cb.stratagem === 62 + cb.stratagemAdded && cb.infro.length > 20,
+      'with the quest and the portrait Caesar is captured: level 30 with his portrait, biography, base stats (95 politics: DoA\'s hero list), his leadership plus 29 for his levels (Fox) and 60 points spread at random (2 a level, live), to be persuaded with his portrait');
     {
       const R = [...srv.game.hh.roster.values()], by = n => R.find(h => h.name === n);
       ok(by('Genghis Khan')?.atk === 97 && by('Genghis Khan')?.int === 91 && by('Isaac Newton')?.atk === 50 && by('Isaac Newton')?.int === 98 && R.filter(h => h.estimated).length < 10,
@@ -914,7 +925,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       ok(srv.game.hh.sync(old) && old.base.atk === 50 && old.base.int === 98 && !srv.game.hh.sync(old), 'a historic hero hired under the old sheet takes the corrected stats once');
       // m3.128: the faithful sheet changes nothing the client knows, so the client is told of no items.
       const defs = await c.call('common.getItemDefXml', {});
-      ok(srv.game.hh.items.length === 0 && /<itemdef><items><\/items>|<itemdef><items\/>/.test(defs.itemXml), 'with the faithful sheet the client is told of no new items (common.getItemDefXml)');
+      const told = [...String(defs.itemXml).matchAll(/<itemEum id="([^"]+)"/g)].map(m => m[1]);
+      ok(srv.game.hh.items.length === 59 && told.length === 59 && told.every(id => /^hero\.taskitem\.7[0-5]\d$/.test(id)),
+        'with the sheet the client is told only of the heroes it doesn\'t have, the 59 DoA added (common.getItemDefXml)');
     }
     {
       // m3.128 (the mod): a sheet can add heroes the client doesn't have (an ID of its own, a Bio, a Sex), replace a
@@ -3349,7 +3362,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       // Historic heroes without quests (rules.historicHeroes.questFree): the portrait alone captures, and is used up.
       { const HR = G.rules.historicHeroes; HR.questFree = true;
         const [[f1, id1], [f2, id2]] = [...G.hh.byField.entries()].filter(([, id]) => G.hh.state(id)?.status === 'free').slice(0, 2);
-        const item1 = `hero.taskitem.${id1}`; pb.items[item1] = 1; delete pb.items[`hero.taskitem.${id2}`];
+        const item1 = G.hh.item(id1); pb.items[item1] = 1; delete pb.items[G.hh.item(id2)];
         const got = G.hh.conquered(f1, pb, t => ({ castle: city, hero: { ...t, id: G.store.id() } }));
         const away = G.hh.conquered(f2, pb, t => ({ castle: city, hero: { ...t, id: G.store.id() } }));
         HR.questFree = false;
@@ -3437,6 +3450,13 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         && /<tr><td>Warrior<\/td><td>230<\/td><td>25<\/td>/.test(html) && /<tr><td>Historic<\/td><td>150<\/td><td>167,066,250<\/td>/.test(html) && !/\{\{|Dominion/.test(html + np.body + drops)
         && states.includes('barb') && Object.values(status).every(x => !/\(\d+,\d+\)/.test(x.t)) && /Barbarian cities/.test(drops) && /Cross Medal/.test(drops) && /<td>10%<\/td>/.test(drops),
         `the Heroes page (${heroes.length} heroes, ${states.filter(k => k === 'barb').length} in barbarian cities, none placed), the NPCs page and the Drop Table from this server's data`);
+      // Portraits: DoA's own (art/heroes/N.png) for the heroes Evony's art doesn't have; "portrait unknown" for one nobody has.
+      const unknown = fs.readFileSync(path.join(__dirname, '..', 'public', 'images', 'hero-unknown.png'));
+      const [f709, f700, f1] = await Promise.all(['/flash/images/icon/hero/709.png', '/flash/images/icon/hero/700.png', '/flash/images/icon/hero/1.png'].map(get));
+      const art = f => path.join(__dirname, '..', 'art', ...f.split('/')), doa = fs.existsSync(art('heroes/700.png')), evony = fs.existsSync(art('flash/images/icon/hero/1.png'));
+      ok(heroes.some(h => h.id === 758 && h.name === 'Amanirenas') && f709.status === 200 && /png/.test(f709.type) && f709.body.equals(unknown)
+        && (!doa || f700.status === 200 && f700.body.equals(fs.readFileSync(art('heroes/700.png')))) && (!evony || f1.status === 200 && !f1.body.equals(unknown)),
+        `the Heroes page lists DoA's heroes; a portrait nobody has is "portrait unknown" (709)${doa ? ', and DoA\'s own come from art/heroes (700)' : ''}`);
     }
     {
       // Age of War: Troop Goals and Coordinated Attacks, through the handlers with a stand-in connection.

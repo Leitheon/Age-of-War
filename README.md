@@ -89,11 +89,15 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
 - **Historic Cities** show their introductions from the client's own city list.
 - **Historic heroes** need no quest (`rules.historicHeroes.questFree`): Enquire Details at the Inn gives the hero's
   place and portrait, and taking that NPC city with the portrait in hand captures the hero, using the portrait up.
+- **The hero list is DoA's**: 698 historic heroes, the client's 639 and the 59 DoA added (700 to 758, from Adolf
+  Hitler to Amanirenas), with DoA's stats, in `server/src/data/historic-heroes.csv`. Portraits come from
+  `art/flash/images/icon/hero/`, then DoA's own `art/heroes/`; a hero with none shows a "portrait unknown" picture
+  until you put a `<ID>.png` in `art/heroes/`.
 - **Reports**: this client has no Other tab, so the Other reports (a city founded, what a box gave...) are with the
   Army ones; each report's values are sent the way this client reads them.
 - **Chat**: World and Alliance chat of the last 48 hours (`rules.chat.historyHours`) is kept through restarts and
   shown on signing in. **Flags** take up to 4 characters (`rules.flagLength`).
-- **The sign-in screen's pages**: `/heroes` (every historic hero, with stats from the hero sheet and where each is:
+- **The sign-in screen's pages**: `/heroes` (every historic hero, with DoA's stats from the hero sheet and where each is:
   serving or held by a lord, in a barbarian city, or no rumors; and the experience tables), `/npcs` and
   `/droptable` (the battle drop chances, from `rules.battleDrops`). The pages are in `server/pages/`.
 - **Mayor XP** (`rules.mayorExp`): a city's mayor gains 0.1622 x (food + wood + stone + iron + build seconds) for

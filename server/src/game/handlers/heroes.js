@@ -34,7 +34,7 @@ module.exports = (game, H) => {
     game.pushResources(c);
     if (r.hero.historic){
       game.hh.hired(r.hero.historic, c, r.hero.id, conn.player);
-      const item = `hero.taskitem.${r.hero.historic}`;
+      const item = game.hh.item(r.hero.historic);
       if (game.items.take(conn.player, item)) game.pushItems(conn.player, [item]);
     }
     game.log.info(`${conn.player.name} hired ${r.hero.name} (level ${r.hero.level})`);

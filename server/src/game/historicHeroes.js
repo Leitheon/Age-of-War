@@ -7,12 +7,14 @@
 // waits in the Feasting Hall to be persuaded. Otherwise the hero gets away to another NPC city.
 //
 // Names, biographies and portraits come from the client (its hero.taskitem.N items; portrait
-// images/icon/hero/N.png). Base stats (level 1) come from Fox's sheet, src/data/historic-heroes.csv; a
-// data/historic-heroes.csv next to world.json replaces it. Heroes the sheet doesn't cover yet get estimated stats.
+// images/icon/hero/N.png). Base stats (level 1) come from the hero sheet, src/data/historic-heroes.csv: for Age of
+// War, DoA's hero list (Fox, Nov 2026: its 698 heroes, the client's 639 and the 59 DoA added, 700 to 758); a
+// data/historic-heroes.csv next to world.json replaces it. Heroes the sheet doesn't cover get estimated stats.
 //
 // The sheet can also add heroes the client doesn't have (m3.128, for the mod): a row whose ID isn't one of the
-// client's is a new hero, with its own Bio and Sex columns; its portrait is images/icon/hero/<ID>.png (put it in
-// public/images/icon/hero/). A Bio column replaces a client hero's biography. With rules.historicHeroes.sheetDefines
+// client's is a new hero, with its own Bio and Sex columns; its portrait is images/icon/hero/<ID>.png (art/heroes/
+// or art/flash/images/icon/hero/; with none, http.js shows "portrait unknown"). A Bio column replaces a client
+// hero's biography. With rules.historicHeroes.sheetDefines
 // the sheet is the whole roster: its names, and only its heroes. Wherever a hero's name or biography isn't the
 // client's own, the client is told (common.getItemDefXml, as live tells it about items newer than it is).
 const fs = require('fs');
@@ -56,7 +58,8 @@ function loadRoster(data, csvFiles, opts = {}){
   for (const it of Object.values(data.items)){
     const m = /^hero\.taskitem\.(\d+)$/.exec(it.id); if (!m) continue;
     const id = Number(m[1]), name = it.name.trim();
-    roster.set(id, { id, name, bio: it.desc.trim(), portrait: `images/icon/hero/${id}.png`, female: FEMALE.test(name), estimated: true, clientName: it.name, clientBio: it.desc });
+    // (item: the client's own item id, which for heroes 1 to 9 is hero.taskitem.01 to .09)
+    roster.set(id, { id, item: it.id, name, bio: it.desc.trim(), portrait: `images/icon/hero/${id}.png`, female: FEMALE.test(name), estimated: true, clientName: it.name, clientBio: it.desc });
   }
   const file = csvFiles.find(f => fs.existsSync(f));
   const unmatched = [], inSheet = new Set();
@@ -77,7 +80,7 @@ function loadRoster(data, csvFiles, opts = {}){
       if (img != null && roster.has(img) && !taken.has(img)) h = roster.get(img);
       // A hero the client doesn't have: the row's ID is his.
       else if (img != null && Number.isSafeInteger(img) && img > 0 && !roster.has(img)){
-        h = { id: img, name, bio: '', portrait: `images/icon/hero/${img}.png`, female: FEMALE.test(name), estimated: true, added: true };
+        h = { id: img, item: `hero.taskitem.${img}`, name, bio: '', portrait: `images/icon/hero/${img}.png`, female: FEMALE.test(name), estimated: true, added: true };
         roster.set(img, h); byFold.set(fold(name), h);
       }
       if (!h){ const f = byFold.get(fold(name)); if (f && !taken.has(f.id)) h = f; }
@@ -128,7 +131,7 @@ function heroItems(roster){
   const out = [];
   for (const h of roster.values()){
     if (!h.added && h.name === h.clientName?.trim() && h.bio === h.clientBio?.trim()) continue;
-    out.push({ id: `hero.taskitem.${h.id}`, name: h.name, itemType: '任务', dayLimit: 0, userLimit: 0, desc: h.bio, itemDesc: h.name, iconUrl: h.portrait, price: 0 });
+    out.push({ id: h.item, name: h.name, itemType: '任务', dayLimit: 0, userLimit: 0, desc: h.bio, itemDesc: h.name, iconUrl: h.portrait, price: 0 });
   }
   return out;
 }
@@ -155,6 +158,8 @@ class HistoricHeroLogic {
   itemXml(){ return itemXml(this.items);
   }
   get rules(){ return this.g.rules.historicHeroes; }
+  // A hero's portrait item: hero.taskitem.N, as the client names it (hero.taskitem.01 to .09 for heroes 1 to 9).
+  item(id){ return this.roster.get(Number(id))?.item || `hero.taskitem.${id}`; }
   get db(){ return this.g.store.db; }
   state(id){ return this.db.hh[id]; }
   // Put every hero that isn't hired or waiting at an Inn into an NPC city. Run at startup.
@@ -162,6 +167,11 @@ class HistoricHeroLogic {
     this.db.hh = this.db.hh || {};
     this.byField.clear();
     for (const [id, s] of Object.entries(this.db.hh)) if (s.status === 'free' && s.fieldId != null && this.roster.has(Number(id))) this.byField.set(s.fieldId, Number(id));
+    // Before 0.1.17 heroes 1 to 9's portraits were given as hero.taskitem.1 to .9, which the client doesn't know.
+    for (const p of Object.values(this.db.players || {})) for (const k of Object.keys(p.items || {})){
+      const m = /^hero\.taskitem\.(\d+)$/.exec(k), to = m && this.item(Number(m[1]));
+      if (to && to !== k){ p.items[to] = (p.items[to] || 0) + p.items[k]; delete p.items[k]; this.g.store.touch?.(); }
+    }
     let placed = 0;
     for (const h of this.roster.values()){
       const s = this.db.hh[h.id];
@@ -255,7 +265,7 @@ class HistoricHeroLogic {
     if (!h) return [-1, 'Nobody has heard of that hero.'];
     if (s.status !== 'free' || s.fieldId == null) return [-1, `${h.name} can't be found right now.`];
     p.hhKnown = p.hhKnown || {}; p.hhKnown[id] = true;
-    const item = `hero.taskitem.${id}`;
+    const item = this.item(id);
     p.items[item] = Math.max(1, p.items[item] || 0);
     return { bean: this.simpleBean(h, p), item };
   }
@@ -272,7 +282,7 @@ class HistoricHeroLogic {
   }
   questBean(p, id, now){
     const h = this.roster.get(id), q = this.quests(p)[id], s = this.state(id);
-    const portrait = (p.items[`hero.taskitem.${id}`] || 0) > 0;
+    const portrait = (p.items[this.item(id)] || 0) > 0;
     // The city's loyalty: each attack won there lowers it, and at 0 the city (and the hero) is yours.
     const tile = s.status === 'free' && s.fieldId != null ? world.tileAt(this.g.store, s.fieldId, now) : null;
     const loyalty = tile ? Math.floor(this.g.npc.state(this.db, tile, now).loyalty ?? 0) : 0;
@@ -308,7 +318,7 @@ class HistoricHeroLogic {
     const id = this.byField.get(fieldId); if (id == null) return null;
     const s = this.state(id), h = this.roster.get(id);
     if (!s || s.status !== 'free') return null;
-    const free = !!this.rules.questFree, q = this.quests(p)[id], item = `hero.taskitem.${id}`, portrait = (p.items[item] || 0) > 0;
+    const free = !!this.rules.questFree, q = this.quests(p)[id], item = this.item(id), portrait = (p.items[item] || 0) > 0;
     if ((q || free) && portrait){
       const held = seize({ ...this.offer(h, this.alloc(id)), ...(free ? {} : { persuadeItem: item }) });
       if (held){
