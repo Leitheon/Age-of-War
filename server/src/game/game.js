@@ -99,6 +99,7 @@ class Game {
     this.heroes.charmFactor = (h, now) => this.charms.heroFactor(h, now);
     this.research.mayorBonus = c => this.heroes.mayorBonus(c, 'points:int');
     const hist = historic.build(data.historicNames || [], rules);
+    for (const h of hist.values()) h.intro = data.historicIntros?.[h.name.trim()] || '';   // (the field window's description)
     world.setHistoric(hist);
     world.setValleyCycle({ enabled: rules.valleyCycle !== false, resetHourUTC: rules.dailyResetHourUTC || 0 });
     this.historicCount = hist.size;
@@ -175,6 +176,8 @@ class Game {
     for (const c of Object.values(this.db.castles)){
       c.troops = c.troops || {}; c.forts = c.forts || {}; c.trainQ = c.trainQ || {}; c.heroes = c.heroes || []; c.valleys = c.valleys || []; c.fortQ = c.fortQ || [];
       if (this.heroes.migrate(c, this.db.players[c.playerId])) this.store.touch?.();
+      // Heroes holding the experience for more levels (before rules.heroAutoLevel) go up now.
+      for (const h of c.heroes){ const n = this.heroes.autoLevel(h); if (n){ this.store.touch?.(); this.log.info(`${c.name}: ${h.name} went up ${n} level${n > 1 ? 's' : ''} to ${h.level}`); } }
       if (this.ensureWalls(c)){ this.store.touch?.(); this.log.info(`${c.name} was given level ${this.rules.startWalls} Walls (every city has them now)`); }
       // 0.3.28: the historic hero sheet had attack and intelligence swapped; hired heroes take the corrected stats.
       let fixed = 0;

@@ -1,4 +1,5 @@
 'use strict';
+const { centsRate, fmt } = require('../nocents');
 // Inn and Feasting Hall.
 module.exports = (game, H) => {
   const { heroes } = game;
@@ -14,16 +15,18 @@ module.exports = (game, H) => {
     const c = game.castleOr(conn, cmd, d.castleId); if (!c) return;
     const p = conn.player, id = 'consume.refreshtavern.1', price = game.data.items[id]?.price || 5;
     if (!heroes.innLevel(c)) return game.fail(conn, cmd, -30, 'Build an Inn to recruit heroes.');
+    const rate = centsRate(game.rules), gold = price * rate;   // (no cents: its worth in gold, nocents.js)
     if (game.items.take(p, id)) game.pushItems(p, [id]);
-    else if ((p.coins || 0) >= price){ p.coins -= price; game.pushPlayerInfo(p); }
-    else return game.fail(conn, cmd, -28, `Refreshing the Inn takes a Hero Hunting (${price} coins).`);
+    else if (rate && game.goldPool(p) >= gold) game.payGold(p, gold, c, 'Hero Hunting');
+    else if (!rate && (p.coins || 0) >= price){ p.coins -= price; game.pushPlayerInfo(p); }
+    else return game.fail(conn, cmd, -28, rate ? `Refreshing the Inn takes a Hero Hunting (${fmt(gold)} gold).` : `Refreshing the Inn takes a Hero Hunting (${price} coins).`);
     heroes.refreshInn(c, game.now(), pool());
     game.store.touch();
     listReply(conn, cmd, c);
   };
   H['hero.hireHero'] = (conn, d, cmd) => {
     const c = game.castleOr(conn, cmd, d.castleId); if (!c) return;
-    const r = heroes.hire(c, d.heroName, () => game.store.id());
+    const r = heroes.hire(c, d.heroName, () => game.store.id(), pool());
     if (Array.isArray(r)) return game.fail(conn, cmd, r[0], r[1]);
     game.store.touch();
     game.reply(conn, cmd, {});

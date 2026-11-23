@@ -183,6 +183,11 @@ const DEFAULTS = {
   innMaxLevelPerInnLevel: 8,       // UNVERIFIED: an Inn of level L offers heroes up to level 8 x L
   heroStartLoyalty: 70,            // UNVERIFIED
   heroPointsPerLevel: 1,
+  // A hero levels up by himself once he has the experience (heroes.js autoLevel); the Flash client has a Level Up
+  // button for it, the web client doesn't. false waits for hero.levelUp.
+  heroAutoLevel: true,
+  // A hero hired from the Inn is replaced by a new one at once; false leaves the slot empty until the Inn refreshes.
+  innRestock: true,
   heroExpBase: 150,                // experience to reach the next level = heroExpBase x level^2 (live: all 137 heroes in Fox's captures, 150 at 1 to 2,160,000 at 120)
   heroMaxLevel: 100,               // the highest level a hero reaches (Fox; a Legendary Ring's hero: ringHero.maxLevel)
   heroAwardGoldPerLevel: 100,      // UNVERIFIED: gold for "Reward" = this x hero level, +heroAwardLoyalty

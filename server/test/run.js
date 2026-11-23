@@ -91,7 +91,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
   // The tests were written for a richer first city than the live game's (which has only a Town Hall): a Cottage, four
   // fields and plenty of resources. The live start is checked on its own further down. (Age of War's level 1 Walls in
   // every city, startWalls, and its gold in place of cents, noCents, are off for the live checks and tested on their own.)
-  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
+  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, heroAutoLevel: false, innRestock: false, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
     population: 100, taxRate: 20, productionRate: 100, buildings: { '0': [1, 1], '1001': [7, 1], '1002': [4, 1], '1003': [5, 1], '1004': [6, 1] } } }));
   const srv = main({ ...PORTS, dataDir, cacheDir: path.join(dataDir, 'cache'), speed: 600, logLevel: 'warn', embedded: true, assetCdn: '', flashClient: true, legacyLogin: true, adminPassword: ADMIN.pw });
   ADMIN.token = srv.game.adminToken;
@@ -3275,6 +3275,29 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       ok(poor.ok < 0 && /costs 100,000 gold; your cities have 500/.test(poor.errorMsg) && city.buildings[18].status === 1 && Math.floor(city.res.gold) === 500,
         'without the gold it\'s refused, and nothing is spent or finished');
       city.buildings[18].status = 0;
+      // Historic Cities carry the client's own introduction for the field window.
+      // (A few, Victoria, Anman, Mesa..., have an empty introduction in the client's list too; the window then says
+      // the client's own line about attacking it.)
+      { const W = require('../src/game/world'), atl = G.mapBean(conn, W.tileAt(srv.store, 0)), all = [...W.historicEntries()], none = all.filter(([, h]) => !h.intro);
+        ok(/^Atlantis is a legendary island/.test(atl.description || '') && none.length < all.length / 10 && none.every(([, h]) => G.data.historicIntros[h.name.trim()] === ''),
+          `the Historic Cities have their descriptions from the client's list (Atlantis: "${String(atl.description).slice(0, 40)}..."; ${none.length} of ${all.length} have none there either)`); }
+      // Heroes level up by themselves (rules.heroAutoLevel), as many levels as the experience covers, with their points.
+      { G.rules.heroAutoLevel = true;
+        const h = { ...G.heroes.makeHero(5, null, new Set()), id: G.store.id(), status: 0, level: 34, exp: 1101375, points: 0 };
+        const lv = G.heroes.autoLevel(h), h2 = { ...h, level: 34, exp: 0, points: 0 }; G.heroes.gainExp(h2, 200000);
+        G.rules.heroAutoLevel = false;
+        ok(lv === 5 && h.level === 39 && h.points === 5 && h.exp === 1101375 - 973500 && h2.level === 35 && h2.exp === 200000 - 173400 && h2.points === 1,
+          `a hero goes up as soon as he has the experience: level 34 with 1,101,375 becomes ${h.level} with ${h.points} points and ${h.exp.toLocaleString('en-US')} left over`); }
+      // The Inn restocks a hired hero's place at once (rules.innRestock).
+      { G.rules.innRestock = true;
+        city.buildings[22] = { typeId: 21, level: 5, status: 0, startTime: 0, endTime: 0 };   // Inn 5
+        city.buildings[23] = { typeId: 27, level: 5, status: 0, startTime: 0, endTime: 0 };   // Feasting Hall 5
+        city.res.gold = 1e7; delete city.inn;
+        const before = G.heroes.innOffers(city, G.now(), G.faces).map(o => o.name), pick = before[1];
+        const hired = ask('hero.hireHero', { heroName: pick }), after = G.heroes.innOffers(city, G.now(), G.faces).map(o => o.name);
+        G.rules.innRestock = false;
+        ok(hired.ok === 1 && before.length === 5 && after.length === 5 && !after.includes(pick) && after[0] === before[0] && after[1] !== pick && G.heroes.list(city).some(h => h.name === pick),
+          `hiring from the Inn puts a new hero in the place at once (${pick} hired, ${after[1]} came)`); }
       // National Flag: up to 4 characters.
       pb.items['consume.changeflag.1'] = 2;
       const f5 = ask('city.modifyFlag', { newFlag: 'ABCDE' }), f4 = ask('city.modifyFlag', { newFlag: 'AB12' });

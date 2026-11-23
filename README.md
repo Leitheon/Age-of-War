@@ -82,7 +82,11 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
 - **The shop**: items for gold from all of a lord's cities, account-bound gold first; price = the item's coin price
   times `rules.webShop.goldPerCoin` (10,000).
 - **No cents** (`rules.noCents`): whatever gave cents (quests, chests, the Amulet wheel) gives their worth in gold at
-  the shop's rate, and whatever cost cents (Enquire Details, a Bernini's Hammer bought to queue) costs gold.
+  the shop's rate, and whatever cost cents (Enquire Details, a Hero Hunting or a Bernini's Hammer bought on the spot)
+  costs gold.
+- **Heroes** level up by themselves once they have the experience, with their attribute points
+  (`rules.heroAutoLevel`), and the **Inn** puts a new hero in a hired one's place at once (`rules.innRestock`).
+- **Historic Cities** show their introductions from the client's own city list.
 - **Reports**: this client has no Other tab, so the Other reports (a city founded, what a box gave...) are with the
   Army ones; each report's values are sent the way this client reads them.
 - **Chat**: World and Alliance chat of the last 48 hours (`rules.chat.historyHours`) is kept through restarts and

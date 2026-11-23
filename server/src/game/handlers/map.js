@@ -18,7 +18,7 @@ module.exports = (game, H) => {
     if (t.type === world.T.NPC){
       // No lord's name (a name adds Send Mail and Champions buttons), and canOccupy shows the Attack button
       // (FieldInfoWin), as on the live game.
-      if (t.historic) return base(t, { name: t.historic.name, userName: '', flag: '', npc: true, powerLevel: t.historic.powerLevel, canOccupy: true });
+      if (t.historic) return base(t, { name: t.historic.name, userName: '', flag: '', npc: true, powerLevel: t.historic.powerLevel, canOccupy: true, description: t.historic.intro || '' });
       return base(t, { name: "Barbarian's city", userName: '', flag: '', npc: true, canOccupy: true });   // (the live name, no flag)
     }
     if (t.type === world.T.CASTLE){
@@ -35,7 +35,7 @@ module.exports = (game, H) => {
       // canSend / canTrans: Reinforce and Transport, only to your own and your alliance's cities (and a city your army
       // is colonizing, to reinforce it); live shows neither on a neutral lord's city (Fox).
       const helps = mine || (!!me && game.alliances.same(me, p)), backs = helps || (!!me && game.colonies.canReinforce(me, c));
-      return base(t, { castleId: c.id, name: c.name, userName: p.name, flag: p.flag, prestige: p.prestige || 0, relation: mine ? 1 : game.alliances.relation(me, p), ownerPlayerId: p.id,
+      return base(t, { castleId: c.id, description: (c.powerLevel ?? 4) < 4 ? world.historicAt(t.id)?.intro || '' : '', name: c.name, userName: p.name, flag: p.flag, prestige: p.prestige || 0, relation: mine ? 1 : game.alliances.relation(me, p), ownerPlayerId: p.id,
         allianceName: game.alliances.of(p)?.name || null, honor: p.honor || 0, state: game.war.cityState(p, me),
         powerLevel: c.powerLevel ?? 4, castleIcon: c.icon || 0, playerLogoUrl: p.faceUrl || '', canScout: !mine, canLoot: !mine,
         canOccupy: !mine && !!me && !game.war.cantAttack(me, c), canSend: backs, canTrans: helps,
@@ -45,7 +45,7 @@ module.exports = (game, H) => {
       const c = game.db.castles[t.ownerCastle], p = c && game.db.players[c.playerId];
       if (c && p){
         const mine = me && p.id === me.id;
-        return base(t, { castleId: c.id, name: c.name, userName: p.name, flag: p.flag, prestige: p.prestige || 0, relation: mine ? 1 : 6, ownerPlayerId: p.id,
+        return base(t, { castleId: c.id, description: (c.powerLevel ?? 4) < 4 ? world.historicAt(t.id)?.intro || '' : '', name: c.name, userName: p.name, flag: p.flag, prestige: p.prestige || 0, relation: mine ? 1 : 6, ownerPlayerId: p.id,
           canScout: !mine, canLoot: false, canOccupy: !mine });
       }
     }

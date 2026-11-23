@@ -172,7 +172,9 @@ class HeroLogic {
   }
   // Ordinary offers, then historic heroes who came to this city's Inn (they stay until hired).
   innList(c, now, faces){ return [...this.innOffers(c, now, faces), ...(c.innHistoric || [])]; }
-  hire(c, name, nextId){
+  // rules.innRestock: a hero hired from the Inn's offers is replaced by a new one at once (else the Inn waits for
+  // its next refresh).
+  hire(c, name, nextId, faces = null){
     let offers = c.inn?.offers || [];
     let i = offers.findIndex(o => o.name === name);
     if (i < 0 && c.innHistoric){ offers = c.innHistoric; i = offers.findIndex(o => o.name === name); }
@@ -181,7 +183,10 @@ class HeroLogic {
     const o = offers[i], cost = o.level * this.rules.heroHireCostPerLevel;
     if (c.res.gold < cost) return [-1, `Hiring ${o.name} costs ${cost.toLocaleString('en-US')} gold.`];
     c.res.gold -= cost;
-    offers.splice(i, 1); if (offers === c.inn?.offers) c.inn.hired = true;
+    if (offers === c.inn?.offers && this.rules.innRestock && this.innLevel(c)){
+      const taken = new Set([...this.list(c).map(h => h.name), ...offers.map(x => x.name)]);
+      offers.splice(i, 1, this.makeHero(this.innLevel(c), faces, taken));
+    } else { offers.splice(i, 1); if (offers === c.inn?.offers) c.inn.hired = true; }
     const h = { id: nextId(), ...o, status: STATUS.FREE, hiredAt: Date.now() };
     this.list(c).push(h);
     return { hero: h };
@@ -269,7 +274,16 @@ class HeroLogic {
     if (!name || name.length > 20) return [-1, 'Hero names must be 1 to 20 characters.'];
     h.name = name; return { hero: h };
   }
-  gainExp(h, xp){ if (h.ringHero || h.historic || h.level < this.maxLevel(h)) h.exp += Math.max(0, Math.round(xp)); }
+  gainExp(h, xp){ if (h.ringHero || h.historic || h.level < this.maxLevel(h)) h.exp += Math.max(0, Math.round(xp)); this.autoLevel(h); }
+  // rules.heroAutoLevel: a hero goes up a level (with its attribute points) as soon as he has the experience, as
+  // many levels as it covers; the web client has no Level Up button. Returns the levels gained.
+  autoLevel(h){
+    if (!this.rules.heroAutoLevel || !h) return 0;
+    let n = 0;
+    while (h.level < this.maxLevel(h) && h.exp >= this.expToNext(h.level)){ h.exp -= this.expToNext(h.level); h.level += 1; h.points += this.pointsPerLevel(h); n++; }
+    if (n && h.level >= this.maxLevel(h) && !h.ringHero && !h.historic) h.exp = 0;
+    return n;
+  }
 
   // The HeroBean the client reads. Shown attributes are management+politics, power+attack, stratagem+intelligence.
   // ability: above 0 for a historic hero. The Flash client ignores it, but RoboEvony (written against the live

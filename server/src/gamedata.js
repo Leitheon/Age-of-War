@@ -98,9 +98,13 @@ function load(swfPath){
 
   // Historic City names in the client's own order. Kept exactly as written (one has a leading space,
   // Atlantis has a byte-order mark) because the client looks up each city's description by exact name.
-  const historicNames = xml.kids(doc('com.evony.Lang2_xmlClass'), 'value').map(v => v.attrs.key);
+  const hcList = xml.kids(doc('com.evony.Lang2_xmlClass'), 'value');
+  const historicNames = hcList.map(v => v.attrs.key);
+  // Each Historic City's introduction (<intro>), by name; a name listed twice keeps its last, as the level 12
+  // that uses it does (historic.js).
+  const historicIntros = Object.fromEntries(hcList.map(v => [v.attrs.key.replace(/^\uFEFF/, '').trim(), (xml.child(v, 'intro')?.text || '').replace(/\s+/g, ' ').trim()]));
 
-  return { buildings, techs, troops, forts, items, equipTechs, questTexts, historicNames, portraits, swfVersion: swf.version };
+  return { buildings, techs, troops, forts, items, equipTechs, questTexts, historicNames, historicIntros, portraits, swfVersion: swf.version };
 }
 
 module.exports = { load, TROOP_FIELD, FORT_FIELD };
