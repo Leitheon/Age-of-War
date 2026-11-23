@@ -160,7 +160,8 @@ module.exports = (game, H) => {
     const p = conn.player, c = game.castleFor(conn, Number(d.castleId));
     if (!c) return game.fail(conn, cmd, -51, 'That city is not yours.');
     const locked = game.account.guard(conn, 2); if (locked) return game.fail(conn, cmd, locked[0], locked[1]);
-    if (!game.account.passwordOk(p, d.password)) return game.fail(conn, cmd, -50, 'Wrong password.');
+    // (the web client asks only for a confirmation, and its accounts sign in with their own password: auth.js)
+    if (!conn.web && !game.account.passwordOk(p, d.password)) return game.fail(conn, cmd, -50, 'Wrong password.');
     if (game.castlesOf(p).length < 2) return game.fail(conn, cmd, -19, "You can't abandon your only city.");
     const A = game.armies, out = A.fromCastle(c).length, coming = Object.values(A.list()).filter(a => a.playerId === p.id && a.target === c.fieldId && a.castleId !== c.id).length;
     if (out) return game.fail(conn, cmd, -19, `${out} of this city's armies ${out === 1 ? 'is' : 'are'} still out. Bring them home first.`);

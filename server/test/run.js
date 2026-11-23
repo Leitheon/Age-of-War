@@ -876,7 +876,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       let other = null;
       for (let d = 1; d < 40 && other == null; d++) for (let dy = -d; dy <= d && other == null; dy++) for (let dx = -d; dx <= d && other == null; dx++){
         const id = world.idOf(cx + dx, cy + dy), t = world.tileAt(srv.store, id);
-        if (t.type === world.T.NPC && !t.historic && id !== npcTile && !G.hh.byField.has(id) && G.npc.hero(t, Date.now())) other = id;
+        if (t.type === world.T.NPC && !t.historic && t.level <= 3 && id !== npcTile && !G.hh.byField.has(id) && G.npc.hero(t, Date.now())) other = id;   // (a level the test army is sure to beat)
       }
       const oh = G.npc.hero(world.tileAt(srv.store, other), Date.now()), cities0 = me.castles.length, pris0 = G.heroes.list(city).filter(h => h.status === 4).length;
       // (start well below 0: loyalty comes back while the army marches on the test clock; and a free Feasting Hall seat)
@@ -3372,6 +3372,24 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         G.rules.dynamiteFullDemolish = false;
         ok(st.ok === 1 && dy.ok === 1 && !(city.buildings[24]?.level > 0) && !pb.items['player.destroy.1.a'] && !dy.castle.buildings.some(b => b.positionId === 24),
           `Full Demolish: Dynamite takes a level 6 Warehouse down completely (${city.buildings[24] ? 'level ' + city.buildings[24].level : 'gone'})`); }
+      // Full Demolish without Dynamite: one is bought with gold (rules.noCents); without the gold the demolition the
+      // client started for it is called off and the building stands.
+      { G.rules.dynamiteFullDemolish = true; G.rules.noCents = true;
+        city.buildings[24] = { typeId: 3, level: 6, status: 0, startTime: 0, endTime: 0 };
+        pb.items['player.destroy.1.a'] = 0; pb.boundGold = 0; for (const x of G.castlesOf(pb)) x.res.gold = 0; city.res.gold = 250000;
+        ask('castle.destructBuilding', { positionId: 24 }); const bought = ask('castle.speedUpBuildCommand', { positionId: 24, itemId: 'player.destroy.1.a' });
+        const goldLeft = Math.floor(city.res.gold);
+        city.buildings[25] = { typeId: 3, level: 4, status: 0, startTime: 0, endTime: 0 }; city.res.gold = 1000;
+        ask('castle.destructBuilding', { positionId: 25 }); const poor = ask('castle.speedUpBuildCommand', { positionId: 25, itemId: 'player.destroy.1.a' });
+        G.rules.dynamiteFullDemolish = false; G.rules.noCents = false;
+        ok(bought.ok === 1 && !(city.buildings[24]?.level > 0) && goldLeft >= 50000 && goldLeft < 50100 && poor.ok < 0 && /Dynamite costs 200,000 gold/.test(poor.errorMsg)
+          && city.buildings[25].level === 4 && city.buildings[25].status === 0,
+          `Full Demolish without Dynamite buys one for 200,000 gold; without the gold the building is left standing (${poor.errorMsg})`);
+        delete city.buildings[25]; }
+      // Abandoning a city from the web client needs no password (its window asks for a confirmation).
+      { const extra = G.castlesOf(pb).find(x => x !== city), n0 = G.castlesOf(pb).length;
+        const gave = ask('city.giveupCastle', { castleId: extra.id });
+        ok(gave.ok === 1 && G.castlesOf(pb).length === n0 - 1, 'a web lord abandons a city without a password'); }
       // National Flag: up to 4 characters.
       pb.items['consume.changeflag.1'] = 2;
       const f5 = ask('city.modifyFlag', { newFlag: 'ABCDE' }), f4 = ask('city.modifyFlag', { newFlag: 'AB12' });

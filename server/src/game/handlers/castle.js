@@ -1,6 +1,7 @@
 'use strict';
 // Building menu, construction, demolition, speed-ups and taxes.
 const { TYPE, STATUS } = require('../castle');
+const { centsRate, fmt } = require('../nocents');
 
 module.exports = (game, H) => {
   const { logic } = game;
@@ -79,14 +80,32 @@ module.exports = (game, H) => {
     const FREE = d.itemId === 'free.speed', NO_FREE = [-40, 'Incorrect item application.'];
     if (!b || !b.status) return game.fail(conn, cmd, ...(FREE ? NO_FREE : [-45, 'Nothing is being built there.']));
     const left = Math.max(0, b.endTime - now);
-    // Dynamite: "Demolish building immediately. But acquire no resource."
-    const s = d.itemId === 'player.destroy.1.a'
-      ? (b.status !== STATUS.DESTRUCTING ? { err: 'Dynamite only finishes a demolition.' } : game.items.ensure(p, d.itemId) ? { reduce: () => 0, item: d.itemId, dynamite: true } : { err: "You don't have any Dynamite." })
-      : game.items.speedup(p, d.itemId, left, game.items.coinsFor(left));
+    // Dynamite: "Demolish building immediately. But acquire no resource." Without one it is bought there and then:
+    // with coins, or with rules.noCents its worth in gold (account-bound first, then this city). If it can't be had,
+    // a demolition started moments ago is called off: the web client's Full Demolish starts one, then sends the
+    // Dynamite, and the building must not come down without it.
+    const DYN = 'player.destroy.1.a';
+    let s;
+    if (d.itemId === DYN){
+      const rate = centsRate(game.rules), gold = (game.data.items[DYN]?.price || 0) * rate;
+      if (b.status !== STATUS.DESTRUCTING) s = { err: 'Dynamite only finishes a demolition.' };
+      else if (game.items.has(p, DYN)) s = { reduce: () => 0, item: DYN, dynamite: true };
+      else if (rate && gold > 0 && game.goldPool(p) >= gold) s = { reduce: () => 0, dynamite: true, gold };
+      else if (!rate && game.items.ensure(p, DYN)) s = { reduce: () => 0, item: DYN, dynamite: true };
+      else {
+        s = { err: rate && gold > 0 ? `Dynamite costs ${fmt(gold)} gold; your cities have ${fmt(game.goldPool(p))}.` : "You don't have any Dynamite." };
+        if (now - (b.startTime || 0) < 15000){
+          Object.assign(b, { status: STATUS.NORMAL, startTime: 0, endTime: 0, cost: null });
+          game.store.touch(); game.pushBuilding(c, d.positionId);
+          s.err += ' The building is left standing.';
+        }
+      }
+    } else s = game.items.speedup(p, d.itemId, left, game.items.coinsFor(left));
     if (s.dynamite){ b.noRefund = true; if (game.rules.dynamiteFullDemolish) b.fullDemolish = true; }   // (the web client's Full Demolish)
     if (s.err) return game.fail(conn, cmd, ...(FREE ? NO_FREE : [-44, s.err]));
     if (s.item) game.items.take(p, s.item);
     if (s.coins) p.coins -= s.coins;
+    if (s.gold) game.payGold(p, s.gold, c, 'Dynamite');
     b.endTime = now + Math.max(0, s.reduce(left));
     game.store.touch();
     // The web client's speed-up window reads the city's buildCommands back to see whether another item is needed:
