@@ -136,6 +136,8 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   every hero he has, sortable by any column, with a Select box for up to 3 champions. Any lord can see them from
   the Champions button on that lord's cities (Hero Attributes: portraits, stats and gear). It has the live game's
   frame, its title on the red banner. Every window's X sits on its frame's silver tab, whatever the window's size.
+- **My Items**: the Angel and Devil items (Fleet Feet ... Broken Gates, used on another lord or his city) are under
+  the Stratagem tab with the stratagems.
 - **No world boss**: the web client's built-in Pumpkin Warden (a figure on the map at 0,2) is turned off; the
   server has no world boss.
 - **Troops and resources**: a city holds 0 to 1,000,000,000,000 of each troop type (training past it is refused;

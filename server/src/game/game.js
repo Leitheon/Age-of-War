@@ -714,7 +714,7 @@ class Game {
         const it = this.data.items[giveRaw] || all.find(i => i.name.trim().toLowerCase() === low) || all.find(i => i.name.toLowerCase().includes(low));
         if (it){
           this.items.add(p, it.id, n); this.store.touch(); this.pushItems(p, [it.id]);
-          note = `<p class="ok">Added ${n} x ${esc(it.name)} (${esc(it.id)}). Find it under Items in the game.</p>`;
+          note = `<p class="ok">Added ${n} x ${esc(it.name)} (${esc(it.id)}). Find it in My Items in the game.</p>`;
           this.log.info(`Owner page: gave ${p.name} ${n} x ${it.name}`);
         } else note = `<p class="bad">No item called "${esc(giveRaw)}".</p>`;
       }
