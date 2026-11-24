@@ -136,6 +136,10 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   every hero he has, sortable by any column, with a Select box for up to 3 champions. Any lord can see them from
   the Champions button on that lord's cities (Hero Attributes: portraits, stats and gear). It has the live game's
   frame, its title on the red banner. Every window's X sits on its frame's silver tab, whatever the window's size.
+- **Historic City rulers**: Poseidon rules Atlantis and a famous hero each capital (`historic.rulers`: Napoleon in
+  Paris, Caesar in Rome, Saladin in Jerusalem ...). He leads its defence with the city's own hero numbers under his
+  name and portrait, is out of the barbarian cities and the Inn's rumours, and is taken prisoner (level 100) when the
+  city falls; freed, he goes back to rule it. The website's Heroes page shows where each rules.
 - **Historic heroes get 1 point a level** (counting the first: 150 at level 150; wild ones at 30 come with 30), as
   live: Gao Guiying at 150 in the live ranking is her sheet + 150 + her gear. Ring heroes keep 2 a level. Heroes saved
   with more lose the extra at startup, unspent points first, then in proportion to where they went.

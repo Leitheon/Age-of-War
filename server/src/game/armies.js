@@ -499,7 +499,7 @@ class ArmyLogic {
       const st = g.npc.state(this.db, tile, now), npcCity = tile.type === world.T.NPC;
       // (an ordinary NPC hero is shown without a portrait in a scout report, as live: heroUrl="")
       const plainHero = h => (h ? { name: h.name, level: h.level } : null);
-      const defender = npcCity ? st.ruler || (!tile.historic ? g.hh.defender(tile.id, now) || plainHero(g.npc.hero(tile, now)) : null) : plainHero(g.npc.hero(tile, now));
+      const defender = npcCity ? g.hh.asRuler(tile.id, st.ruler) || (!tile.historic ? g.hh.defender(tile.id, now) || plainHero(g.npc.hero(tile, now)) : null) : plainHero(g.npc.hero(tile, now));
       // Live (Informatics 7, one Scout): an NPC city compares against its level; a Historic City against its own.
       const scouts = a.troops.scouter || 0, level = npcCity ? (tile.historic ? tile.historic.level : g.npc.techLevel(tile)) : tile.level || 0;
       const d = this.wildInformatics(p) - level + (npcCity ? this.scoutBonus(scouts) : 0);
@@ -582,7 +582,8 @@ class ArmyLogic {
       npcState = g.npc.state(this.db, tile, now);
       // A historic hero waiting in an NPC city leads its defence instead of the NPC's ordinary hero.
       hhDef = tile.type === world.T.NPC && !tile.historic ? g.hh.defender(tile.id, now) : null;
-      const ruler = npcState.ruler || hhDef;
+      // (a Historic City's ruling hero, rules.historic.rulers, under his own name and portrait)
+      const ruler = g.hh.asRuler(tile.id, npcState.ruler) || hhDef;
       // The NPC city's own hero (live: "Aaron (Level 3)").
       npcHero = !ruler && tile.type === world.T.NPC ? g.npc.hero(tile, now) : null;
       defender = { troops: npcState.troops, forts: npcState.forts, mods: tile.type === world.T.NPC ? g.npc.mods(tile, g.data.techs, ruler) : {} };
@@ -914,6 +915,7 @@ class ArmyLogic {
     // A Historic City starts afresh (5,000 of each resource, 50 people); an NPC city keeps what's left of its stores.
     const res = hc ? { ...(cq.historicStart?.resources || {}) } : { ...(st.res || {}) };
     for (const [k, n] of Object.entries(a.loot || {})) res[k] = (res[k] || 0) + n;
+    const rulerHero = hc ? g.hh.rulerAt(tile.id) : null;
     delete this.db.npc[tile.id];
     const nc = g.createCastle(p, { fieldId: tile.id, now, name: hc ? hc.name : cq.cityName || 'New city',
       start: { buildings: g.npc.cityLayout(tile), resources: res, taxRate: cq.taxRate ?? 10, productionRate: cq.productionRate ?? 80 } });
@@ -929,7 +931,8 @@ class ArmyLogic {
       for (const at of [nc, c].filter(Boolean)){ const h = g.heroes.seize(at, tmpl, () => g.store.id()); if (h) return { hero: h, castle: at }; }
       return null;
     };
-    const hh = g.hh.conquered(tile.id, p, seize);
+    // (a Historic City's ruling hero, rules.historic.rulers, is taken prisoner)
+    const hh = hc ? g.hh.captureRuler(tile.id, seize, rulerHero) : g.hh.conquered(tile.id, p, seize);
     const held = hh ? (hh.captive ? { hero: hh.captive, castle: hh.castle } : null) : npcHero ? seize(npcHero) : null;
     if (held && held.castle === c) g.pushHero(c, held.hero, 0);
     g.store.touch();
@@ -946,7 +949,7 @@ class ArmyLogic {
   zeroNoCapture(p, c, tile, npcHero, now){
     const g = this.g;
     const seize = tmpl => { const h = c && g.heroes.seize(c, tmpl, () => g.store.id()); return h ? { hero: h, castle: c } : null; };
-    const hh = g.hh.conquered(tile.id, p, seize);
+    const hh = tile.historic ? g.hh.captureRuler(tile.id, seize) : g.hh.conquered(tile.id, p, seize);
     const held = hh ? (hh.captive ? { hero: hh.captive, castle: hh.castle } : null) : npcHero ? seize(npcHero) : null;
     if (held) g.pushHero(c, held.hero, 0);
     if (held){ g.effort.note(p, 'captive'); g.log.info(`${p.name} brought ${this.placeName(tile.id)} to loyalty 0 without taking it, capturing ${held.hero.name}`); }

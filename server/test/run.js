@@ -874,7 +874,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
 
     // ---------- historic heroes ----------
     const hhLogic = srv.game.hh, me = srv.store.db.players[castle.playerId] || Object.values(srv.store.db.players)[0];
-    ok(hhLogic.roster.size === 689 && Object.values(srv.store.db.hh).filter(s => s.status === 'free' && s.fieldId != null).length === 689, 'all 689 historic heroes (the client\'s 639 and 50 of those DoA added) wait in NPC cities');
+    ok(hhLogic.roster.size === 689 && Object.values(srv.store.db.hh).filter(s => s.status === 'free' && s.fieldId != null).length === 672
+      && Object.values(srv.store.db.hh).filter(s => s.status === 'ruler' && world.historicAt(s.fieldId)).length === 17,
+      'all 689 historic heroes (the client\'s 639 and 50 of those DoA added) are placed: 672 wait in NPC cities, 17 rule Atlantis and the capitals');
     { const R = hhLogic.roster, h704 = R.get(704), h720 = R.get(720), h715 = R.get(715), added = [...R.values()].filter(h => h.added);
       ok(added.length === 50 && added.every(h => h.id >= 700 && h.id <= 758 && h.bio.length > 40 && !h.estimated && h.item === `hero.taskitem.${h.id}`)
         && h704.name === 'Baldwin IV of Jerusalem' && h704.pol === 99 && h704.atk === 99 && h704.int === 99 && h704.ldr === 150 && !h704.female
@@ -1094,8 +1096,11 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
     ok(wash.ok === 1 && ch.points === 30 && ch.added.pol + ch.added.atk + ch.added.int === 0 && me.items['hero.reset.1'] === 0, 'three Holy Water free Caesar\'s 30 points to place');
     const ren = await c.call('hero.changeName', { castleId: heldIn.id, heroId: ch.id, newName: 'Bob' });
     ok(ren.ok < 0, 'a historic hero keeps his name');
-    ok((await c.call('hero.fireHero', { castleId: heldIn.id, heroId: ch.id })).ok === 1 && srv.store.db.hh[146].status === 'free' && srv.store.db.hh[146].fieldId !== npcTile,
-      'a dismissed historic hero goes back to an NPC city somewhere else');
+    // (Caesar rules Rome, rules.historic.rulers, so dismissed he goes back there; any other goes to an NPC city.)
+    const rome = [...world.historicEntries()].find(([, x]) => x.name === 'Rome')[0];
+    ok((await c.call('hero.fireHero', { castleId: heldIn.id, heroId: ch.id })).ok === 1 && srv.store.db.hh[146].status === 'ruler' && srv.store.db.hh[146].fieldId === rome
+      && (G => { const s0 = G.hh.state(1); G.hh.release(1); const r = G.hh.state(1).status === 'free' && G.hh.state(1).fieldId !== s0?.fieldId; return r; })(srv.game),
+      'a dismissed historic hero goes back to an NPC city somewhere else, and a Historic City\'s ruler (Caesar) back to rule it');
     // Fox (Oct 23 2026): a barbarian city's hero is randomized daily; conquering the city captures it, and you can
     // then persuade (bribe) the hero to join, or release it.
     {
@@ -1173,6 +1178,34 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         h.buildings[1001].level = 13; const farm13 = G.logic.checkOut(h, me, h.buildings[1001]); h.buildings[1001].level = 14;
         ok(farm14.ok === -57 && rally10.ok === -57 && farm13.ok === 1 && farm13.conditionBean.food === G.logic.condition(h, me, 7, 14).food,
           'in a level 14 Historic City a Farm goes from 13 to 14 but no further, and the Rally Spot stops at 10 (live)');
+        // Fox (Nov 24 2026): Poseidon rules Atlantis, and each capital the hero most associated with it
+        // (rules.historic.rulers). He leads its defence with the city's own hero numbers, is out of the barbarian
+        // cities and the Inn's rumours, and is taken prisoner when the city falls; freed, he goes back to rule it.
+        {
+          const HH = G.hh, at = name => [...world.historicEntries()].find(([, x]) => x.name === name)?.[0];
+          const paris = at('Paris'), atl = at('Atlantis'), nap = [...HH.roster.values()].find(h => h.name === 'Napoleon Bonaparte');
+          const rulers = Object.keys(HH.rulers()).length, pos = HH.rulerAt(atl)?.name, napRules = HH.rulerAt(paris)?.id === nap.id;
+          const pT = world.tileAt(srv.store, paris), base = G.npc.state(db, pT, Date.now()).ruler, led = HH.asRuler(paris, base);
+          const notWild = !HH.free().some(h => h.id === nap.id) && HH.search(me, 'Napoleon').length === 0;
+          const lord = G.createPlayer({ name: 'Ruletaker' }, { userName: 'Ruletaker' }), home = G.castlesOf(lord)[0];
+          home.buildings[3] = { typeId: 27, level: 10 };   // (a Feasting Hall to hold him)
+          const army = { troops: { archer: 50 }, loot: {} };
+          const won = A.conquer(army, lord, home, null, pT, G.npc.state(db, pT, Date.now()), {}, null, Date.now());
+          const cap = won.captive, capOk = cap && cap.name === 'Napoleon Bonaparte' && cap.level === 100 && cap.status === 4 && cap.added.pol + cap.added.atk + cap.added.int === 100 && HH.state(nap.id).status === 'seized';
+          const kingNow = HH.rulerAt(paris) === null;
+          G.heroes.list(won.heldIn).splice(G.heroes.list(won.heldIn).indexOf(cap), 1); HH.release(nap.id);
+          const waitsForCity = HH.state(nap.id).status === 'ruler' && HH.rulerAt(paris) === null;
+          G.abandonCastle(lord, won.castle);
+          const back = HH.rulerAt(paris)?.id === nap.id;
+          home.troops = { archer: 10 };
+          const hit = { id: srv.store.id(), playerId: lord.id, castleId: home.id, heroId: 0, mission: 5, from: home.fieldId, target: atl, troops: { archer: 10 }, carry: {}, loot: null, startTime: Date.now(), reachTime: Date.now(), oneWay: 1000, direction: 1, restTime: 0 };
+          db.armies[hit.id] = hit; A.arrive(hit, Date.now()); delete db.armies[hit.id];
+          const rep = (lord.reports || [])[0]?.content || '';
+          const inReport = /Poseidon/.test(rep) && !/name="(King|Queen)"/.test(rep);
+          ok(rulers === 17 && pos === 'Poseidon' && napRules && led.name === 'Napoleon Bonaparte' && led.attack === base.attack && led.intelligence === base.intelligence && led.face === nap.portrait
+            && notWild && capOk && kingNow && waitsForCity && back && inReport,
+            `Historic City rulers: Poseidon in Atlantis and 16 capitals (Napoleon in Paris), leading with the city's own hero numbers (${base.attack} attack) under their names, out of the barbarian cities; taking Paris takes Napoleon prisoner at level 100, and freed he rules Paris again once it's an NPC's; Poseidon leads Atlantis in the battle report`);
+        }
         // Fox (Oct 29 2026): taking a level 8 NPC city didn't finish the Queen's "Conquer a level 8 NPC city".
         const qs = G.quests.state(me), rec = qs.max.npcCity, q8 = G.quests.check(me, city, { kind: 'npcCity', level: 8 }, Date.now());
         delete qs.max.npcCity; const held = G.quests.check(me, city, { kind: 'npcCity', level: 10 }, Date.now()); qs.max.npcCity = rec;

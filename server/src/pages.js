@@ -3,13 +3,15 @@
 // their numbers from this server's own rules and data:
 //   /heroes              Historic Heroes (its list from /heroes.json and /heroes-status.json) and Experience & XP
 //   /heroes.json         every historic hero: id, name, leadership, attack, politics, intelligence, bio
-//   /heroes-status.json  { id: { k, t } }: owned (hired or held), barb (in a barbarian city), or no rumors
+//   /heroes-status.json  { id: { k, t } }: owned (hired or held), barb (in a barbarian city), hc (rules a Historic
+//                        City), or no rumors
 //   /npcs                the NPC page (what's in a place is learned by scouting it)
 //   /droptable           rules.battleDrops, as tables
 //   /report              the battle report viewer: ?id= from a report's link, else a box to paste one into
 //   /report.json         ?id=: that report (its XML as the game keeps it, the names of the items it turned up)
 const fs = require('fs');
 const path = require('path');
+const world = require('./game/world');
 
 const DIR = path.join(__dirname, '..', 'pages');
 const HTML = 'text/html; charset=utf-8', JSON_T = 'application/json; charset=utf-8';
@@ -51,6 +53,8 @@ module.exports = game => {
         const c = game.db.castles[s.castleId], p = c && game.db.players[c.playerId];
         out[h.id] = { k: 'owned', t: p ? `${s.status === 'hired' ? 'Serving' : 'Held by'} ${p.name}` : 'Owned' };
       } else if (s.status === 'free' && s.fieldId != null) out[h.id] = { k: 'barb', t: 'In a barbarian city' };
+      // (a Historic City's ruler, rules.historic.rulers: while a lord holds the city, it waits to rule it again)
+      else if (s.status === 'ruler'){ const hc = world.historicAt(s.fieldId); out[h.id] = { k: 'hc', t: game.hh.rulerAt(s.fieldId)?.id === h.id ? `Rules ${hc?.name}` : `Rules ${hc?.name} once it's free again` }; }
     }
     return { body: JSON.stringify(out), type: JSON_T };
   };

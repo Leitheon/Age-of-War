@@ -184,6 +184,7 @@ class HistoricHeroLogic {
       if (to && to !== k){ p.items[to] = (p.items[to] || 0) + p.items[k]; delete p.items[k]; this.g.store.touch?.(); }
     }
     this.dropRemoved();
+    this.seatRulers();
     let placed = 0;
     for (const h of this.roster.values()){
       const s = this.db.hh[h.id];
@@ -211,6 +212,66 @@ class HistoricHeroLogic {
     const kept = Object.values(this.db.castles || {}).flatMap(c => (c.heroes || []).filter(h => h.historic != null && gone(h.historic)).map(h => h.name));
     if (kept.length) this.g.log?.info?.(`Historic heroes no longer on the hero sheet, still with the lords who have them: ${kept.join(', ')}`);
     return n;
+  }
+  // ---------- Historic City rulers (rules.historic.rulers) ----------
+  // { heroId: fieldId } of the Historic Cities that have a ruler, by the names in the rules.
+  rulers(){
+    if (this._rulers) return this._rulers;
+    const want = this.g.rules.historic?.rulers || {}, byName = new Map([...this.roster.values()].map(h => [fold(h.name), h.id]));
+    const cities = new Map([...world.historicEntries()].map(([id, hc]) => [fold(hc.name), id]));
+    const out = {};
+    for (const [city, hero] of Object.entries(want)){
+      const id = byName.get(fold(hero)), fid = cities.get(fold(city));
+      if (id == null || fid == null){ this.g.log?.warn?.(`Historic City ruler ${hero} for ${city}: ${id == null ? 'no such hero' : 'no such city'}`); continue; }
+      out[id] = fid;
+    }
+    return (this._rulers = out);
+  }
+  rulerLevel(){ return this.g.rules.historic?.rulerLevel || 100; }
+  // A ruler's points: 1 a level, counting the first, spread at random (as a wild hero's).
+  rulerAlloc(){
+    const a = { pol: 0, atk: 0, int: 0 }, keys = Object.keys(a);
+    for (let i = 0; i < this.rulerLevel() * this.ppl(); i++) a[keys[Math.floor(Math.random() * 3)]]++;
+    return a;
+  }
+  // Seat each ruler in his city, out of the barbarian cities and the Inn's rumours, unless a lord holds him. True if
+  // any changed.
+  seatRulers(){
+    let n = 0;
+    for (const [id, fid] of Object.entries(this.rulers())){
+      const s = this.db.hh[id];
+      if (s && s.status !== 'free' && s.status !== 'ruler'){ if (!this._told){ const h = this.roster.get(Number(id)), hc = world.historicAt(fid); this.g.log?.info?.(`${h?.name} rules ${hc?.name} once freed: a lord holds him now, so the city's King or Queen leads it meanwhile`); } continue; }
+      if (s?.status === 'ruler' && s.fieldId === fid && s.alloc) continue;
+      if (s?.fieldId != null && this.byField.get(s.fieldId) === Number(id)) this.byField.delete(s.fieldId);
+      this.db.hh[id] = { status: 'ruler', fieldId: fid, alloc: s?.status === 'ruler' && s.alloc ? s.alloc : this.rulerAlloc() };
+      n++;
+    }
+    this._told = true;
+    if (n){ this.g.store.touch?.(); this.g.log?.info?.(`${n} historic hero${n > 1 ? 'es' : ''} now rule${n > 1 ? '' : 's'} Historic Cities (rules.historic.rulers)`); }
+    return n;
+  }
+  // The historic hero ruling the Historic City at fieldId while it's in NPC hands, or null.
+  rulerAt(fieldId){
+    const t = world.tileAt(this.g.store, fieldId);
+    if (t.type !== world.T.NPC || !world.historicAt(fieldId) || t.ownerCastle) return null;
+    for (const [id, fid] of Object.entries(this.rulers())) if (fid === fieldId && this.state(id)?.status === 'ruler') return this.roster.get(Number(id)) || null;
+    return null;
+  }
+  // The city's ruler as its defence knows him: the city's own hero numbers (base, from npc.ruler) under the ruling
+  // hero's name and portrait; base as it is if no hero rules there.
+  asRuler(fieldId, base){
+    const h = base && this.rulerAt(fieldId);
+    return h ? { ...base, name: h.name, face: h.portrait, historic: h.id } : base;
+  }
+  // The city fell (or No Capture brought it to 0): its ruler is taken prisoner through seize (as conquer's). Returns
+  // { hero, captive, castle } or null.
+  // (h: the ruler as found before the city changed hands)
+  captureRuler(fieldId, seize, h = this.rulerAt(fieldId)){
+    if (!h || this.state(h.id)?.status !== 'ruler') return null;
+    const s = this.state(h.id), held = seize({ ...this.offer(h, s.alloc || this.rulerAlloc()), level: this.rulerLevel() });
+    if (!held) return { hero: h, full: true };
+    this.db.hh[h.id] = { status: 'seized', castleId: held.castle.id, heroId: held.hero.id };
+    return { hero: h, captive: held.hero, castle: held.castle };
   }
   isNpcCity(fieldId){
     const t = world.tileAt(this.g.store, fieldId);
@@ -403,8 +464,12 @@ class HistoricHeroLogic {
   }
   // Hiring the hero settles that hero's quest (it was the reward).
   hired(id, c, heroId, p = null){ this.db.hh[id] = { status: 'hired', castleId: c.id, heroId }; if (p) delete this.quests(p)[id]; }
-  // A historic hero who leaves a lord goes back to an NPC city somewhere else.
-  release(id){ this.place(id); }
+  // A historic hero who leaves a lord goes back to an NPC city somewhere else; a Historic City's ruler to his city.
+  release(id){
+    const fid = this.rulers()[id];
+    if (fid != null){ this.db.hh[id] = { status: 'ruler', fieldId: fid, alloc: this.rulerAlloc() }; return; }
+    this.place(id);
+  }
 }
 
 module.exports = { heroItems, itemXml, HistoricHeroLogic, loadRoster, parseCsv, QUEST_BASE, QUEST_AWARD };

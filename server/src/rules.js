@@ -604,7 +604,18 @@ const DEFAULTS = {
   // level12Clearance: above 0, a level 12 grid tile this close to a level 14 stays empty (0: none do).
   // flatRing: every Historic City has flats on all sides this many tiles out, for PvP (Fox), except where another
   // Historic City is (99,99 beside 100,100). 0 leaves the map's own terrain there.
-  historic: { level12Enabled: true, level12: { x0: 9, y0: 9, step: 18 }, level12Clearance: 0, flatRing: 1 },
+  // rulers: the historic hero who leads each named Historic City's defence (Fox, Nov 24 2026: Poseidon in Atlantis,
+  // and "the most iconic hero that would be associated with" each capital). He fights with the city's own hero
+  // numbers (historicGarrison.hero) under his name and portrait, is out of the barbarian cities and the Inn's
+  // rumours while he rules, and is taken prisoner (at rulerLevel, his points spread at random) when the city falls,
+  // or when No Capture brings it to 0. Freed again, he goes back to rule it if it's in NPC hands. A city whose
+  // ruler a lord holds is led by its King or Queen meanwhile.
+  historic: { level12Enabled: true, level12: { x0: 9, y0: 9, step: 18 }, level12Clearance: 0, flatRing: 1,
+    rulerLevel: 100,
+    rulers: { 'Atlantis': 'Poseidon', 'Washington, D.C.': 'George Washington', 'Beijing': 'Kublai Khan', 'Loyang': 'Wu Zetian',
+      'Moscow': 'Ivan IV of Russia', 'Prague': 'Jan Hus', 'Berlin': 'Frederick the Great', 'Vienna': 'Maria Theresa',
+      'London': 'Elizabeth I', 'Paris': 'Napoleon Bonaparte', 'Rome': 'Caesar', 'Athens': 'Pericles', 'Cairo': 'Ramesses II',
+      'Ottawa': 'Samuel de Champlain', 'Jerusalem': 'Saladin', 'Canberra': 'James Cook', 'Islamabad': 'Akbar' } },
 
   // ---------- Items ----------
   blueprintFromLevel: 10,          // upgrading a building to this level uses a Michelangelo's Script (null: never; live: not past 10)
