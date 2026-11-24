@@ -169,9 +169,16 @@ class Game {
   }
 
   // Bring saves from older versions up to date.
+  // 0.1.41: honor and prestige never go below 0 (Fox, Nov 24 2026); a lord saved below it is put at 0.
+  floorStanding(p){
+    let changed = false;
+    for (const k of ['honor', 'prestige']) if (p[k] != null && !(p[k] >= 0)){ this.log.info(`${p.name}'s ${k} was ${p[k]}, now 0`); p[k] = 0; changed = true; }
+    return changed;
+  }
   migrate(){
     for (const p of Object.values(this.db.players)){
       if (p.coins == null) p.coins = this.rules.startCoins;
+      if (this.floorStanding(p)) this.store.touch?.();
       p.items = p.items || {}; p.buffs = p.buffs || {}; p.techs = p.techs || {};
       if (p.research === undefined) p.research = null;
     }

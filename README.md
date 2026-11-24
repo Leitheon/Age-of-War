@@ -144,8 +144,10 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   troops arriving stop there) and up to 100,000,000,000,000 of each resource. Troops eat a tenth of the live game's
   upkeep (`troopUpkeep`), at home, on the march and in camp, and live's 32-bit overflows are gone: no troop count wraps
   negative and bricks a city, and no troop type's upkeep flips to feed the city.
-- **Prestige for lost troops**: the loser of a battle pays the prestige his troops earned when trained, only for those
-  gone for good: not those Penicillin saves or the wounded (who come back healed), nor allied troops in his city.
+- **Prestige and honor**: prestige is never lost (live took it for lost troops and for leaving an alliance:
+  `battlePrestige.losses` and `alliances.quitPrestigeRate`, off here). Honor can be lost in battle but stops at 0.
+  Neither has a cap. (With losses on, the loser pays only for his own troops gone for good: not those Penicillin
+  saves or the wounded, who come back healed.)
 - **Prisoners** take no Feasting Hall seat (`rules.prisonersNeedNoSeat`): a city with a Feasting Hall captures a hero
   however full it is, and persuading one waits for a free seat.
 - **Reports**: the last tab is Other (it was Automation), with the Other reports (a city founded, the innkeeper's

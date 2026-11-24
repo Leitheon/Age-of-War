@@ -774,7 +774,9 @@ class ArmyLogic {
   // Honor for attacker p and defender dp from a battle: attRows and defRows are the two sides' units (with lose).
   honor(p, dp, defRows, attRows, attackerWon){
     const C = this.g.combat, h = { att: C.honor(defRows, attRows, attackerWon), def: C.honor(attRows, defRows, !attackerWon) };
-    p.honor = (p.honor || 0) + h.att; dp.honor = (dp.honor || 0) + h.def;
+    // (a battle can cost honor, but a lord's honor stops at 0: Fox, Nov 24 2026, "Honor/prestige should not be able
+    // to go negative")
+    p.honor = Math.max(0, ((p.honor || 0) + h.att) || 0); dp.honor = Math.max(0, ((dp.honor || 0) + h.def) || 0);
     if (h.att) this.g.pushPlayerInfo(p);
     if (h.def) this.g.pushPlayerInfo(dp);
     return h;

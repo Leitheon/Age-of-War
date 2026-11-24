@@ -496,7 +496,7 @@ class QuestLogic {
     const r = def.reward;
     for (const [k, v] of Object.entries(r.res)){ c.res[k] = (c.res[k] || 0) + v; changed.res = true; }
     if (r.pop){ c.pop += r.pop; changed.res = true; }
-    if (r.prestige){ p.prestige = (p.prestige || 0) + r.prestige; changed.player = true; }
+    if (r.prestige){ p.prestige = Math.max(0, (p.prestige || 0) + r.prestige); changed.player = true; }
     if (r.cents){ p.coins = (p.coins || 0) + r.cents; changed.coins = true; }
     for (const [id0, n] of Object.entries(r.items)){ const id = this.helmFor(p, id0); this.g.items.add(p, id, n); changed.items.push(id); }
     for (const [k, n] of Object.entries(r.forts)){ c.forts[k] = (c.forts[k] || 0) + n; changed.forts = true; }

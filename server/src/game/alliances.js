@@ -22,9 +22,8 @@
 const RANK = { HOST: 4, VICE: 5, PRESBYTER: 6, OFFICER: 7, MEMBER: 8 };
 const RANK_NAME = { 4: 'Host', 5: 'Vice Host', 6: 'Presbyter', 7: 'Officer', 8: 'Member' };
 const REL = { SAME: 0, FRIEND: 1, MIDDLE: 2, ENEMY: 3 };
-const EMBASSY = 28, HOUR = 3600000, INT_MAX = 2147483647;
+const EMBASSY = 28, HOUR = 3600000;
 const fold = s => String(s ?? '').trim().toLowerCase();
-const clampInt = n => Math.max(-INT_MAX, Math.min(INT_MAX, Math.floor(n || 0)));
 
 class Alliances {
   constructor(game){ this.g = game; }
@@ -46,8 +45,10 @@ class Alliances {
     const a = this.of(me), b = this.of(q);
     return a && b ? a.relations?.[b.id]?.type || REL.MIDDLE : REL.MIDDLE;
   }
-  prestige(a){ return clampInt(this.members(a).reduce((s, p) => s + (p.prestige || 0), 0)); }
-  honor(a){ return clampInt(this.members(a).reduce((s, p) => s + (p.honor || 0), 0)); }
+  // (an alliance's prestige and honor, and a lord's in its lists, aren't held to a 32-bit integer: Fox, Nov 24 2026,
+  // "They should both be uncapped numbers")
+  prestige(a){ return Math.floor(this.members(a).reduce((s, p) => s + (p.prestige || 0), 0)); }
+  honor(a){ return Math.floor(this.members(a).reduce((s, p) => s + (p.honor || 0), 0)); }
   ranked(){ return this.list().map(a => ({ a, prestige: this.prestige(a) })).sort((x, y) => y.prestige - x.prestige || x.a.createdAt - y.a.createdAt); }
   ranking(a){ const i = this.ranked().findIndex(x => x.a === a); return i < 0 ? 0 : i + 1; }
   embassy(p){ return Math.max(0, ...this.g.castlesOf(p).map(c => this.g.logic.level(c, EMBASSY))); }
@@ -125,12 +126,13 @@ class Alliances {
     this.g.log.info(`${q.name} joined ${a.name}`);
     return { alliance: a };
   }
-  // Leaving: 10% of the lord's prestige (the client's warning). The Host leaves only as the last member, and the
+  // Leaving: live took 10% of the lord's prestige (the client's warning); Age of War nothing (rules.alliances
+  // .quitPrestigeRate 0). The Host leaves only as the last member, and the
   // alliance ends with him.
   quit(p, now = this.g.now()){
     const a = this.of(p); if (!a) return [-1, 'You are not in an alliance.'];
     if (this.rank(p) === RANK.HOST && a.members.length > 1) return [-1, 'Hand the Host on to another member (Relinquish Host) before you quit.'];
-    p.prestige = Math.floor((p.prestige || 0) * (1 - (this.rules.quitPrestigeRate ?? 0.1)));
+    p.prestige = Math.max(0, Math.floor((p.prestige || 0) * (1 - (this.rules.quitPrestigeRate ?? 0.1))));
     this.leave(a, p);
     if (!a.members.length) this.disband(a);
     else this.event(a, `${p.name} has left the alliance.`, now);
@@ -177,7 +179,7 @@ class Alliances {
   }
   applicants(a){
     return (a?.applications || []).map(x => ({ x, q: this.player(x.playerId) })).filter(r => r.q)
-      .map(({ x, q }) => ({ userName: q.name, castleCount: this.g.castlesOf(q).length, prestige: clampInt(q.prestige), rank: this.g.beans.prestigeRank(q), inviteTime: x.at }));
+      .map(({ x, q }) => ({ userName: q.name, castleCount: this.g.castlesOf(q).length, prestige: Math.floor(q.prestige || 0), rank: this.g.beans.prestigeRank(q), inviteTime: x.at }));
   }
   approve(p, name, now = this.g.now()){
     const a = this.need(p, [RANK.HOST, RANK.VICE, RANK.PRESBYTER, RANK.OFFICER], 'review applications'); if (Array.isArray(a)) return a;
@@ -207,7 +209,7 @@ class Alliances {
   }
   invited(a){
     return (a?.invites || []).map(x => ({ x, q: this.player(x.playerId) })).filter(r => r.q)
-      .map(({ x, q }) => ({ userName: q.name, invitePerson: this.player(x.by)?.name || '', inviteTime: x.at, prestige: clampInt(q.prestige), rank: this.g.beans.prestigeRank(q), state: 'Waiting' }));
+      .map(({ x, q }) => ({ userName: q.name, invitePerson: this.player(x.by)?.name || '', inviteTime: x.at, prestige: Math.floor(q.prestige || 0), rank: this.g.beans.prestigeRank(q), state: 'Waiting' }));
   }
   cancelInvite(p, name){
     const a = this.need(p, [RANK.HOST, RANK.VICE, RANK.PRESBYTER, RANK.OFFICER], 'call off invitations'); if (Array.isArray(a)) return a;

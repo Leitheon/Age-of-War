@@ -187,7 +187,7 @@ class Stratagems {
     const end = now + (this.rules.wageWarMinutes ?? 15) * 60000;
     return { on: q.name, apply: () => {
       p.instantWar = { ...(p.instantWar || {}), [q.id]: end };
-      p.honor = Math.floor((p.honor || 0) * 0.9); this.cool(p, 'bxez', now + 6 * HOUR);
+      p.honor = Math.max(0, Math.floor((p.honor || 0) * 0.9)); this.cool(p, 'bxez', now + 6 * HOUR);
       // The live report's own words.
       this.report(q, `Victim of ${it.name}`, `Player ${p.name} has applied ${it.name} to you. You are at war with him now.Wartime ends at ${full(end)}.You can apply Truce Agreement to counteract this stratagem.`);
       this.report(p, `${it.name} on ${q.name}`, `Until ${full(end)} a war you declare on ${q.name} begins at once, without the 30 minutes of preparation. It lasts the usual 48 hours.`);

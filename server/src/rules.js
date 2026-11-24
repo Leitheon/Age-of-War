@@ -689,10 +689,11 @@ const DEFAULTS = {
   war: { enabled: true, required: true, prepMinutes: 30, warHours: 48 },
   // Alliances (alliances.js; AllianceConstants and the client's texts): createEmbassy and joinEmbassy the Embassy
   // levels to found and to join one, createGold what founding costs, nameMax its name's length, quitPrestigeRate
-  // what quitting takes off the lord's prestige, relationCooldownHours how often a relation can change. Members:
+  // what quitting takes off the lord's prestige (live 0.1; Age of War 0: prestige is never lost, Fox, Nov 24
+  // 2026), relationCooldownHours how often a relation can change. Members:
   // membersPerEmbassyLevel a level of the Host's best Embassy, at most maxMembers (UNVERIFIED: live shows 100 for
   // a big alliance; 0 gives every alliance maxMembers).
-  alliances: { createEmbassy: 2, joinEmbassy: 1, createGold: 10000, nameMax: 8, quitPrestigeRate: 0.1, relationCooldownHours: 24,
+  alliances: { createEmbassy: 2, joinEmbassy: 1, createGold: 10000, nameMax: 8, quitPrestigeRate: 0, relationCooldownHours: 24,
     maxMembers: 100, membersPerEmbassyLevel: 10, rankLimits: { 5: 2, 6: 5, 7: 10 }, textMax: 500, eventsMax: 200 },
   // Beginner's Protection (the client's own check): 7 days from the lord's creation, or until one of his Town Halls
   // reaches level 5. No war can be declared on him, and he can't declare one.
@@ -711,8 +712,9 @@ const DEFAULTS = {
   // 27 live attacks on an NPC 8 and the Evony Advanced Guide: what was killed is worth (as for hero experience)
   // x what the defenders were worth / what the attacking army was worth (capped at maxRatio) x factor, divided by
   // all the lord's Town Hall levels. So fewer troops sent earn more, and a lord with few Town Hall levels far more.
-  // A lost battle costs the prestige the lost troops earned when trained (the wiki).
-  battlePrestige: { enabled: true, factor: 0.01477, maxRatio: 10, losses: true },
+  // losses: a lost battle costs the prestige the lost troops earned when trained (the wiki; live). Off in Age of
+  // War (Fox, Nov 24 2026: "you can lose honor. You can't lose prestige. They should both be uncapped numbers").
+  battlePrestige: { enabled: true, factor: 0.01477, maxRatio: 10, losses: false },
   // Treasure from won battles: Fox's drop table (Oct 29 2026). Each item is rolled on its own, so one battle can
   // turn up several, and only when the attacker won and killed at least minKillShare of the place's full troops (an
   // NPC city's, Historic City's or valley's full garrison, a lord's troops in the battle): the waves that wear down a

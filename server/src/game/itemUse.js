@@ -121,7 +121,7 @@ class ItemUse {
     }
     if (id === 'player.box.present.money.174'){ this.give(p, c, { kind: 'item', id: 'player.box.gambling.3', min: 45, max: 60 }, out, rnd); return; }   // Gambler's Charm
     const prestige = String(this.g.data.items[id]?.desc || '').match(/add (\d[\d,]*) prestige/i);
-    if (prestige){ const n = Number(prestige[1].replace(/,/g, '')); p.prestige = (p.prestige || 0) + n; out.text.push(`${fmt(n)} prestige`); out.player = true; return; }
+    if (prestige){ const n = Number(prestige[1].replace(/,/g, '')); p.prestige = Math.max(0, (p.prestige || 0) + n); out.text.push(`${fmt(n)} prestige`); out.player = true; return; }
     const sets = this.chests.sets(id);
     if (sets.length){
       const set = sets[Math.floor(rnd() * sets.length)];

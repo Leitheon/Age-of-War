@@ -91,8 +91,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
   // The tests were written for a richer first city than the live game's (which has only a Town Hall): a Cottage, four
   // fields and plenty of resources. The live start is checked on its own further down. (Age of War's level 1 Walls in
   // every city, startWalls, and its gold in place of cents, noCents, are off for the live checks and tested on their own;
-  // so is troops eating a tenth of live's upkeep, troopUpkeep.)
-  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, troopUpkeep: 1, heroAutoLevel: false, innRestock: false, prisonersNeedNoSeat: false, reports: { heroCapture: true, itemOpened: true, reinforcements: true, outcomeInTitle: false }, historicHeroes: { questFree: false }, npcConquest: { layout: { keepCottages: null } }, dynamiteFullDemolish: false, mayorExp: 0, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
+  // so are troops eating a tenth of live's upkeep, troopUpkeep, and prestige never lost, battlePrestige.losses and
+  // alliances.quitPrestigeRate.)
+  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, troopUpkeep: 1, battlePrestige: { losses: true }, alliances: { quitPrestigeRate: 0.1 }, heroAutoLevel: false, innRestock: false, prisonersNeedNoSeat: false, reports: { heroCapture: true, itemOpened: true, reinforcements: true, outcomeInTitle: false }, historicHeroes: { questFree: false }, npcConquest: { layout: { keepCottages: null } }, dynamiteFullDemolish: false, mayorExp: 0, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
     population: 100, taxRate: 20, productionRate: 100, buildings: { '0': [1, 1], '1001': [7, 1], '1002': [4, 1], '1003': [5, 1], '1004': [6, 1] } } }));
   const srv = main({ ...PORTS, dataDir, cacheDir: path.join(dataDir, 'cache'), speed: 600, logLevel: 'warn', embedded: true, assetCdn: '', flashClient: true, legacyLogin: true, adminPassword: ADMIN.pw });
   ADMIN.token = srv.game.adminToken;
@@ -2344,6 +2345,24 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const honorRep = (me.reports || []).find(r => /honor="-?\d+"/.test(r.content || '') && /Wardenhold/.test((r.title || '') + (r.content || ''))), foeRep = (foe.reports || []).find(r => /honor="-?\d+"/.test(r.content || ''));
       ok(!!honorRep && !!foeRep && Number.isFinite(me.honor) && Number.isFinite(foe.honor) && G.beans.playerInfo(me, G.castlesOf(me)).honor === Math.round(me.honor),
         `battles between lords carry each side's honor in its report and add it to the lord's honor (here ${Math.round(me.honor)} and ${Math.round(foe.honor)})`);
+      { // Fox (Nov 24 2026): "Honor/prestige should not be able to go negative".
+        const was = [me.honor, foe.honor, me.prestige], rows = o => Object.entries(o).map(([t, l]) => ({ typeId: Number(t), lose: l }));
+        me.honor = 100; foe.honor = 100;
+        const h = A.honor(me, foe, rows({ 5: 39 }), rows({ 16: 40, 14: 15 }), false), afterBattle = [me.honor, foe.honor];
+        me.honor = -500; me.prestige = -20; G.floorStanding(me); const migrated = [me.honor, me.prestige];
+        [me.honor, foe.honor, me.prestige] = was;
+        // Fox (Nov 24 2026): "you can lose honor. You can't lose prestige. They should both be uncapped numbers".
+        // Age of War's rules (the live checks run with live's: the test rules.json): no prestige for lost troops or for
+        // quitting an alliance; and neither is held to a 32-bit integer.
+        const { DEFAULTS } = require('../src/rules'), bpWas = G.rules.battlePrestige.losses;
+        G.rules.battlePrestige.losses = DEFAULTS.battlePrestige.losses; const noLoss = A.lostPrestige(me, { ballista: 1000 }); G.rules.battlePrestige.losses = bpWas;
+        me.honor = 5e12; foe.honor = 0; const h2 = A.honor(me, foe, rows({ 10: 100000 }), rows({ 8: 195512 }), true), big = [me.honor, foe.honor];
+        me.prestige = 3e12; const bean = G.beans.playerInfo(me, G.castlesOf(me));
+        [me.honor, foe.honor, me.prestige] = was;
+        ok(h.att < -100 && afterBattle[0] === 0 && afterBattle[1] > 100 && migrated.join() === '0,0' && noLoss === 0 && DEFAULTS.alliances.quitPrestigeRate === 0
+          && big[0] === 5e12 + h2.att && bean.prestige === 3e12 && bean.honor === big[0] && big[1] === 0,
+          `honor can be lost but stops at 0 (a battle worth ${h.att} honor leaves 100 at ${afterBattle[0]}), prestige is never lost (lost troops, quitting an alliance), a lord saved below 0 starts at 0, and neither is capped (3,000,000,000,000 prestige shows as it is)`);
+      }
       const last = A.cantTakeCity(me, foe);
       ok(last && /last city/.test(last), 'a lord\'s last city can\'t be taken');
       delete db.armies[a3.id];
