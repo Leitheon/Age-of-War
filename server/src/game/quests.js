@@ -207,7 +207,7 @@ function catalog(){
       [q(625, 'Scout the capital city', [flag('scoutCapital', 'Scout the capital at 0,0')], 'Prestige*50')],
       // Fox (Nov 24 2026): capture one Historic City of each level, a Legendary Ring each (Recruit Hero, beside the
       // lord's portrait), so four in all.
-      ...[12, 14, 16, 18].map((L, i) => [q(690 + i, 'Acquire Historic City', [flag(`captureHC${L}`, `Capture a level ${L} Historic City`)], '#hero.gen.npc2*1')]),
+      ...[12, 14, 16, 18].map((L, i) => [q(690 + i, `Acquire Historic City (Level ${L})`, [flag(`captureHC${L}`, `Capture a level ${L} Historic City`)], '#hero.gen.npc2*1', { text: HC_QUEST_TEXT[L] })]),
     ] },
     { typeId: 82, name: 'Rich Store', description: 'Raise lumber production and build a Warehouse.', chains: [
       [q(138, 'Sawmill Upgrade', [bld(B.SAWMILL, 2)], res4(1000, 1000, 1000, 1000))], [q(139, 'Warehouse', [bld(B.WAREHOUSE)], res4(500, 2000, 1500, 500))],
@@ -258,6 +258,14 @@ function catalog(){
   ];
 }
 
+// Acquire Historic City (Age of War, Fox Nov 24 2026): a description and guide for each level, in the live quests' manner.
+const HC_GUIDE = 'Scout the city first: its garrison and walls are far stronger than any barbarian city\'s. Each victory lowers its Loyalty; the attack that wins at 0 Loyalty takes the city, if your title lets you rule one more city and No Capture is not ticked. Use the Legendary Ring with the Recruit Hero button beside your portrait.';
+const HC_QUEST_TEXT = {
+  12: { description: 'Across the land stand the Historic Cities of old, each a prize for any lord bold enough to claim it. Their garrisons are no rabble of barbarians but seasoned soldiers who have held those walls for generations. Gather an army worthy of the task and raise your banner over a level 12 Historic City. Legend tells that the ancient rulers sealed their power in rings of great worth, and the first of them awaits the lord who succeeds.', manual: HC_GUIDE },
+  14: { description: 'Word of your conquest has reached every court in the state. Yet greater cities still stand, eight to a state, their walls taller and their armies many times larger than any you have faced. Take a level 14 Historic City and a second Legendary Ring will be yours, and with it the respect of every lord who once doubted you.', manual: HC_GUIDE },
+  16: { description: 'Each state answers to a single capital, the seat of its old kings. Its walls have turned back countless armies, and its garrison can bury a careless lord in a single afternoon. Bring a state capital to its knees, claim the third Legendary Ring, and let every lord in the state learn your name.', manual: HC_GUIDE },
+  18: { description: 'At the heart of the world, at 0,0, lies Atlantis, the legendary island city and the greatest prize of all. Only one lord may rule it at a time, and every other lord in the realm will covet it. Conquer Atlantis and the last of the Legendary Rings is yours: proof that you stand above all others.', manual: HC_GUIDE },
+};
 // Texts copied from the live game (Fox's screenshots); other quests use their category's description.
 const LIVE_TEXT = {
   [QUEEN_FIRST + 1]: { description: 'Lords and ladies across the realm now speak your name in court as your prestige grows. Many believe your star is on the rise and courtesans across the realm have begun to watch your career with interest. However, they also speak of how small and insignificant your town is. If you wish to gain the Queen\'s attention, you will need to grow your town into a thriving community. An upgraded Town Hall is a good start.',
@@ -290,7 +298,7 @@ class QuestLogic {
   define(raw, cat){
     const targets = raw.targets.map(t => t.kind === 'tech' ? { ...t, id: Number(Object.values(this.g.data.techs).find(x => x.name === t.name)?.id) || 0 } : t);
     return { id: raw.id, typeId: cat.typeId, version: cat.version || 0, name: raw.name, targets, show: raw.show || [], needs: raw.needs || null,
-      promo: raw.promo || null, level: raw.level || 0, daily: !!raw.daily, repeat: false, reward: this.parseReward(raw.reward) };
+      promo: raw.promo || null, level: raw.level || 0, daily: !!raw.daily, repeat: false, reward: this.parseReward(raw.reward), text: raw.text || null };
   }
   parseReward(text){
     const r = { res: {}, pop: 0, prestige: 0, cents: 0, items: {}, forts: {} };
@@ -437,7 +445,7 @@ class QuestLogic {
     const st = this.status(p, c, def, now), fmt = n => Number(n).toLocaleString('en-US');
     const counted = ['popMax', 'pop', 'prod', 'tax', 'prestige', 'troops', 'forts', 'cities'];
     const targets = st.parts.map(x => ({ name: this.targetText(x.t) + (x.need > 1 && counted.includes(x.t.kind) ? ` (${fmt(Math.min(x.cur, x.need))}/${fmt(x.need)})` : ''), finished: x.cur >= x.need }));
-    const cat = this.categories.find(x => x.typeId === def.typeId), live = LIVE_TEXT[def.id];
+    const cat = this.categories.find(x => x.typeId === def.typeId), live = LIVE_TEXT[def.id] || def.text;
     const isRank = def.promo === 'rank', isTitle = def.promo === 'title', isMedal = def.id >= 214 && def.id <= 222;
     const description = isRank ? `Earn the rank of ${RANK_NAMES[def.level]}.` : isTitle ? `Earn the title of ${TITLE_NAMES[def.level]}, which lets you rule ${def.level + 1} cities.`
       : isMedal ? `Contribute a ${this.g.items.name(def.targets[0].id)} and receive two in return. Medals come from battles with NPC and Historic Cities, chests and the Wheel of Fortune.`

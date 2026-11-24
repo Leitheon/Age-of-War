@@ -1135,7 +1135,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         // Fox (Nov 24 2026): Acquire Historic City, one quest a level (12, 14, 16, 18), a Legendary Ring each.
         const ringQ = [690, 691, 692, 693].map(id => G.quests.defs.get(id));
         ok(!flag14 && G.quests.state(me).flags.captureHC14 === true && ringQ.every((d, i) => d && d.reward.items['hero.gen.npc2'] === 1 && d.targets[0].key === `captureHC${[12, 14, 16, 18][i]}`)
-          && ringQ.every(d => d.typeId === ringQ[0].typeId),
+          && ringQ.every(d => d.typeId === ringQ[0].typeId && d.text?.description && d.text.manual) && /Atlantis/.test(ringQ[3].text.description) && ringQ[2].name === 'Acquire Historic City (Level 16)',
           'capturing a level 14 Historic City completes its Acquire Historic City quest; one for each of 12, 14, 16 and 18, a Legendary Ring each');
         const bean = G.mapBean({ player: me }, world.tileAt(srv.store, hcT.id)), inside = Object.keys(h.buildings).filter(k => +k >= 0 && +k < 1000);
         h.buildings[5] = { ...h.buildings['-1'], typeId: 29, level: 10 };   // the Rally Spot its lord builds
@@ -2344,6 +2344,12 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         ok(g0.ok === 1 && JSON.stringify(g0.randomherobean.resetPrice) === '[[0,110000],[0,220000],[0,440000]]' && one.ok === 1 && me.coins === coinsWas && left >= 80000 && left < 80000 + 1000
           && poor.ok < 0 && /costs 220,000 gold/.test(poor.errorMsg),
           `with no cents a paid re-roll costs gold only (one lock: 220,000), and the window gets the prices (${JSON.stringify(g0.randomherobean.resetPrice)})`); }
+      { // The web client: the pink gem button beside the portrait opens Recruit Hero, with a portrait picker (Fox, Nov 24 2026).
+        const pub = path.join(__dirname, '..', 'public'), html = fs.readFileSync(path.join(pub, 'index.html'), 'utf8');
+        const js = fs.readFileSync(path.join(pub, 'assets', html.match(/index-aow[0-9a-f]+\.js/)[0]), 'utf8'), css = fs.readFileSync(path.join(pub, 'assets', html.match(/index-aow[0-9a-f]+\.css/)[0]), 'utf8');
+        ok(/className:"fc-btn fc-ring"[^}]*onClick:\(\)=>j\(t\.jsx\(aowRingWin/.test(js) && /hero\.GenSaveRandomHero",\{castleid:e,heroname:h,faceurl:face\}/.test(js) && js.includes('"images/icon/player/faceA"+(i+1)+".jpg"')
+          && /\.fc-ring\{bottom:218px;background-image:url\(\/flash\/ui\/menu\/stone_up\.png\)\}/.test(css) && css.includes('.fc-btn.ui-disabled{filter:none;opacity:1'),
+          'the web client has the Recruit Hero button (the pink gem) and window, which sends the picked portrait; the buttons beside the portrait are never greyed out'); }
       // Fox's live capture of a Ring hero (Jessica): an On War book, then level-ups to 13 with 2,500 left over.
       me.items['player.experience.1.c'] = 1;
       const book = await c.call('hero.useItem', { castleId: castle.id, itemId: 'player.experience.1.c', heroId: rh.id });
