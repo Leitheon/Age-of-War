@@ -38,7 +38,10 @@ class HeroLogic {
   hallSize(c){ return this.castle.level(c, FEASTING_HALL); }
   // A lord's King or Queen (from the Queen quests' helm) takes no seat (Fox: ten heroes and the King or Queen as an
   // eleventh), so only the others count.
-  vacancies(c){ return Math.max(0, this.hallSize(c) - this.list(c).filter(h => !h.king).length); }
+  // With rules.prisonersNeedNoSeat captives take no seat either.
+  vacancies(c){ const free = this.rules.prisonersNeedNoSeat; return Math.max(0, this.hallSize(c) - this.list(c).filter(h => !h.king && !(free && h.status === STATUS.SEIZED)).length); }
+  // Room to hold a prisoner: any Feasting Hall with rules.prisonersNeedNoSeat, else a free seat.
+  canHold(c){ return this.rules.prisonersNeedNoSeat ? this.hallSize(c) > 0 : this.vacancies(c) > 0; }
   expToNext(level){ return Math.round(this.rules.heroExpBase * level * level); }
   // Captives draw no salary (UNVERIFIED).
   salary(c){ return this.list(c).reduce((a, h) => a + (h.status === STATUS.SEIZED ? 0 : h.level * this.rules.heroSalaryPerLevel), 0); }
@@ -102,7 +105,7 @@ class HeroLogic {
   // tmpl: an NPC hero ({ name, level }) or a historic hero's full template (HistoricHeroLogic.offer, with
   // persuadeItem: the portrait persuading takes).
   seize(c, tmpl, nextId){
-    if (!this.vacancies(c)) return null;
+    if (!this.canHold(c)) return null;
     const taken = new Set(this.list(c).map(h => h.name));
     let name = tmpl.name;
     if (!tmpl.historic) for (let i = 2; taken.has(name); i++) name = `${tmpl.name} ${i}`;
@@ -119,6 +122,7 @@ class HeroLogic {
   persuade(c, id, items = {}){
     const h = this.find(c, id); if (!this.seized(h)) return [-1, 'That hero isn\'t a captive.'];
     const cost = h.level * (this.rules.persuadeGoldPerLevel ?? 1000);
+    if (this.rules.prisonersNeedNoSeat && !this.vacancies(c)) return [-1, `${h.name} can only join when the Feasting Hall has a free seat. Upgrade it or dismiss a hero first.`];
     if (h.persuadeItem && !((items[h.persuadeItem] || 0) > 0)) return [-1, `Persuading ${h.name} takes ${h.name}'s portrait (Enquire Details at the Inn).`];
     const [medal, medals] = h.persuadeItem ? ['', 0] : this.persuadeNeed(h);
     if (medal && (items[medal] || 0) < medals) return [-1, `Persuading ${h.name} takes ${medals} ${this.data?.items?.[medal]?.name || medal}${medals > 1 ? 's' : ''}.`];

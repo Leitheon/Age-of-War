@@ -682,9 +682,9 @@ class ArmyLogic {
       if (!conquest.city) g.pushResources(dc);
     }
     // An attacking hero whose loyalty is 0 is captured by the lord's city that beats it (Fox), if its Feasting Hall
-    // has a free seat. Its lord counts it lost (captives.js).
+    // can hold him (heroes.canHold). Its lord counts it lost (captives.js).
     let heroSeized = false;
-    if (dc && !r.attackerWon && hero && c && (hero.loyalty ?? g.rules.heroStartLoyalty ?? 70) <= 0 && g.heroes.vacancies(dc) > 0){
+    if (dc && !r.attackerWon && hero && c && (hero.loyalty ?? g.rules.heroStartLoyalty ?? 70) <= 0 && g.heroes.canHold(dc)){
       g.captives.capture(hero, c, dc, p, now); a.heroId = 0; heroSeized = true; g.effort.note(dp, 'captive');
       g.log.info(`${dp.name}'s ${dc.name} captured ${p.name}'s hero ${hero.name}`);
     }
@@ -953,7 +953,7 @@ class ArmyLogic {
     } else if (won.hh?.moved){
       const need = [won.hh.needQuest && 'accept the hero\'s quest at the Inn', won.hh.needPortrait && 'hold the hero\'s portrait (Enquire Details at the Inn)'].filter(Boolean);
       add(`${won.hh.hero.name} got away`, `${won.hh.hero.name} has left for another NPC city. To capture a historic hero, ${need.join(' and ')} before you take the city.`);
-    } else if (won.hh?.full || won.npcHero) add(`${(won.hh?.hero || won.npcHero).name} got away`, 'Your Feasting Halls had no empty seat to hold the hero.');
+    } else if (won.hh?.full || won.npcHero) add(`${(won.hh?.hero || won.npcHero).name} got away`, g.rules.prisonersNeedNoSeat ? 'Holding a prisoner takes a Feasting Hall, and there was none to hold the hero.' : 'Your Feasting Halls had no empty seat to hold the hero.');
   }
   // What a won battle turns up (rules.battleDrops, Fox's drop table): [{ id, n }], each item rolled on its own.
   // kind: 'valley' | 'npc' | 'historic' | 'pvp'; level: the valley's or NPC city's 1-10, the Historic City's 12-18

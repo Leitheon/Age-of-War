@@ -91,7 +91,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
   // The tests were written for a richer first city than the live game's (which has only a Town Hall): a Cottage, four
   // fields and plenty of resources. The live start is checked on its own further down. (Age of War's level 1 Walls in
   // every city, startWalls, and its gold in place of cents, noCents, are off for the live checks and tested on their own.)
-  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, heroAutoLevel: false, innRestock: false, historicHeroes: { questFree: false }, npcConquest: { layout: { keepCottages: null } }, dynamiteFullDemolish: false, mayorExp: 0, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
+  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, heroAutoLevel: false, innRestock: false, prisonersNeedNoSeat: false, historicHeroes: { questFree: false }, npcConquest: { layout: { keepCottages: null } }, dynamiteFullDemolish: false, mayorExp: 0, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
     population: 100, taxRate: 20, productionRate: 100, buildings: { '0': [1, 1], '1001': [7, 1], '1002': [4, 1], '1003': [5, 1], '1004': [6, 1] } } }));
   const srv = main({ ...PORTS, dataDir, cacheDir: path.join(dataDir, 'cache'), speed: 600, logLevel: 'warn', embedded: true, assetCdn: '', flashClient: true, legacyLogin: true, adminPassword: ADMIN.pw });
   ADMIN.token = srv.game.adminToken;
@@ -3370,6 +3370,21 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         G.rules.innRestock = false;
         ok(hired.ok === 1 && before.length === 5 && after.length === 5 && !after.includes(pick) && after[0] === before[0] && after[1] !== pick && G.heroes.list(city).some(h => h.name === pick),
           `hiring from the Inn puts a new hero in the place at once (${pick} hired, ${after[1]} came)`); }
+      // A Feasting Hall holds any number of prisoners (rules.prisonersNeedNoSeat): with every seat taken a city still
+      // captures a hero, and persuading waits for a free seat.
+      { G.rules.prisonersNeedNoSeat = true;
+        const was = city.heroes, gold = city.res.gold;
+        const seats = G.heroes.hallSize(city), mk = i => ({ ...G.heroes.makeHero(5, null, new Set()), id: G.store.id(), status: 0, name: 'Seat ' + i });
+        city.heroes = Array.from({ length: seats }, (_, i) => mk(i)); city.res.gold = 1e9;
+        const full0 = G.heroes.vacancies(city), p1 = G.heroes.seize(city, { name: 'Prisoner One', level: 3 }, () => G.store.id()), p2 = G.heroes.seize(city, { name: 'Prisoner Two', level: 3 }, () => G.store.id());
+        const noSeat = ask('hero.tryGetSeizedHero', { heroId: p1?.id });
+        city.heroes = city.heroes.filter(h => h.name !== 'Seat 0');
+        const yes = ask('hero.tryGetSeizedHero', { heroId: p1?.id }), after = G.heroes.vacancies(city), noHall = G.heroes.canHold({ ...city, buildings: {} });
+        G.rules.prisonersNeedNoSeat = false;
+        const old = G.heroes.seize(city, { name: 'Prisoner Three', level: 3 }, () => G.store.id());
+        city.heroes = was; city.res.gold = gold;
+        ok(seats > 0 && full0 === 0 && p1 && p2 && p2.status === 4 && noSeat?.ok < 0 && /free seat/.test(noSeat.errorMsg) && yes?.ok === 1 && p1.status === 0 && after === 0 && !noHall && old === null,
+          `a Feasting Hall with all ${seats} seats taken still holds prisoners (two captured); persuading one waits for a free seat ("${noSeat?.errorMsg}"), and a city without a Feasting Hall holds none`); }
       // Historic heroes without quests (rules.historicHeroes.questFree): the portrait alone captures, and is used up.
       { const HR = G.rules.historicHeroes; HR.questFree = true;
         const [[f1, id1], [f2, id2]] = [...G.hh.byField.entries()].filter(([, id]) => G.hh.state(id)?.status === 'free').slice(0, 2);

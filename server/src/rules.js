@@ -190,6 +190,9 @@ const DEFAULTS = {
   heroAutoLevel: true,
   // A hero hired from the Inn is replaced by a new one at once; false leaves the slot empty until the Inn refreshes.
   innRestock: true,
+  // A Feasting Hall holds any number of prisoners (Fox, Nov 2026): with every seat taken a city can still capture a
+  // hero, and persuading one needs a free seat. false: a prisoner takes a seat, and with none free the hero gets away.
+  prisonersNeedNoSeat: true,
   // Dynamite on a demolition takes the whole building down at once (the web client's Full Demolish); false: one level.
   dynamiteFullDemolish: true,
   // Mayor XP (DoA): a city's mayor gains this x (food + wood + stone + iron + build seconds) for every building level,

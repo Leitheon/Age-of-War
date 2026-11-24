@@ -353,7 +353,7 @@ class Colonies {
     for (const x of heroes) x.loyalty = Math.max(0, (x.loyalty ?? start) - drop);
     let captured = null;
     const free = heroes.filter(x => x.status === HERO_STATUS.FREE);
-    if (free.length && g.heroes.vacancies(c) > 0 && rnd() < (this.rules.sowCaptureChance ?? 0.2)){
+    if (free.length && g.heroes.canHold(c) && rnd() < (this.rules.sowCaptureChance ?? 0.2)){
       captured = free.reduce((a, b) => (b.loyalty < a.loyalty ? b : a));
       g.captives.capture(captured, dc, c, dp, now);   // its lord counts it lost (Stone of Finding)
       g.effort.note(p, 'captive');
