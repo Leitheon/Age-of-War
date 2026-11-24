@@ -102,6 +102,8 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
 - **The shop** leaves out the items in `rules.webShop.hidden` (76 of them: Speakers, Rituals of Pact, Truce
   Agreements, Publicity Ambassadors, keys and lockboxes, holiday chests...) and won't sell them; they still work
   wherever else they turn up.
+- **Rank and title names** are Evony's again (DoA had renamed them): Civilian, Lieutenant, Captain, Major, Colonel,
+  General; Civilian, Knight, Baronet, Baron, Viscount, Earl, Marquis, Duke, Furstin, Prinzessin.
 - **Items** do what their descriptions say from My Items (every item was tried as the web client uses it): the
   Bronze, Silver and Gold Amulets found their city on the spot you enter, Holy Water (5 pieces) opens into 5, Treat
   and Trick Tokens give an Angel or a Devil item, a Bronze/Silver/Golden Key opens its lockbox, chests read their
