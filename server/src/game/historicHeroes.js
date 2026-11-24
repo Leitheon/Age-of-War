@@ -140,6 +140,17 @@ function itemXml(items){
   return `<?xml version="1.0" encoding="UTF-8"?><itemdef><items>${rows.join('')}</items><special/><special2/></itemdef>`;
 }
 
+// Takes n points off an allocation { pol, atk, int }, in proportion to each (largest remainders first).
+function shrink(a, n){
+  const keys = ['pol', 'atk', 'int'], have = keys.reduce((s, k) => s + Math.max(0, a[k] || 0), 0);
+  if (!(n > 0) || !have){ return a; }
+  const keep = Math.max(0, have - n), share = keys.map(k => Math.max(0, a[k] || 0) * keep / have), floor = share.map(Math.floor);
+  let left = keep - floor.reduce((x, y) => x + y, 0);
+  for (const i of [0, 1, 2].sort((x, y) => (share[y] - floor[y]) - (share[x] - floor[x]))){ if (left <= 0) break; floor[i]++; left--; }
+  keys.forEach((k, i) => { a[k] = floor[i]; });
+  return a;
+}
+
 class HistoricHeroLogic {
   constructor(game, dataDir){
     this.g = game;
@@ -218,19 +229,27 @@ class HistoricHeroLogic {
     this.db.hh[id] = { status: 'free', fieldId: null };
     return null;
   }
-  // A wild hero is level 30 (Fox), with 2 points a level counting the first spread at random (live). Holy Water resets
+  // A wild hero is level 30 (Fox), with 1 point a level counting the first spread at random (live). Holy Water resets
   // them so the owner can place them.
+  // (Live, Fox, Nov 24 2026: Gao Guiying at level 150 in the live hero ranking has 815 attack, her sheet's 96 + 150
+  // points + 569.7 from 15 pieces of level 10 gear at 15 stars, so 1 point a level counting the first; the ranking
+  // counts gear in, which is why most level 150s there are exactly 300 over their sheet: 150 points and 150 from
+  // level 10 gear without stars. 0.3.61 to 0.1.42 read that as 2 a level.)
+  ppl(){ return this.rules.pointsPerLevel ?? 1; }
   randomAlloc(){
     const a = { pol: 0, atk: 0, int: 0 }, keys = Object.keys(a);
-    // 2 a level, counting the first (live: 300 at level 150), so a level 30 hero comes with 60.
-    for (let i = 0; i < (this.rules.level || 1) * (this.rules.pointsPerLevel ?? 2); i++) a[keys[Math.floor(Math.random() * 3)]]++;
+    // 1 a level, counting the first, so a level 30 hero comes with 30.
+    for (let i = 0; i < (this.rules.level || 1) * this.ppl(); i++) a[keys[Math.floor(Math.random() * 3)]]++;
     return a;
   }
   alloc(id){ const s = this.state(id); if (s.alloc) this.topUp(s.alloc); return s.alloc || (s.alloc = this.randomAlloc()); }
-  // Before 0.3.61 a wild hero came with 1 point a level (30 at level 30); spread the rest at random. True if changed.
+  // A wild hero's points to what his level brings: the missing ones spread at random, extra ones (from 0.3.61 to
+  // 0.1.42, 2 a level) taken off in proportion. True if changed.
   topUp(a){
-    const keys = ['pol', 'atk', 'int'], want = (this.rules.level || 1) * (this.rules.pointsPerLevel ?? 2);
-    let have = keys.reduce((s, k) => s + (a[k] || 0), 0); if (have >= want) return false;
+    const keys = ['pol', 'atk', 'int'], want = (this.rules.level || 1) * this.ppl();
+    let have = keys.reduce((s, k) => s + (a[k] || 0), 0);
+    if (have > want){ shrink(a, have - want); return true; }
+    if (have >= want) return false;
     for (; have < want; have++){ const k = keys[Math.floor(Math.random() * 3)]; a[k] = (a[k] || 0) + 1; }
     return true;
   }
@@ -367,15 +386,19 @@ class HistoricHeroLogic {
     hero.base = base; hero.leadership = h.ldr;
     return true;
   }
-  // A historic hero has 2 points for every level, counting his first 30 (live: 300 at level 150). One hired, captured
-  // or persuaded before 0.3.61 came with 1 a level for those 30, so Holy Water gave back 30 (Fox); the missing points
-  // are his to spend. True if anything changed.
+  // A historic hero has 1 point for every level, counting his first (live: 150 at level 150). Short of that, the
+  // missing points are his to spend; over it (from 0.3.61 to 0.1.42 he got 2 a level: Fox, Nov 24 2026, "some
+  // heroes are getting 2 points when leveling up"), the extra come off his unspent points first, then off his
+  // attributes in proportion to where they went. True if anything changed.
   owed(hero){
     if (hero?.historic == null || hero.ringHero) return false;
-    const want = (hero.level || 1) * (this.rules.pointsPerLevel ?? 2), a = hero.added || {};
+    const want = (hero.level || 1) * this.ppl(), a = hero.added || (hero.added = { pol: 0, atk: 0, int: 0 });
     const have = (a.pol || 0) + (a.atk || 0) + (a.int || 0) + (hero.points || 0);
-    if (have >= want) return false;
-    hero.points = (hero.points || 0) + want - have;
+    if (have === want) return false;
+    if (have < want){ hero.points = (hero.points || 0) + want - have; return true; }
+    let cut = have - want;
+    const fromFree = Math.min(hero.points || 0, cut); hero.points = (hero.points || 0) - fromFree; cut -= fromFree;
+    if (cut > 0) shrink(a, cut);
     return true;
   }
   // Hiring the hero settles that hero's quest (it was the reward).

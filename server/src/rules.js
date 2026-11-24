@@ -175,9 +175,9 @@ const DEFAULTS = {
     questFree: true,                              // no quest: the portrait (Enquire Details) alone captures the hero, and
                                                   // is used up then (false: accept the quest too, persuading takes it)
     level: 30,                                    // wild historic heroes are always level 30 (Fox); the sheet's stats
-                                                  // are their level 1 base, plus 60 points spread at random
-    maxLevel: 150, pointsPerLevel: 2,             // live: the hero ranking's top 594 are historic heroes at 150,
-                                                  // most holding exactly 300 points over the sheet (2 a level)
+                                                  // are their level 1 base, plus 30 points spread at random
+    maxLevel: 150, pointsPerLevel: 1,             // live: Gao Guiying at 150 has her sheet + 150 points + her gear
+                                                  // (Fox, Nov 24 2026; historicHeroes.ppl): 1 a level, counting the first
     hiredLoyalty: 70,                             // UNVERIFIED: loyalty right after hiring
     sheet: 'historic-heroes.csv',                 // the sheet (src/data/, or the data folder's copy first)
     sheetDefines: false,                          // true: only the sheet's heroes, under its names (the mod)

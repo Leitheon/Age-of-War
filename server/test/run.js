@@ -1026,9 +1026,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       'at loyalty 0 the city is ours, called "New city", with the live layout (Cottages on plots 12-31, Academy on 0, Feasting Hall on 3, Barracks on 11, Farms from 1001, then Sawmill, Quarry and Ironmine on the last of 13 plots), and the army and its hero stay there' + (e2 ? ': ' + e2 : r2 ? ': ' + r2.title : ''));
     const cb = ch && G.heroes.bean(ch);
     ok(ch && ch.status === 4 && db.hh[146].status === 'seized' && cb.itemId === 'hero.taskitem.146' && cb.itemAmount === 1 && (me.reports || []).some(x => x.title === 'Caesar captured')
-      && cb.isHero === 1 && cb.level === 30 && cb.remainPoint === 0 && cb.managementAdded + cb.powerAdded + cb.stratagemAdded === 60 && cb.logoUrl === 'images/icon/hero/146.png' && cb.leadership === [...G.hh.roster.values()].find(h => h.id === 146).ldr + 29
+      && cb.isHero === 1 && cb.level === 30 && cb.remainPoint === 0 && cb.managementAdded + cb.powerAdded + cb.stratagemAdded === 30 && cb.logoUrl === 'images/icon/hero/146.png' && cb.leadership === [...G.hh.roster.values()].find(h => h.id === 146).ldr + 29
       && cb.power === 75 + cb.powerAdded && cb.management === 95 + cb.managementAdded && cb.stratagem === 62 + cb.stratagemAdded && cb.infro.length > 20,
-      'with the quest and the portrait Caesar is captured: level 30 with his portrait, biography, base stats (95 politics: DoA\'s hero list), his leadership plus 29 for his levels (Fox) and 60 points spread at random (2 a level, live), to be persuaded with his portrait');
+      'with the quest and the portrait Caesar is captured: level 30 with his portrait, biography, base stats (95 politics: DoA\'s hero list), his leadership plus 29 for his levels (Fox) and 30 points spread at random (1 a level, live), to be persuaded with his portrait');
     {
       const R = [...srv.game.hh.roster.values()], by = n => R.find(h => h.name === n);
       ok(by('Genghis Khan')?.atk === 97 && by('Genghis Khan')?.int === 91 && by('Isaac Newton')?.atk === 50 && by('Isaac Newton')?.int === 98 && R.filter(h => h.estimated).length < 10,
@@ -1091,7 +1091,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
     }
     me.items['hero.reset.1'] = 3;
     const wash = await c.call('hero.resetPoint', { castleId: heldIn.id, heroId: ch.id });
-    ok(wash.ok === 1 && ch.points === 60 && ch.added.pol + ch.added.atk + ch.added.int === 0 && me.items['hero.reset.1'] === 0, 'three Holy Water free Caesar\'s 60 points to place');
+    ok(wash.ok === 1 && ch.points === 30 && ch.added.pol + ch.added.atk + ch.added.int === 0 && me.items['hero.reset.1'] === 0, 'three Holy Water free Caesar\'s 30 points to place');
     const ren = await c.call('hero.changeName', { castleId: heldIn.id, heroId: ch.id, newName: 'Bob' });
     ok(ren.ok < 0, 'a historic hero keeps his name');
     ok((await c.call('hero.fireHero', { castleId: heldIn.id, heroId: ch.id })).ok === 1 && srv.store.db.hh[146].status === 'free' && srv.store.db.hh[146].fieldId !== npcTile,
@@ -2437,19 +2437,26 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const histUp = H.levelUp(histCity, 2), histTop = H.levelUp(histCity, 2);
       const sp = G.logic.speed; G.logic.speed = 1;
       const live28 = G.armies.travelMs(554631, 555432, { archer: 150000 }, { techs: { 12: 10 } }, null, 6); G.logic.speed = sp;
-      ok(!Array.isArray(histUp) && hist.level === 150 && hist.points === 2 && Array.isArray(histTop) && H.maxLevel(hist) === 150 && G.heroes.bean(rh).isHero === 4 && live28 === 28000,
-        'a historic hero goes to level 150 with 2 points a level (the live ranking), and 150,000 Archers reinforce a city 1.4 tiles away in 28 seconds with a level 10 Relief Station, as live');
+      ok(!Array.isArray(histUp) && hist.level === 150 && hist.points === 1 && Array.isArray(histTop) && H.maxLevel(hist) === 150 && G.heroes.bean(rh).isHero === 4 && live28 === 28000,
+        'a historic hero goes to level 150 with 1 point a level (Gao Guiying in the live ranking), and 150,000 Archers reinforce a city 1.4 tiles away in 28 seconds with a level 10 Relief Station, as live');
       // m3.79: RoboEvony levels a hero to 150 only when its HeroBean has ability > 0 (its isHeroMaxLvl), else to 100
       // (120 for isHero 4). It stopped Fox's historic heroes at 100.
       const robMax = b => b.ability > 0 ? 150 : b.isHero === 4 ? 120 : 100;
       const hb = G.heroes.bean(hist), ob = G.heroes.bean(at(100, {})), ringB = G.heroes.bean(rh);
       ok(hb.ability > 0 && hb.isHero === 1 && robMax(hb) === 150 && ob.ability === 0 && robMax(ob) === 100 && ringB.ability === 0 && robMax(ringB) === 120,
         'historic heroes carry ability > 0 in their HeroBean, so RoboEvony levels them to 150 (ordinary heroes 100, Ring heroes 120)');
-      // A historic hero from before 0.3.61 had 1 point a level for his first 30 (Fox: Holy Water gave back 30, not 60).
-      const old35 = { historic: 146, level: 35, added: { pol: 20, atk: 10, int: 10 }, points: 0 }, wild = { pol: 10, atk: 10, int: 10 };
-      const owed = G.hh.owed(old35), owedAgain = G.hh.owed(old35), topped = G.hh.topUp(wild);
-      ok(owed && !owedAgain && old35.points === 30 && old35.added.pol + old35.added.atk + old35.added.int + old35.points === 70 && topped && wild.pol + wild.atk + wild.int === 60,
-        'historic heroes from older saves get the points they were short (2 a level, counting the first 30: 70 at level 35), and wild ones waiting in NPC cities come with 60');
+      // A historic hero holds 1 point a level, counting the first (Fox, Nov 24 2026: Gao Guiying at 150 is her sheet +
+      // 150 + her gear on live; ours had 2 a level since 0.3.61). Saved heroes are brought to it: short ones get the
+      // rest to spend; ones over it lose the extra, unspent points first, then in proportion to where they went.
+      const short = { historic: 146, level: 35, added: { pol: 10, atk: 5, int: 5 }, points: 0 };
+      const gao = { historic: 686, level: 150, added: { pol: 0, atk: 300, int: 0 }, points: 0 };
+      const split = { historic: 146, level: 100, added: { pol: 50, atk: 100, int: 30 }, points: 20 };
+      const wild = { pol: 20, atk: 20, int: 20 }, wild2 = { pol: 5, atk: 5, int: 5 };
+      const owed = G.hh.owed(short), owedAgain = G.hh.owed(short), trimmed = G.hh.owed(gao), trimmed2 = G.hh.owed(split), cut = G.hh.topUp(wild), topped = G.hh.topUp(wild2);
+      const sum = o => o.pol + o.atk + o.int;
+      ok(owed && !owedAgain && short.points === 15 && sum(short.added) + short.points === 35 && trimmed && gao.added.atk === 150 && gao.points === 0
+        && trimmed2 && split.points === 0 && sum(split.added) === 100 && split.added.atk > split.added.pol && split.added.pol > split.added.int && cut && sum(wild) === 30 && topped && sum(wild2) === 30,
+        `historic heroes hold 1 point a level, counting the first: short ones get the rest (35 at level 35), ones over it lose the extra (Gao Guiying's 300 attack points at 150 to 150; ${JSON.stringify(split.added)} at 100), and wild ones in NPC cities have 30`);
       if (rh) city.heroes = city.heroes.filter(h => h !== rh);
       me.title = titleWas; me.createdAt = createdWas; G.rules.rallyArmiesPerLevel = perRally;
     }

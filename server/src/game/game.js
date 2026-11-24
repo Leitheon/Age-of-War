@@ -227,10 +227,11 @@ class Game {
       let fixed = 0;
       for (const h of [...c.heroes, ...(c.innHistoric || [])]) if (this.hh.sync(h)) fixed++;
       if (fixed){ this.store.touch?.(); this.log.info(`${c.name}: ${fixed} historic hero${fixed > 1 ? 'es' : ''} updated to the corrected stats`); }
-      // 0.3.71: historic heroes from before 0.3.61 get the points they were short (2 a level, counting the first 30).
+      // Historic heroes hold 1 point a level, counting the first (0.1.43; from 0.3.61 they got 2 a level): the extra
+      // come off (unspent first), and any short get theirs.
       let owed = 0;
       for (const h of [...c.heroes, ...(c.innHistoric || [])]) if (this.hh.owed(h)) owed++;
-      if (owed){ this.store.touch?.(); this.log.info(`${c.name}: ${owed} historic hero${owed > 1 ? 'es' : ''} given the points they were short`); }
+      if (owed){ this.store.touch?.(); this.log.info(`${c.name}: ${owed} historic hero${owed > 1 ? 'es' : ''} set to 1 point a level`); }
     }
     // ... and wild ones still waiting in NPC cities.
     for (const st of Object.values(this.db.hh || {})) if (st?.alloc && this.hh.topUp(st.alloc)) this.store.touch?.();

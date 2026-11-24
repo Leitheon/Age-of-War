@@ -136,6 +136,9 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   every hero he has, sortable by any column, with a Select box for up to 3 champions. Any lord can see them from
   the Champions button on that lord's cities (Hero Attributes: portraits, stats and gear). It has the live game's
   frame, its title on the red banner. Every window's X sits on its frame's silver tab, whatever the window's size.
+- **Historic heroes get 1 point a level** (counting the first: 150 at level 150; wild ones at 30 come with 30), as
+  live: Gao Guiying at 150 in the live ranking is her sheet + 150 + her gear. Ring heroes keep 2 a level. Heroes saved
+  with more lose the extra at startup, unspent points first, then in proportion to where they went.
 - **My Items**: the Angel and Devil items (Fleet Feet ... Broken Gates, used on another lord or his city) are under
   the Stratagem tab with the stratagems.
 - **No world boss**: the web client's built-in Pumpkin Warden (a figure on the map at 0,2) is turned off; the

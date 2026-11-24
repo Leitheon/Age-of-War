@@ -248,11 +248,11 @@ class HeroLogic {
     if (h?.historic) return this.rules.historicHeroes?.maxLevel ?? 150;
     return this.rules.heroMaxLevel ?? 100;
   }
-  // Points a level: 2 for Ring and historic heroes (live: a historic hero at 150 holds 300 more than his sheet base),
-  // rules.heroPointsPerLevel for the rest.
+  // Points a level: 2 for Ring heroes (Fox's capture), 1 for historic heroes (live: Gao Guiying at 150 holds 150 over
+  // her sheet, her gear aside: historicHeroes.ppl), rules.heroPointsPerLevel for the rest.
   pointsPerLevel(h){
     if (h?.ringHero) return this.rules.ringHero?.pointsPerLevel ?? 2;
-    if (h?.historic) return this.rules.historicHeroes?.pointsPerLevel ?? 2;
+    if (h?.historic) return this.rules.historicHeroes?.pointsPerLevel ?? 1;
     return this.rules.heroPointsPerLevel;
   }
   // Levelling up spends the experience the level needs (live: 150 x level^2). A Ring hero gets 2 points a level
