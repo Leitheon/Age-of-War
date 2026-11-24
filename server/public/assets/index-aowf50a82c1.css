@@ -5,3 +5,5 @@
 /* aow: dlg frame */.dlg>.dlg-close{top:calc(2.38% - 11.5px);right:calc(6.47% - 11px)}.dlg>.dlg-title{top:calc(3.2% - 9px);line-height:18px;white-space:nowrap}.bk-dlgcost .bi-costrow{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px}
 
 /* aow: level-1 stats */.aow-lv1{color:#4f6f8a;font-weight:400;font-size:.92em;white-space:nowrap}
+
+/* aow: bi close tab */.bi-win:not(.fn) .bi-close{right:32px;width:35px;height:25px;background:url(/_uiassets/img/skin__991__controls_window_CloseUp.png) no-repeat center/24px 25px,url(/_uiassets/img/mywinbg_clean.webp) no-repeat -752px 0/819px 636px}.bi-win:not(.fn) .bi-close:hover{background:url(/_uiassets/img/skin__929__controls_window_CloseOver.png) no-repeat center/24px 25px,url(/_uiassets/img/mywinbg_clean.webp) no-repeat -752px 0/819px 636px}.bi-win:not(.fn) .bi-close:active{background:url(/_uiassets/img/skin__183__controls_window_CloseDown.png) no-repeat center/24px 25px,url(/_uiassets/img/mywinbg_clean.webp) no-repeat -752px 0/819px 636px}
