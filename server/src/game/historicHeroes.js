@@ -228,7 +228,7 @@ class HistoricHeroLogic {
     }
     return (this._rulers = out);
   }
-  rulerLevel(){ return this.g.rules.historic?.rulerLevel || 100; }
+  rulerLevel(){ return this.g.rules.historic?.rulerLevel || 1; }
   // Seat each ruler in his city, out of the barbarian cities and the Inn's rumours, unless a lord holds him. True if
   // any changed.
   seatRulers(){
@@ -266,10 +266,11 @@ class HistoricHeroLogic {
   // The lord who holds the city gets its ruler, there (Fox, Nov 24 2026: "lock them to their city. They cannot be
   // reinforced to another city, and they cannot be captured. They can be marched. Whomever owns the city gets to
   // use them from the city"): a hero of c's, bound to it (hero.bound, its field), loyal (100), needing no Feasting
-  // Hall seat. The first time at rulerLevel with his points to place; after that as he was when he last left a lord.
+  // Hall seat. Taken from NPC hands he starts at rulerLevel (1, as any historic hero taken from an NPC city), with
+  // his points to place; a lord who takes the city from another lord gets him as he is (armies.takeCity).
   joinRuler(c, h, nextId){
-    const s = this.state(h.id), b = this.baseOf(h), L = this.rulerLevel();
-    const hero = s?.hero ? { ...s.hero } : { name: h.name, level: L, exp: 0, base: { pol: b.pol, atk: b.atk, int: b.int },
+    const b = this.baseOf(h), L = this.rulerLevel();
+    const hero = { name: h.name, level: L, exp: 0, base: { pol: b.pol, atk: b.atk, int: b.int },
       added: { pol: 0, atk: 0, int: 0 }, points: L * this.ppl(), face: h.portrait, sex: h.female, historic: h.id, leadership: b.ldr, infro: h.bio };
     Object.assign(hero, { id: nextId(), status: 0, loyalty: 100, bound: c.fieldId });
     this.g.heroes.list(c).push(hero);
@@ -287,16 +288,14 @@ class HistoricHeroLogic {
       if (s?.status === 'bound' && held && held === city && obj?.bound === fid) continue;
       if (s?.status === 'hired' && obj && obj.bound == null) continue;   // (hired from a barbarian city before 0.1.44: stays his lord's)
       if (s?.status === 'ruler' && !city) continue;
-      let snap = null;
-      if (obj && (s.status === 'seized' || s.status === 'bound')){ held.heroes = this.g.heroes.list(held).filter(x => x !== obj); snap = s.status === 'bound' ? obj : null; this.g.pushHero?.(held, obj, 1); }
-      this.db.hh[id] = { status: 'ruler', fieldId: fid, ...(snap ? { hero: this.snapshot(snap) } : {}) };
+      if (obj && (s.status === 'seized' || s.status === 'bound')){ held.heroes = this.g.heroes.list(held).filter(x => x !== obj); this.g.pushHero?.(held, obj, 1); }
+      this.db.hh[id] = { status: 'ruler', fieldId: fid };
       if (city) this.joinRuler(city, h, () => this.g.store.id());
       n++;
     }
     if (n) this.g.store.touch?.();
     return n;
   }
-  snapshot(hero){ const o = { ...hero }; delete o.id; delete o.status; delete o.bound; return o; }
   isNpcCity(fieldId){
     const t = world.tileAt(this.g.store, fieldId);
     return t.type === world.T.NPC && !t.historic && !t.ownerCastle && (this.rules.npcLevels || []).includes(t.level);
@@ -443,7 +442,7 @@ class HistoricHeroLogic {
     if (!s || s.status !== 'free') return null;
     const free = !!this.rules.questFree, q = this.quests(p)[id], item = this.item(id), portrait = (p.items[item] || 0) > 0;
     if ((q || free) && portrait){
-      const held = seize({ ...this.offer(h, this.alloc(id)), ...(free ? {} : { persuadeItem: item }) });
+      const held = seize({ ...this.captive(h), ...(free ? {} : { persuadeItem: item }) });
       if (held){
         this.byField.delete(fieldId);
         this.db.hh[id] = { status: 'seized', castleId: held.castle.id, heroId: held.hero.id };
@@ -456,6 +455,13 @@ class HistoricHeroLogic {
     }
     this.place(id);
     return { hero: h, moved: true, needQuest: !q && !free, needPortrait: !portrait };
+  }
+  // A historic hero taken from an NPC city starts at level 1, with his sheet's stats and that level's point to place
+  // (Fox, Nov 24 2026: "when a historic hero is captured from an NPC city, it will always be level 1 and must be
+  // leveled up"; rules.historicHeroes.capturedLevel). One taken from a lord keeps his level and stats (captives.js).
+  captive(h){
+    const L = this.rules.capturedLevel ?? 1;
+    return { ...this.offer(h), level: L, added: { pol: 0, atk: 0, int: 0 }, points: L * this.ppl() };
   }
   offer(h, alloc = this.randomAlloc()){
     const level = this.rules.level || 1;
@@ -489,10 +495,10 @@ class HistoricHeroLogic {
   // Hiring the hero settles that hero's quest (it was the reward).
   hired(id, c, heroId, p = null){ this.db.hh[id] = { status: 'hired', castleId: c.id, heroId }; if (p) delete this.quests(p)[id]; }
   // A historic hero who leaves a lord goes back to an NPC city somewhere else; a Historic City's ruler to rule his
-  // city again (as he was: hero), when the lord gives the city up.
-  release(id, hero = null){
+  // city again, when the lord gives the city up (the next lord to take it gets him at level 1).
+  release(id){
     const fid = this.rulers()[id];
-    if (fid != null){ this.db.hh[id] = { status: 'ruler', fieldId: fid, ...(hero ? { hero: this.snapshot(hero) } : {}) }; return; }
+    if (fid != null){ this.db.hh[id] = { status: 'ruler', fieldId: fid }; return; }
     this.place(id);
   }
 }

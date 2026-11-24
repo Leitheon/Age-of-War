@@ -1028,9 +1028,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       'at loyalty 0 the city is ours, called "New city", with the live layout (Cottages on plots 12-31, Academy on 0, Feasting Hall on 3, Barracks on 11, Farms from 1001, then Sawmill, Quarry and Ironmine on the last of 13 plots), and the army and its hero stay there' + (e2 ? ': ' + e2 : r2 ? ': ' + r2.title : ''));
     const cb = ch && G.heroes.bean(ch);
     ok(ch && ch.status === 4 && db.hh[146].status === 'seized' && cb.itemId === 'hero.taskitem.146' && cb.itemAmount === 1 && (me.reports || []).some(x => x.title === 'Caesar captured')
-      && cb.isHero === 1 && cb.level === 30 && cb.remainPoint === 0 && cb.managementAdded + cb.powerAdded + cb.stratagemAdded === 30 && cb.logoUrl === 'images/icon/hero/146.png' && cb.leadership === [...G.hh.roster.values()].find(h => h.id === 146).ldr + 29
+      && cb.isHero === 1 && cb.level === 1 && cb.remainPoint === 1 && cb.managementAdded + cb.powerAdded + cb.stratagemAdded === 0 && cb.logoUrl === 'images/icon/hero/146.png' && cb.leadership === [...G.hh.roster.values()].find(h => h.id === 146).ldr
       && cb.power === 75 + cb.powerAdded && cb.management === 95 + cb.managementAdded && cb.stratagem === 62 + cb.stratagemAdded && cb.infro.length > 20,
-      'with the quest and the portrait Caesar is captured: level 30 with his portrait, biography, base stats (95 politics: DoA\'s hero list), his leadership plus 29 for his levels (Fox) and 30 points spread at random (1 a level, live), to be persuaded with his portrait');
+      'with the quest and the portrait Caesar is captured: level 30 with his portrait, biography, base stats (95 politics: DoA\'s hero list), his leadership, at level 1 with his one point to place (Fox, Nov 24 2026: a historic hero taken from an NPC city is always level 1), to be persuaded with his portrait');
     {
       const R = [...srv.game.hh.roster.values()], by = n => R.find(h => h.name === n);
       ok(by('Genghis Khan')?.atk === 97 && by('Genghis Khan')?.int === 91 && by('Isaac Newton')?.atk === 50 && by('Isaac Newton')?.int === 98 && R.filter(h => h.estimated).length < 10,
@@ -1085,12 +1085,13 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
     const noPortrait = await c.call('hero.tryGetSeizedHero', { castleId: heldIn.id, heroId: ch.id });
     me.items['hero.taskitem.146'] = 1;
     const persuaded = await c.call('hero.tryGetSeizedHero', { castleId: heldIn.id, heroId: ch.id });
-    ok(noPortrait.ok < 0 && /portrait/.test(noPortrait.errorMsg) && persuaded.ok === 1 && ch.status === 0 && ch.loyalty === 70 && db.hh[146].status === 'hired' && !me.items['hero.taskitem.146'] && heldIn.res.gold <= 1000000 - 30000 + 100,
-      'persuading Caesar takes 30,000 gold and his portrait');
+    ok(noPortrait.ok < 0 && /portrait/.test(noPortrait.errorMsg) && persuaded.ok === 1 && ch.status === 0 && ch.loyalty === 70 && db.hh[146].status === 'hired' && !me.items['hero.taskitem.146'] && heldIn.res.gold <= 1000000 - 1000 + 100,
+      'persuading Caesar (level 1) takes 1,000 gold and his portrait');
     {
       const f = srv.game.quests.state(me).flags;
       ok(f.heroSearch && f.enquire && f.hearsay && f.captureHero && f.captureFamous, 'Hero Search, Enquire Details, accepting the task and winning Caesar over tick the Hero Recruitment quests');
     }
+    ch.level = 30; ch.points = 0; ch.added = { pol: 10, atk: 10, int: 10 };   // (levelled up to 30, his points spent)
     me.items['hero.reset.1'] = 3;
     const wash = await c.call('hero.resetPoint', { castleId: heldIn.id, heroId: ch.id });
     ok(wash.ok === 1 && ch.points === 30 && ch.added.pol + ch.added.atk + ch.added.int === 0 && me.items['hero.reset.1'] === 0, 'three Holy Water free Caesar\'s 30 points to place');
@@ -1192,27 +1193,27 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           const lord = G.createPlayer({ name: 'Ruletaker' }, { userName: 'Ruletaker' }), home = G.castlesOf(lord)[0];
           const won = A.conquer({ troops: { archer: 50 }, loot: {} }, lord, home, null, pT, G.npc.state(db, pT, Date.now()), {}, null, Date.now());
           const P = won.castle, him = G.heroes.list(P).find(h => h.historic === nap.id);
-          const joined = him && him.status === 0 && him.bound === paris && him.level === 100 && him.points === 100 && him.base.pol === 99 && him.base.atk === 99 && him.base.int === 99
-            && G.heroes.leadership(him) === 150 + 99 && him.loyalty === 100 && HH.state(nap.id).status === 'bound' && won.captive === null && G.heroes.vacancies(P) === G.heroes.hallSize(P);
+          const joined = him && him.status === 0 && him.bound === paris && him.level === 1 && him.points === 1 && him.base.pol === 99 && him.base.atk === 99 && him.base.int === 99
+            && G.heroes.leadership(him) === 150 && him.loyalty === 100 && HH.state(nap.id).status === 'bound' && won.captive === null && G.heroes.vacancies(P) === G.heroes.hallSize(P);
           // He marches out (attack) but can't be sent to stay in another city, or dismissed.
           P.troops = { archer: 100 }; P.buildings[5] = { typeId: 29, level: 10 };   // (a Rally Spot to send from)
           const send = A.send(P, lord, { missionType: 2, heroId: him.id, targetPoint: home.fieldId, troops: { archer: 10 }, resource: {}, restTime: 0 }, Date.now());
           const fire = G.heroes.fire(P, him.id);
           // Another lord takes Paris: Napoleon serves him there, not as a prisoner.
+          him.level = 50; him.added = { pol: 0, atk: 50, int: 0 }; him.points = 0;   // (levelled up by his lord)
           const lord2 = G.createPlayer({ name: 'Ruletaker2' }, { userName: 'Ruletaker2' }), home2 = G.castlesOf(lord2)[0];
           const took = A.takeCity({ troops: { archer: 5 }, loot: null, carry: {} }, lord2, home2, null, P, lord, Date.now());
-          const stays = G.heroes.list(P).includes(him) && P.playerId === lord2.id && him.status === 0 && took.captives.every(h => h !== him);
-          him.level = 120;
+          const stays = G.heroes.list(P).includes(him) && P.playerId === lord2.id && him.status === 0 && took.captives.every(h => h !== him) && him.level === 50 && him.added.atk === 50;
           G.abandonCastle(lord2, P);
-          const back = HH.rulerAt(paris)?.id === nap.id && HH.state(nap.id).hero?.level === 120;
+          const back = HH.rulerAt(paris)?.id === nap.id;
           const won2 = A.conquer({ troops: { archer: 50 }, loot: {} }, lord, home, null, pT, G.npc.state(db, pT, Date.now()), {}, null, Date.now());
           const again = G.heroes.list(won2.castle).find(h => h.historic === nap.id);
           G.abandonCastle(lord, won2.castle);
           const json = (await get('/heroes.json')).body.toString(), poseidon = JSON.parse(json).find(h => h.name === 'Poseidon');
           ok(rulers === 17 && pos === 'Poseidon' && napRules && led.name === 'Napoleon Bonaparte' && led.attack === base.attack && led.intelligence === base.intelligence && led.face === nap.portrait
-            && notWild && joined && Array.isArray(send) && /bound to Paris/.test(send[1]) && Array.isArray(fire) && /can't be dismissed/.test(fire[1]) && stays && back && again?.level === 120
+            && notWild && joined && Array.isArray(send) && /bound to Paris/.test(send[1]) && Array.isArray(fire) && /can't be dismissed/.test(fire[1]) && stays && back && again?.level === 1
             && poseidon.attack === 99 && poseidon.leadership === 150,
-            `Historic City rulers: Poseidon in Atlantis and 16 capitals (Napoleon in Paris), leading with the city's own hero numbers (${base.attack} attack) under their names, out of the barbarian cities; whoever takes Paris gets Napoleon there (level 100, 99 in each stat, leadership 150 + his levels), bound to it: no reinforcing ("${send?.[1]}"), no dismissing, never a prisoner; given up, he rules Paris again as he was`);
+            `Historic City rulers: Poseidon in Atlantis and 16 capitals (Napoleon in Paris), leading with the city's own hero numbers (${base.attack} attack) under their names, out of the barbarian cities; whoever takes Paris from the NPCs gets Napoleon there at level 1 (99 in each stat, leadership 150), bound to it: no reinforcing ("${send?.[1]}"), no dismissing, never a prisoner; another lord taking Paris gets him as he is (level 50); given up, he rules Paris again, and the next taker gets him at level 1`);
         }
         // Fox (Oct 29 2026): taking a level 8 NPC city didn't finish the Queen's "Conquer a level 8 NPC city".
         const qs = G.quests.state(me), rec = qs.max.npcCity, q8 = G.quests.check(me, city, { kind: 'npcCity', level: 8 }, Date.now());
@@ -2345,14 +2346,15 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const foe = G.createPlayer({ name: 'Warden' }, { userName: 'Warden' }), fc = G.castlesOf(foe)[0];
       me.createdAt = foe.createdAt = Date.now() - 8 * 86400000; W.declare(me, foe, Date.now() - 31 * 60000);
       addHall(fc, 3); fc.troops = { archer: 3000 }; fc.forts = {};
-      const brave = { id: srv.store.id(), name: 'Brave', level: 10, exp: 0, base: G.heroes.baseStats(10), added: { pol: 0, atk: 0, int: 0 }, points: 0, face: 1, status: 3, loyalty: 0 };
+      const brave = { id: srv.store.id(), name: 'Brave', level: 10, exp: 0, base: G.heroes.baseStats(10), added: { pol: 3, atk: 4, int: 2 }, points: 0, face: 1, status: 3, loyalty: 0 };
+      const braveWas = JSON.stringify([brave.level, brave.base, brave.added]);
       G.heroes.list(city).push(brave);
       const army = (heroId, troops, target, mission = 5) => { const x = { id: srv.store.id(), playerId: me.id, castleId: city.id, heroId, mission, from: city.fieldId, target, troops, carry: {}, loot: null, startTime: Date.now(), reachTime: Date.now(), oneWay: 1000, direction: 1, restTime: 0 }; db.armies[x.id] = x; return x; };
       const a1 = army(brave.id, { militia: 5 }, fc.fieldId); A.arrive(a1, Date.now());
       const lostRep = (me.reports || [])[0], list = await c.call('hero.GetDisappearHeros', {});
-      ok(brave.status === 4 && G.heroes.find(fc, brave.id) && !G.heroes.find(city, brave.id) && a1.heroId === 0 && /isHeroBeSeized="true"/.test(lostRep?.content || '') && /Brave was captured/.test(lostRep.title)
+      ok(brave.status === 4 && G.heroes.find(fc, brave.id) && !G.heroes.find(city, brave.id) && a1.heroId === 0 && JSON.stringify([brave.level, brave.base, brave.added]) === braveWas && /isHeroBeSeized="true"/.test(lostRep?.content || '') && /Brave was captured/.test(lostRep.title)
         && list.heros.some(h => h.id === String(brave.id) && h.name === 'Brave' && /^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/.test(h.disppeartime)),
-        'an attacking hero with 0 loyalty is captured by the lord\'s city that beats it, and its lord sees it in the lost-hero list');
+        'an attacking hero with 0 loyalty is captured by the lord\'s city that beats it, keeping his level and stats (Fox), and its lord sees it in the lost-hero list');
       delete db.armies[a1.id];
       const STONE = 'player.item.stoneoffinding';
       me.items[STONE] = 0;

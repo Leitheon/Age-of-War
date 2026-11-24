@@ -176,6 +176,8 @@ const DEFAULTS = {
                                                   // is used up then (false: accept the quest too, persuading takes it)
     level: 30,                                    // wild historic heroes are always level 30 (Fox); the sheet's stats
                                                   // are their level 1 base, plus 30 points spread at random
+    capturedLevel: 1,                             // ...but one taken from an NPC city is level 1, his point to place, and
+                                                  // must be levelled up (Fox, Nov 24 2026; hh.captive)
     maxLevel: 150, pointsPerLevel: 1,             // live: Gao Guiying at 150 has her sheet + 150 points + her gear
                                                   // (Fox, Nov 24 2026; historicHeroes.ppl): 1 a level, counting the first
     hiredLoyalty: 70,                             // UNVERIFIED: loyalty right after hiring
@@ -606,12 +608,12 @@ const DEFAULTS = {
   // Historic City is (99,99 beside 100,100). 0 leaves the map's own terrain there.
   // rulers: the historic hero who leads each named Historic City's defence (Fox, Nov 24 2026: Poseidon in Atlantis,
   // and "the most iconic hero that would be associated with" each capital). He fights with the city's own hero
-  // numbers (historicGarrison.hero) under his name and portrait, is out of the barbarian cities and the Inn's
-  // rumours while he rules, and is taken prisoner (at rulerLevel, his points spread at random) when the city falls,
-  // or when No Capture brings it to 0. Freed again, he goes back to rule it if it's in NPC hands. A city whose
-  // ruler a lord holds is led by its King or Queen meanwhile.
+  // numbers (historicGarrison.hero) under his name and portrait, and is out of the barbarian cities and the Inn's
+  // rumours. He is bound to his city and serves whoever holds it (Fox: "lock them to their city"; hh.joinRuler):
+  // taken from NPC hands he starts at rulerLevel with his points to place; a lord taking the city from another gets
+  // him as he is; a city given up has him rule it again. rulerStats: his base stats and leadership (Fox: 99, 150).
   historic: { level12Enabled: true, level12: { x0: 9, y0: 9, step: 18 }, level12Clearance: 0, flatRing: 1,
-    rulerLevel: 100,
+    rulerLevel: 1,
     rulers: { 'Atlantis': 'Poseidon', 'Washington, D.C.': 'George Washington', 'Beijing': 'Kublai Khan', 'Loyang': 'Wu Zetian',
       'Moscow': 'Ivan IV of Russia', 'Prague': 'Jan Hus', 'Berlin': 'Frederick the Great', 'Vienna': 'Maria Theresa',
       'London': 'Elizabeth I', 'Paris': 'Napoleon Bonaparte', 'Rome': 'Caesar', 'Athens': 'Pericles', 'Cairo': 'Ramesses II',
