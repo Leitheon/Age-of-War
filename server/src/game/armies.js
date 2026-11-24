@@ -710,8 +710,13 @@ class ArmyLogic {
     const hon = p && dp ? (colonize ? { att: 0, def: 0 } : this.honor(p, dp, r.def, r.att, r.attackerWon)) : null;
     // Prestige: a won attack on an NPC city, Historic City or valley earns it (live: prestige="106"); the loser of a
     // battle pays the prestige his lost troops earned when trained.
+    // (Fox, Nov 24 2026: a lord's prestige went to 0 taking Washington D.C. Each lost wave charged every troop the
+    // battle knocked down, also those Penicillin saved and the wounded who come back healed, and the same troops
+    // were charged again at the next wave; and a city's lord paid for his allies' troops. Only the lord's own
+    // troops that are gone for good count now.)
     const prestige = p && r.attackerWon && !dp ? this.battlePrestige(p, r.att, r.def) : 0;
-    const pLoss = r.attackerWon ? 0 : this.lostPrestige(p, r.att), dLoss = dp && r.attackerWon ? this.lostPrestige(dp, r.def) : 0;
+    const pLoss = r.attackerWon ? 0 : this.lostPrestige(p, this.dead(lostOf(before, a.troops), p, c, now));
+    const dLoss = dp && r.attackerWon ? this.lostPrestige(dp, this.dead(lostOf(defBefore, cityLeft), dp, dc, now)) : 0;
     if (p && (prestige || pLoss)){ p.prestige = Math.max(0, (p.prestige || 0) + prestige - pLoss); g.pushPlayerInfo(p); }
     if (dp && dLoss){ dp.prestige = Math.max(0, (dp.prestige || 0) - dLoss); g.pushPlayerInfo(dp); }
     let note = '';
@@ -754,11 +759,17 @@ class ArmyLogic {
     const A = worth(attRows), D = worth(defRows), ratio = A > 0 ? Math.min(bp.maxRatio ?? 10, D / A) : 0;
     return Math.max(0, Math.floor(C.value(defRows) * ratio * (bp.factor ?? 0.01477) / g.quests.townHalls(p)));
   }
-  // The prestige lord p's lost troops earned when trained (the wiki: "you lose the same amount of prestige as the
-  // troops you lose").
-  lostPrestige(p, rows){
+  // The prestige lord p's dead troops ({field: n}) earned when trained (the wiki: "you lose the same amount of
+  // prestige as the troops you lose").
+  lostPrestige(p, dead){
     const g = this.g; if (!p || g.rules.battlePrestige?.losses === false) return 0;
-    return rows.filter(u => u.typeId < 14 && u.lose > 0).reduce((s, u) => s + g.quests.prestigeFor(g.data.troops[u.typeId], u.lose, p), 0);
+    return Object.entries(dead || {}).reduce((s, [f, n]) => { const t = g.data.troops[this.typeOf(f)]; return t && n > 0 ? s + g.quests.prestigeFor(t, n, p) : s; }, 0);
+  }
+  // Of the troops a battle cost city c ({field: n}, after Penicillin), those gone for good: less the wounded, who
+  // wait in c to be healed (wound()). No city, no wounded.
+  dead(lost, p, c, now){
+    const share = c ? this.woundShare(p, now) : 0;
+    return Object.fromEntries(Object.entries(lost || {}).map(([k, n]) => [k, n - Math.floor(n * share)]).filter(([, n]) => n > 0));
   }
   // Honor for attacker p and defender dp from a battle: attRows and defRows are the two sides' units (with lose).
   honor(p, dp, defRows, attRows, attackerWon){
@@ -811,7 +822,8 @@ class ArmyLogic {
       defender: { king: dp.name, hero: defHero, pos: this.placeName(dc.fieldId), units: units(r.def) }, loot: null, back: null };
     g.log.info(`${p.name} fought at ${this.placeName(dc.fieldId)}: ${r.attackerWon ? 'won' : 'lost'} in ${r.round} round${r.round > 1 ? 's' : ''}`);
     const honor = this.honor(p, dp, r.def, r.att, r.attackerWon);
-    const pLoss = r.attackerWon ? 0 : this.lostPrestige(p, r.att), dLoss = r.attackerWon ? this.lostPrestige(dp, r.def) : 0;
+    const pLoss = r.attackerWon ? 0 : this.lostPrestige(p, this.dead(lostOf(before, left), p, home, now));
+    const dLoss = r.attackerWon ? this.lostPrestige(dp, this.dead(lostOf(defBefore, r.defLeft), dp, dc, now)) : 0;
     if (pLoss){ p.prestige = Math.max(0, (p.prestige || 0) - pLoss); g.pushPlayerInfo(p); }
     if (dLoss){ dp.prestige = Math.max(0, (dp.prestige || 0) - dLoss); g.pushPlayerInfo(dp); }
     return { won: r.attackerWon, left, body, attHeal, defHeal, honor, injuredPer: Math.round((g.rules.wounded?.share ?? 0) * 100) || undefined };
@@ -835,8 +847,11 @@ class ArmyLogic {
   cureCost(troops){ return Object.entries(troops).reduce((s, [k, n]) => s + n * this.healGold(k), 0); }
   // Losses from a battle: a share comes back wounded. With Auto Heal on and the gold in the city, every wounded
   // troop there is cured at once. Returns what was healed and its cost, or null.
+  // The share of a battle's losses that survive wounded: rules.wounded.share, +1% a level of the achievements'
+  // bonus, and the Christmas Gift's +15%.
+  woundShare(p, now){ return ((this.g.rules.wounded?.share ?? 0) + (this.g.effort.bonus(p, 'wounded') || 0) / 100) * (1 + this.g.items.healBonus(p, now)); }
   wound(c, p, lost, now){
-    const share = ((this.g.rules.wounded?.share ?? 0) + (this.g.effort.bonus(p, 'wounded') || 0) / 100) * (1 + this.g.items.healBonus(p, now)), w = this.wounded(c, now);   // (Christmas Gift: +15%)   // (+1% a level: achievements)
+    const share = this.woundShare(p, now), w = this.wounded(c, now);
     let any = false;
     for (const [k, n] of Object.entries(lost)){ const hurt = Math.floor(n * share); if (hurt > 0){ w[k] = (w[k] || 0) + hurt; any = true; } }
     if (!any) return null;

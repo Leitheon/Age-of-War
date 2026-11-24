@@ -3016,10 +3016,30 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       Q.townHalls = () => 100;
       const big = A.battlePrestige(me, mk({ 3: [100000, 23000] }), def9), lean = A.battlePrestige(me, mk({ 3: [70000, 25000] }), def9);
       const build100 = Q.prestigeFor({ food: 800, wood: 4000, stone: 800, iron: 400 }, 1, me);
-      Q.townHalls = () => 7; const build7 = Q.prestigeFor({ food: 800, wood: 4000, stone: 800, iron: 400 }, 1, me), lost = A.lostPrestige(me, mk({ 3: [3000, 3000] }));
+      Q.townHalls = () => 7; const build7 = Q.prestigeFor({ food: 800, wood: 4000, stone: 800, iron: 400 }, 1, me), lost = A.lostPrestige(me, { militia: 3000 });
       Q.townHalls = thWas;
       ok(p72 === 106 && p74 >= 2 && p74 <= 3 && p78 === 0 && lean > big && big > 0 && build100 === 0 && build7 === 8 && lost === Math.floor(3000 * 230 * 0.01 / 7),
         `prestige is divided by all the lord's Town Hall levels (a level 4 Cottage: 8 with 7 levels, none with 100); a won NPC attack earns more with fewer troops (NPC 9: ${big} with 100,000 Warriors, ${lean} with 70,000), and Fox's NPC 8 run comes out at 106, ${p74} and 0 (live 106, 3, 0); a lost battle costs the lost troops' prestige`);
+      // Fox (Nov 24 2026): a lord's prestige went to 0 taking Washington D.C. A lost wave charged every troop the
+      // battle knocked down, also those Penicillin saved and the wounded, who come back to be charged again.
+      {
+        const W = require('../src/game/world'), db = srv.store.db, city = db.castles[castle.id], fx = city.fieldId % 800, fy = Math.floor(city.fieldId / 800);
+        let npcId = null;
+        for (let r = 1; r < 80 && npcId == null; r++) for (let dx = -r; dx <= r && npcId == null; dx++){ const id = W.idOf(fx + dx, fy + r), t = W.tileAt(srv.store, id); if (t.type === W.T.NPC && !t.historic && t.level >= 8) npcId = id; }
+        const buffsWas = me.buffs, prestigeWas = me.prestige, troopsWas = { ...city.troops }, healWas = me.autoHeal; me.autoHeal = false;
+        me.buffs = { ...(me.buffs || {}), TroopReliveBuff: Date.now() + 3600000 };
+        const T = G.data.troops[11], earned = Q.prestigeFor(T, 1000, me);
+        me.prestige = 5000000;
+        const x = { id: srv.store.id(), playerId: me.id, castleId: city.id, heroId: 0, mission: 5, from: city.fieldId, target: npcId, troops: { ballista: 1000 }, carry: {}, loot: null, startTime: Date.now(), reachTime: Date.now(), oneWay: 1000, direction: 1, restTime: 0 };
+        db.armies[x.id] = x; const woundedWas = (A.wounded(city, Date.now()).ballista || 0), homeWas = city.troops.ballista || 0;
+        A.arrive(x, Date.now());
+        const left = (city.troops.ballista || 0) - homeWas + (db.armies[x.id]?.troops?.ballista || 0), hurt = (A.wounded(city, Date.now()).ballista || 0) - woundedWas;
+        const paid = 5000000 - me.prestige, gone = 1000 - left - hurt;
+        delete db.armies[x.id]; me.buffs = buffsWas; me.prestige = prestigeWas; me.autoHeal = healWas; city.troops = troopsWas;
+        const w = A.wounded(city, Date.now()); if (w) w.ballista = woundedWas;
+        ok(npcId != null && x.lost && left >= 290 && hurt > 0 && paid === Q.prestigeFor(T, gone, me) && paid < earned * 0.65,
+          `a lost wave costs the prestige of the troops gone for good: 1,000 Ballistae beaten with Penicillin (${left} saved, ${hurt} wounded) cost ${paid}, not the ${earned} they earned`);
+      }
     }
     // Alliances: founding, applying, invitations, ranks, diplomacy, chat, the members' battles and quitting.
     {

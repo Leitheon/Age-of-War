@@ -133,7 +133,10 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   level 12, 14, 16 and 18 Historic City: four at most.
 - **Player Info** (click the portrait) is laid out as the live game's: the lord's details with Change buttons, and
   every hero he has, sortable by any column, with a Select box for up to 3 champions. Any lord can see them from
-  the Champions button on that lord's cities (Hero Attributes: portraits, stats and gear).
+  the Champions button on that lord's cities (Hero Attributes: portraits, stats and gear). It has the live game's
+  frame, its title on the red banner. Every window's X sits on its frame's silver tab, whatever the window's size.
+- **Prestige for lost troops**: the loser of a battle pays the prestige his troops earned when trained, only for those
+  gone for good: not those Penicillin saves or the wounded (who come back healed), nor allied troops in his city.
 - **Prisoners** take no Feasting Hall seat (`rules.prisonersNeedNoSeat`): a city with a Feasting Hall captures a hero
   however full it is, and persuading one waits for a free seat.
 - **Reports**: the last tab is Other (it was Automation), with the Other reports (a city founded, the innkeeper's
