@@ -216,7 +216,8 @@ class CastleLogic {
   // city (power level 4) won't take a Farm from 13 to 14.
   maxLevelOf(c, typeId){
     if (!(typeId >= 4 && typeId <= 7)) return this.rules.maxLevel;
-    return { 0: 18, 1: 16, 2: 14, 3: 12 }[c?.powerLevel ?? 4] || this.rules.maxLevel;
+    // (an amulet city's fields: its amulet's level, c.fieldMax)
+    return Math.max({ 0: 18, 1: 16, 2: 14, 3: 12 }[c?.powerLevel ?? 4] || this.rules.maxLevel, c?.fieldMax || 0);
   }
   check(c, p, typeId, L, cond){
     if (L > Math.min(this.maxLevelOf(c, typeId), this.data.buildings[typeId]?.levels.length || this.rules.maxLevel)) return [ERR.MAX_LEVEL, MAX_LEVEL_MSG];

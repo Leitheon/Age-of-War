@@ -372,6 +372,9 @@ class ItemUse {
     // at that level. Fox's live capture of his Gold Amulet city (Oct 26 2026): an ordinary city to the
     // client (power level 4), its level 14 Rally Spot on plot 31, and nothing in it upgradeable past 10, so its
     // Rally Spot and fields stay at the amulet's level ("The building has already reached maximum level.").
+    // Fox (Nov 2026): one of each resource field at the amulet's level (a Farm, a Sawmill, a Quarry and an Ironmine), the
+    // other 36 field plots empty, and fields built there go up to that level too (c.fieldMax, castle.maxLevelOf). The
+    // city goes somewhere random, as the item says (the web client used to ask for a spot: fieldId).
     const L = CITY_TOKENS[itemId];
     if (fieldId != null){ const err = this.g.landError?.(fieldId); if (err) return [-13, err === 'You can only move your city to an empty flat.' ? 'A new city can only be founded on an empty flat.' : err]; }
     const nc = this.g.createCastle(p, { now, ...(fieldId != null ? { fieldId } : {}) });
@@ -379,11 +382,11 @@ class ItemUse {
     // All 40 field plots at that level (the item: "all resource buildings to level N"; Fox: 9 Farms, 15 Sawmills, 15
     // Ironmines and 1 Quarry).
     nc.buildings = { [POS_TOWN_HALL]: B(31, 10), [POS_WALLS]: B(32, 10), 31: B(29, L) };
-    const mix = [[7, 9], [4, 15], [6, 15], [5, 1]];
-    let plot = 1001; for (const [typeId, n] of mix) for (let i = 0; i < n; i++) nc.buildings[plot++] = B(typeId, L);
+    let plot = 1001; for (const typeId of [7, 4, 5, 6]) nc.buildings[plot++] = B(typeId, L);
+    nc.fieldMax = L;
     this.items.take(p, itemId); out.items.add(itemId); out.newCastle = nc;
     const { x, y } = world.xy(nc.fieldId);
-    out.note = `${nc.name} was founded at (${x},${y}) with a level 10 Town Hall and Walls, a level ${L} Rally Spot and 40 resource fields at level ${L}.`;
+    out.note = `${nc.name} was founded at (${x},${y}) with a level 10 Town Hall and Walls, a level ${L} Rally Spot and a level ${L} Farm, Sawmill, Quarry and Ironmine. Its resource fields can be built and upgraded up to level ${L}.`;
     return out;
   }
 

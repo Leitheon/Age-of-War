@@ -190,6 +190,9 @@ class Game {
       // Heroes holding the experience for more levels (before rules.heroAutoLevel) go up now.
       for (const h of c.heroes){ const n = this.heroes.autoLevel(h); if (n){ this.store.touch?.(); this.log.info(`${c.name}: ${h.name} went up ${n} level${n > 1 ? 's' : ''} to ${h.level}`); } }
       if (this.ensureWalls(c)){ this.store.touch?.(); this.log.info(`${c.name} was given level ${this.rules.startWalls} Walls (every city has them now)`); }
+      // 0.1.25: an amulet city (an ordinary city with a Rally Spot above 10) lets its fields go up to that level too.
+      const rally = Object.values(c.buildings || {}).find(b => b.typeId === 29)?.level || 0;
+      if (!c.fieldMax && (c.powerLevel ?? 4) >= 4 && rally > 10 && rally <= 14){ c.fieldMax = rally; this.store.touch?.(); this.log.info(`${c.name}: its fields can go up to level ${rally}, as its amulet's`); }
       // 0.3.28: the historic hero sheet had attack and intelligence swapped; hired heroes take the corrected stats.
       let fixed = 0;
       for (const h of [...c.heroes, ...(c.innHistoric || [])]) if (this.hh.sync(h)) fixed++;
@@ -795,12 +798,12 @@ class Game {
         const now = this.now();
         for (const c of this.castlesOf(p)){
           this.logic.settle(c, p, now);
-          for (const k of ['food', 'wood', 'stone', 'iron', 'gold']) c.res[k] = Math.max(c.res[k], fill);
+          for (const k of ['food', 'wood', 'stone', 'iron', 'gold']) c.res[k] = (c.res[k] || 0) + fill;   // (Fox: added, not set)
           this.pushResources(c);
         }
         this.store.touch();
-        note = `<p class="ok">Every city now has at least ${n(fill)} food, lumber, stone, iron and gold.</p>`;
-        this.log.info(`Owner page: filled ${p.name}'s cities to ${fill}`);
+        note = `<p class="ok">Added ${n(fill)} food, lumber, stone, iron and gold to every city.</p>`;
+        this.log.info(`Owner page: added ${fill} of each resource to ${p.name}'s cities`);
       }
     }
     const link = (q, label) => `<a class="btn" href="?user=${encodeURIComponent(name)}&t=${this.adminToken}&${q}">${label}</a>`;
@@ -810,8 +813,9 @@ class Game {
       : `<p><b>${esc(p.name)}</b> has <b>${n(p.coins || 0)}</b> coins.</p>${note}
          <h2>Coins</h2><p>${[1000, 10000, 100000, 1000000].map(v => link('add=' + v, 'Add ' + n(v))).join(' ')}</p>
          <form><input type="hidden" name="user" value="${esc(name)}"><input type="hidden" name="t" value="${this.adminToken}"><input name="add" type="number" min="1" max="100000000" placeholder="Other amount"> <button class="btn">Add coins</button></form>
-         <h2>Resources</h2><p>Raises food, lumber, stone, iron and gold in every city to at least this much. Amounts above a city's storage stay until you spend them.</p>
-         <p>${[1000000, 10000000, 100000000].map(v => link('fill=' + v, n(v) + ' each')).join(' ')}</p>
+         <h2>Resources</h2><p>Adds this much food, lumber, stone, iron and gold to every city. Amounts above a city's storage stay until you spend them.</p>
+         <p>${[1000000, 10000000, 100000000].map(v => link('fill=' + v, '+' + n(v) + ' each')).join(' ')}</p>
+         <form><input type="hidden" name="user" value="${esc(name)}"><input type="hidden" name="t" value="${this.adminToken}"><input name="fill" type="number" min="1" max="1000000000" placeholder="Other amount"> <button class="btn">Add to each</button></form>
          <h2>Troops</h2><p>Adds troops to one of your cities, straight into its army.</p>
          <form><input type="hidden" name="user" value="${esc(name)}"><input type="hidden" name="t" value="${this.adminToken}"><select name="city">${this.castlesOf(p).map(c => { const { x, y } = world.xy(c.fieldId); return `<option value="${c.id}">${esc(c.name)} (${x},${y})</option>`; }).join('')}</select>
          <select name="troop"><option value="all">Every kind</option>${Object.values(this.data.troops).map(t => `<option value="${esc(t.field)}">${esc(t.name)}</option>`).join('')}</select>

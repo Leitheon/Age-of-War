@@ -52,6 +52,7 @@ class Beans {
     // the client gives higher resource field caps, Policies on the map and a bigger Rally Spot limit.
     return {
       id: c.id, name: c.name, fieldId: c.fieldId, x: world.xy(c.fieldId).x, y: world.xy(c.fieldId).y, zoneId: world.zoneOf(c.fieldId), icon: c.icon || 0, logUrl: c.logUrl || null, status: 0, powerlevel: c.powerLevel ?? 4,   // (an amulet city is an ordinary city, 4, on the live server: Fox's capture)
+      ...(c.fieldMax ? { fieldMax: c.fieldMax } : {}),   // (an amulet city's fields go up to its amulet's level)
       allowAlliance: c.allowAlliance !== false, canChangeIcon: true, goOutForBattle: this.game.armies.gateOpen(c), hasEnemy: this.game.armies.incoming(c).length > 0, colonization: this.game.colonies.colonization(c), usePACIFY_SUCCOUR_OR_PACIFY_PRAY: 0,
       buildings, buildCommands: this.buildCommands(c), buildingQueues: this.game.buildQueue.beans(c), resource: this.resource(c, p), troop: this.troop(c), strTroop: this.troopStr(c), fortification: this.forts(c),
       heros: (c.heroes || []).map(h => this.game.heroes.bean(h)), fields: (c.valleys || []).map(id => this.game.armies.fieldBean(world.tileAt(this.game.store, id))),

@@ -102,10 +102,13 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
 - **The shop** leaves out the items in `rules.webShop.hidden` (76 of them: Speakers, Rituals of Pact, Truce
   Agreements, Publicity Ambassadors, keys and lockboxes, holiday chests...) and won't sell them; they still work
   wherever else they turn up.
+- **The admin page's resource buttons add** to what each city has (they used to raise it to that amount).
 - **Rank and title names** are Evony's again (DoA had renamed them): Civilian, Lieutenant, Captain, Major, Colonel,
   General; Civilian, Knight, Baronet, Baron, Viscount, Earl, Marquis, Duke, Furstin, Prinzessin.
-- **Items** do what their descriptions say from My Items (every item was tried as the web client uses it): the
-  Bronze, Silver and Gold Amulets found their city on the spot you enter, Holy Water (5 pieces) opens into 5, Treat
+- **Bronze, Silver and Gold Amulets** found a city somewhere random, as the item says, with a level 10 Town Hall and
+  Walls, a Rally Spot at the amulet's level (11, 12 or 14) and one Farm, Sawmill, Quarry and Ironmine at that level;
+  fields built there can be upgraded up to that level too (`fieldMax`).
+- **Items** do what their descriptions say from My Items (every item was tried as the web client uses it): Holy Water (5 pieces) opens into 5, Treat
   and Trick Tokens give an Angel or a Devil item, a Bronze/Silver/Golden Key opens its lockbox, chests read their
   full contents list, Speech Text, Civil Code, the Dream Truce (starts now), the Truce Agreement (no password check),
   the Pioneer Express Teleport and the Christmas Gift's healing and training bonuses work, and holiday treats whose

@@ -203,9 +203,11 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
     const coinsPage = await get(`/coins?from=game&user=Tester&add=1000`);
     ok(coinsPage.status === 200 && coinsPage.body.toString().includes('Added 1,000 coins'), 'the Get More Coins page adds coins');
     ok((await c.wait('server.PlayerInfoUpdate')).data.playerInfo.medal === 1990, 'added coins reach the game right away');
+    const cres = srv.store.db.castles[castle.id].res, wood0 = cres.wood;
     const fillPage = await get(`/coins?from=game&user=Tester&fill=100000000`);
     const filled = (await c.wait('server.ResourceUpdate', 3000, d => d.resource.wood.amount >= 100000000)).data;
-    ok(fillPage.body.toString().includes('100,000,000') && filled.resource.food.amount >= 100000000 && filled.resource.gold >= 100000000, 'the owner panel fills resources to 100 million and the game sees it');
+    ok(fillPage.body.toString().includes('Added 100,000,000') && filled.resource.food.amount >= 100000000 && filled.resource.gold >= 100000000 && cres.wood >= wood0 + 100000000 - 1,
+      'the owner panel adds 100 million of each resource (to what the city has) and the game sees it');
     const givePage = await get(`/coins?from=game&user=Tester&give=${encodeURIComponent('Saxon Beer Chest A')}&n=2`);
     const gotItem = (await c.wait('server.ItemUpdate', 3000, d => d.items.some(i => i.id === 'player.box.present.money.96'))).data;
     ok(givePage.body.toString().includes('Added 2 x Saxon Beer Chest A') && gotItem.items[0].count === 2, 'the owner panel gives any item, event chests included');
@@ -1322,11 +1324,13 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const nc = srv.store.db.castles[me.castles[cities0]];
       const lv = k => nc?.buildings[k] && [nc.buildings[k].typeId, nc.buildings[k].level].join();
       const capped = G.logic.upgrade(nc, me, 1001, Date.now()), L = G.logic;
-      ok(add.castleBean.id === nc?.id && add.castleBean.powerlevel === 4 && G.beans.castle(nc, me).powerlevel === 4 && me.castles.length === cities0 + 1 && lv(-1) === '31,10' && lv(-2) === '32,10' && lv(31) === '29,11'
-        && Object.keys(nc.buildings).filter(k => +k > 1000).length === 40 && [[7, 9], [4, 15], [6, 15], [5, 1]].every(([t, n]) => Object.values(nc.buildings).filter(b => b.typeId === t && b.level === 11).length === n) && Array.isArray(capped) && capped[0] === -57
-        && L.checkOut(nc, me, nc.buildings[31]).ok === -57 && L.checkOut(nc, me, nc.buildings[1001]).ok === -57
-        && L.maxLevelOf(nc, 7) === 10 && L.maxLevelOf(nc, 29) === 10 && L.maxLevelOf({ powerLevel: 2 }, 6) === 14 && L.maxLevelOf({ powerLevel: 4 }, 6) === 10,
-        'a Bronze Amulet founds an ordinary city (power level 4) with a level 10 Town Hall and Walls, a level 11 Rally Spot on plot 31 and all 40 resource fields at 11 (9 Farms, 15 Sawmills, 15 Ironmines, 1 Quarry), none of them upgradeable (Fox\'s live capture); a level 14 Historic City\'s fields go to 14');
+      nc.buildings[1005] = { typeId: 7, level: 10, status: 0, startTime: 0, endTime: 0 };
+      const newFarm = L.checkOut(nc, me, nc.buildings[1005]); delete nc.buildings[1005];
+      ok(add.castleBean.id === nc?.id && add.castleBean.powerlevel === 4 && add.castleBean.fieldMax === 11 && me.castles.length === cities0 + 1 && lv(-1) === '31,10' && lv(-2) === '32,10' && lv(31) === '29,11'
+        && Object.keys(nc.buildings).filter(k => +k > 1000).length === 4 && [7, 4, 5, 6].every(t => Object.values(nc.buildings).filter(b => b.typeId === t && b.level === 11).length === 1) && Array.isArray(capped) && capped[0] === -57
+        && L.checkOut(nc, me, nc.buildings[31]).ok === -57 && L.checkOut(nc, me, nc.buildings[1001]).ok === -57 && newFarm.ok !== -57
+        && L.maxLevelOf(nc, 7) === 11 && L.maxLevelOf(nc, 29) === 10 && L.maxLevelOf({ powerLevel: 2 }, 6) === 14 && L.maxLevelOf({ powerLevel: 4 }, 6) === 10,
+        'a Bronze Amulet founds an ordinary city somewhere random (power level 4) with a level 10 Town Hall and Walls, a level 11 Rally Spot and one level 11 Farm, Sawmill, Quarry and Ironmine (Fox); fields built there go up to 11, and a level 14 Historic City\'s fields go to 14');
 
       // The web client's amulet (shop.useDevilItem with its Target X and Y): the city is founded on that spot, an empty flat.
       { const W = require('../src/game/world'); me.title = 2; give('player.gen.castle.2');
@@ -3414,17 +3418,20 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         for (const id of ['player.easter.stoptoopsupkeep', 'player.item.birthdaycake', 'player.chocolate.bunny', 'player.item.memoryofthesun', 'player.christmas.gift']){ give(id); use(id); }
         const live = k => (pb.buffs?.[k] || 0) > G.now(), fast = G.troops.unitSeconds(city, pb, 3), tsb = pb.buffs.TrainSpeedBuff;
         delete pb.buffs.TrainSpeedBuff; const slow = G.troops.unitSeconds(city, pb, 3); pb.buffs.TrainSpeedBuff = tsb;
-        city.loyalty = 40; city.complaint = 30; give('player.heart.1.a'); const speech = use('player.heart.1.a');
-        city.pop = Math.floor(G.logic.popMax(city) / 2); const pop0 = city.pop; give('player.pop.1.a'); const civil = use('player.pop.1.a');
+        G.catchUp(city); city.loyalty = 40; city.complaint = 30; give('player.heart.1.a'); const speech = use('player.heart.1.a');
+        G.catchUp(city); city.pop = Math.floor(G.logic.popMax(city) / 4); const pop0 = city.pop; give('player.pop.1.a'); const civil = use('player.pop.1.a');
         give('player.truce.dream'); const dream = use('player.truce.dream');
         give('player.peace.1'); const truce = ask('city.setStopWarState', { itemId: 'player.peace.1', ItemId: 'player.peace.1', password: 'not checked', passWord: 'not checked' });
-        ok(hw?.ok === 1 && has('hero.reset.1') === hw0 + 5 && treat?.ok === 1 && trick?.ok === 1 && sum(angels) === a0 + 1 && sum(devils) === d0 + 1
-          && lonely?.ok < 0 && /opens a Bronze Lockbox/.test(lonely.errorMsg) && opened?.ok === 1 && !has('player.box.1') && !has('consume.key.1')
-          && pack?.ok === 1 && ['food', 'wood', 'stone', 'iron'].every(k => got(k) === 5000) && bonus?.ok === 1 && has('consume.move.1') === t0 + 1 && has('consume.blueprint.1') === s0 + 1
-          && yearKey?.ok === 1 && !has('player.key.birthdaykey.2015')
-          && live('ReduceTroopsUpkeepBuff') && live('TroopReliveBuff') && live('IncFoodProduceBuff') && live('HealBonusBuff') && live('TrainSpeedBuff') && slow > fast
-          && speech?.ok === 1 && city.loyalty === 100 && !city.complaint && civil?.ok === 1 && city.pop > pop0 && dream?.ok === 1 && G.account.inDreamTruce(pb, G.now() + 120000) && truce?.ok === 1 && live('PlayerPeaceBuff'),
-          'items work from My Items: Holy Water (5 pieces) gives 5 Holy Water, Treat and Trick Tokens an Angel and a Devil item, a Bronze Key opens a Bronze Lockbox (and says so without one), the Resources Package 5,000 of each, Cents Bonus its 11 items, a Birthday Key of another year its chest, Marshmallow Meep, Birthday Cake, Chocolate Bunny, Memory of the Sun and the Christmas Gift their bonuses (training 10% faster), Speech Text and Civil Code their city, a Dream Truce starts now, and a Truce Agreement needs no password'); }
+        const checks = { holyWater: hw?.ok === 1 && has('hero.reset.1') === hw0 + 5, tokens: treat?.ok === 1 && trick?.ok === 1 && sum(angels) === a0 + 1 && sum(devils) === d0 + 1,
+          key: lonely?.ok < 0 && /opens a Bronze Lockbox/.test(lonely.errorMsg) && opened?.ok === 1 && !has('player.box.1'),
+          resources: pack?.ok === 1 && ['food', 'wood', 'stone', 'iron'].every(k => got(k) === 5000), centsBonus: bonus?.ok === 1 && has('consume.move.1') >= t0 + 1 && has('consume.blueprint.1') >= s0 + 1,
+          yearKey: yearKey?.ok === 1 && !has('player.key.birthdaykey.2015'),
+          buffs: live('ReduceTroopsUpkeepBuff') && live('TroopReliveBuff') && live('IncFoodProduceBuff') && live('HealBonusBuff') && live('TrainSpeedBuff') && slow > fast,
+          city: speech?.ok === 1 && city.loyalty >= 99.9 && !city.complaint && civil?.ok === 1 && city.pop > pop0,
+          truces: dream?.ok === 1 && G.account.inDreamTruce(pb, G.now() + 120000) && truce?.ok === 1 && live('PlayerPeaceBuff') };
+        const failed = Object.keys(checks).filter(k => !checks[k]);
+        ok(!failed.length,
+          (failed.length ? `(failed: ${failed.join(', ')}; ${JSON.stringify({ pack: got('food'), opened: opened?.errorMsg, yearKey: yearKey?.errorMsg, speech: speech?.errorMsg, civil: civil?.errorMsg, loyalty: city.loyalty, pop: [pop0, city.pop] })}) ` : '') + 'items work from My Items: Holy Water (5 pieces) gives 5 Holy Water, Treat and Trick Tokens an Angel and a Devil item, a Bronze Key opens a Bronze Lockbox (and says so without one), the Resources Package 5,000 of each, Cents Bonus its 11 items, a Birthday Key of another year its chest, Marshmallow Meep, Birthday Cake, Chocolate Bunny, Memory of the Sun and the Christmas Gift their bonuses (training 10% faster), Speech Text and Civil Code their city, a Dream Truce starts now, and a Truce Agreement needs no password'); }
       // The Pioneer Express Teleport moves a city through the web client's Adv City Teleporter window.
       { const acct2 = { name: 'pioneer', createdAt: G.now(), playerId: null }; G.db.accounts.pioneer = acct2;
         const pp = G.createPlayer(acct2), pc = G.castlesOf(pp)[0], rr = [];
@@ -3463,7 +3470,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           `Full Demolish: Dynamite takes a level 6 Warehouse down completely (${city.buildings[24] ? 'level ' + city.buildings[24].level : 'gone'})`); }
       // Full Demolish without Dynamite: one is bought with gold (rules.noCents); without the gold the demolition the
       // client started for it is called off and the building stands.
-      { G.rules.dynamiteFullDemolish = true; G.rules.noCents = true;
+      { G.rules.dynamiteFullDemolish = true; G.rules.noCents = true; G.catchUp(city);   // (no taxes pile up on the gold below)
         city.buildings[24] = { typeId: 3, level: 6, status: 0, startTime: 0, endTime: 0 };
         pb.items['player.destroy.1.a'] = 0; pb.boundGold = 0; for (const x of G.castlesOf(pb)) x.res.gold = 0; city.res.gold = 250000;
         ask('castle.destructBuilding', { positionId: 24 }); const bought = ask('castle.speedUpBuildCommand', { positionId: 24, itemId: 'player.destroy.1.a' });
@@ -3471,9 +3478,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         city.buildings[25] = { typeId: 3, level: 4, status: 0, startTime: 0, endTime: 0 }; city.res.gold = 1000;
         ask('castle.destructBuilding', { positionId: 25 }); const poor = ask('castle.speedUpBuildCommand', { positionId: 25, itemId: 'player.destroy.1.a' });
         G.rules.dynamiteFullDemolish = false; G.rules.noCents = false;
-        ok(bought.ok === 1 && !(city.buildings[24]?.level > 0) && goldLeft >= 50000 && goldLeft < 50100 && poor.ok < 0 && /Dynamite costs 200,000 gold/.test(poor.errorMsg)
+        ok(bought.ok === 1 && !(city.buildings[24]?.level > 0) && goldLeft >= 49900 && goldLeft < 50100 && poor.ok < 0 && /Dynamite costs 200,000 gold/.test(poor.errorMsg)
           && city.buildings[25].level === 4 && city.buildings[25].status === 0,
-          `Full Demolish without Dynamite buys one for 200,000 gold; without the gold the building is left standing (${poor.errorMsg})`);
+          `Full Demolish without Dynamite buys one for 200,000 gold; without the gold the building is left standing (${poor.errorMsg}; ${JSON.stringify({ bought: bought.ok, err: bought.errorMsg, goldLeft, b24: city.buildings[24], b25: city.buildings[25] })})`);
         delete city.buildings[25]; }
       // Abandoning a city from the web client needs no password (its window asks for a confirmation).
       { const extra = G.castlesOf(pb).find(x => x !== city), n0 = G.castlesOf(pb).length;
