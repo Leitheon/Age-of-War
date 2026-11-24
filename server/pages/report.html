@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Age of War · Battle Report</title>
+<meta name="description" content="A battle report from Age of War, shared by its link.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+  :root{
+    /* Age II game palette, as the other site pages (deep Evony blue with gold trim). */
+    --bg:#0a2036; --bg2:#0e2b45; --panel:#123f66; --panel-hi:#17527f; --field:#0b2740;
+    --gold:#e8c66a; --gold-bright:#ffe3a0; --bronze:#b98a3c;
+    --ink:#eaf3fb; --muted:#9db8cf; --line:#265d84; --line-soft:#1b4468;
+    --win:#8fd97a; --loss:#f08a6a; --lose:#f3a08a;
+    --shadow:0 2px 8px rgba(0,4,10,.5);
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg);
+    background-image:radial-gradient(1200px 640px at 50% -12%, #15507a 0%, var(--bg) 60%), linear-gradient(180deg,#0e3050 0%, var(--bg) 42%);
+    background-attachment:fixed;
+    color:var(--ink); font-family:"Spectral",Georgia,serif; font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased;}
+  a{color:var(--gold-bright); text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:1060px; margin:0 auto; padding:0 16px}
+  .topbar{position:sticky; top:0; z-index:20; background:rgba(18,14,9,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line);}
+  .topbar .wrap{display:flex; align-items:center; gap:18px; height:58px}
+  .brand{font-family:"Cinzel",serif; font-weight:700; color:var(--gold); letter-spacing:.02em; font-size:clamp(0.72rem, 2.85vw, 1.02rem); white-space:nowrap}
+  .brand span{color:var(--gold-bright)}
+  .brand a{color:var(--gold); text-decoration:none} .brand a:hover{color:var(--gold-bright)}
+  header.hero{padding:36px 0 10px; text-align:center}
+  header.hero h1{font-family:"Cinzel",serif; font-weight:700; font-size:clamp(1.7rem,4.6vw,2.7rem); margin:0 0 8px; color:var(--gold);
+    text-wrap:balance; letter-spacing:.03em; text-shadow:0 2px 0 #000, 0 0 22px rgba(217,180,90,.15)}
+  header.hero p{max-width:62ch; margin:0 auto; color:var(--muted); font-size:1.02rem}
+  .rule{height:2px; width:min(560px,90%); margin:18px auto 0; background:linear-gradient(90deg,transparent,var(--bronze),var(--gold),var(--bronze),transparent)}
+
+  /* the paste box */
+  .open{max-width:640px; margin:28px auto 0; background:linear-gradient(180deg,var(--panel-hi),var(--panel)); border:1px solid var(--line);
+    border-radius:12px; padding:18px; box-shadow:var(--shadow)}
+  .open label{display:block; font-family:"Cinzel",serif; color:var(--gold-bright); font-size:1rem; margin:0 0 10px}
+  .open .row{display:flex; gap:10px; flex-wrap:wrap}
+  .open input{flex:1 1 260px; min-width:0; background:var(--field); border:1px solid var(--line); border-radius:8px; color:var(--ink);
+    font-family:"Spectral",serif; font-size:.98rem; padding:10px 13px}
+  .open input::placeholder{color:var(--muted)}
+  .open input:focus{outline:2px solid var(--gold); outline-offset:-1px}
+  .btn{appearance:none; border:1px solid var(--bronze); background:linear-gradient(180deg,#f0d27e,#c99a3f); color:#2a1a05; border-radius:8px;
+    font-family:"Cinzel",serif; font-weight:600; font-size:.92rem; padding:10px 18px; cursor:pointer}
+  .btn:hover{filter:brightness(1.07)}
+  .btn.ghost{background:var(--bg2); color:var(--gold-bright); border-color:var(--line)}
+  .open .msg{margin:10px 0 0; color:var(--loss); font-size:.92rem; min-height:1.2em}
+  .loading{color:var(--muted); text-align:center; padding:40px 0}
+
+  /* the report */
+  .sum{margin:26px 0 0; background:linear-gradient(180deg,var(--panel-hi),var(--panel)); border:1px solid var(--line); border-radius:12px;
+    padding:16px 18px; box-shadow:var(--shadow)}
+  .sum h2{font-family:"Cinzel",serif; font-weight:600; font-size:clamp(1.1rem,3vw,1.4rem); color:var(--gold-bright); margin:0 0 10px; overflow-wrap:anywhere}
+  .meta{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px 16px}
+  .meta div{min-width:0}
+  .meta .k{display:block; color:var(--muted); font-size:.74rem; text-transform:uppercase; letter-spacing:.05em}
+  .meta .v{font-variant-numeric:tabular-nums; overflow-wrap:anywhere}
+  .outcome{margin:14px 0 0; padding:10px 14px; border-radius:9px; background:var(--field); border:1px solid var(--line); border-left:4px solid var(--win)}
+  .outcome.loss{border-left-color:var(--loss)}
+  .outcome b{font-family:"Cinzel",serif; font-weight:600}
+  .sum .tools{display:flex; gap:10px; flex-wrap:wrap; margin:14px 0 0}
+  .sides{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr)); gap:14px; margin:14px 0 0}
+  .side{background:linear-gradient(180deg,var(--panel-hi),var(--panel)); border:1px solid var(--line); border-radius:12px; padding:14px 16px; box-shadow:var(--shadow); min-width:0}
+  .side h3{margin:0 0 8px; font-family:"Cinzel",serif; font-weight:600; font-size:1.05rem; color:var(--gold); display:flex; flex-wrap:wrap; gap:4px 8px; align-items:baseline}
+  .side h3 .lord{color:var(--ink)}
+  .side h3 .res{margin-left:auto; font-size:.85rem}
+  .res.win{color:var(--win)} .res.loss{color:var(--loss)}
+  .pos{color:var(--muted); font-size:.88rem; margin:-4px 0 8px}
+  .herorow{display:flex; align-items:center; gap:10px; margin:0 0 10px; padding:8px; background:var(--field); border:1px solid var(--line-soft); border-radius:9px}
+  .herorow img{width:44px; height:44px; border-radius:7px; object-fit:cover; background:#0c2942; border:1px solid var(--line)}
+  .herorow .nm{font-weight:600} .herorow .sub{color:var(--muted); font-size:.85rem}
+  .tblwrap{overflow-x:auto}
+  table{border-collapse:collapse; width:100%; font-size:.92rem}
+  th,td{padding:7px 9px; text-align:right; border-bottom:1px solid var(--line-soft); font-variant-numeric:tabular-nums; white-space:nowrap}
+  th{color:var(--gold); font-family:"Cinzel",serif; font-weight:500; font-size:.78rem; letter-spacing:.02em}
+  td:first-child,th:first-child{text-align:left}
+  td.lose{color:var(--lose)}
+  .unit{display:inline-flex; align-items:center; gap:8px}
+  .unit img{width:24px; height:24px}
+  .none{color:var(--muted); font-style:italic; margin:4px 0}
+  .box{margin:14px 0 0; background:linear-gradient(180deg,var(--panel-hi),var(--panel)); border:1px solid var(--line); border-radius:12px; padding:14px 16px; box-shadow:var(--shadow)}
+  .box h4{margin:0 0 10px; font-family:"Cinzel",serif; font-weight:600; color:var(--gold); font-size:.98rem}
+  .chips{display:flex; flex-wrap:wrap; gap:8px}
+  .chip{display:inline-flex; align-items:center; gap:8px; background:var(--field); border:1px solid var(--line-soft); border-radius:8px; padding:6px 10px; font-variant-numeric:tabular-nums}
+  .chip img{width:24px; height:24px}
+  .chip b{color:var(--gold-bright)}
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:8px}
+  .stat{background:var(--field); border:1px solid var(--line-soft); border-radius:8px; padding:8px 10px}
+  .stat .k{display:block; color:var(--muted); font-size:.74rem; text-transform:uppercase; letter-spacing:.05em}
+  .stat .v{font-size:1.05rem; font-variant-numeric:tabular-nums}
+  .note{color:var(--ink); margin:0}
+  footer{margin:40px 0 30px; padding-top:18px; border-top:1px solid var(--line); text-align:center; color:var(--muted); font-size:.85rem}
+  [hidden]{display:none !important}
+  @media (max-width:560px){
+    header.hero{padding:26px 0 8px}
+    .topbar .wrap{height:auto; flex-wrap:wrap; gap:4px 14px; padding-top:8px; padding-bottom:8px}
+    .brand{font-size:clamp(0.68rem, 3.4vw, 0.92rem)}
+    th,td{padding:6px 6px}
+  }
+</style>
+</head>
+<body>
+<div class="topbar"><div class="wrap">
+  <div class="brand"><a href="/">Age of War</a> · <span>Battle Report</span></div>
+</div></div>
+<main class="wrap">
+  <header class="hero">
+    <h1>Battle Report</h1>
+    <p id="lede">Open a battle report someone shared with you.</p>
+    <div class="rule"></div>
+  </header>
+
+  <form class="open" id="open" hidden>
+    <label for="link">Paste a battle report link</label>
+    <div class="row">
+      <input id="link" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://playageofwar.com/report?id=...">
+      <button class="btn" type="submit">Open report</button>
+    </div>
+    <p class="msg" id="msg" role="status"></p>
+  </form>
+
+  <p class="loading" id="loading" hidden>Loading the report…</p>
+  <div id="report" hidden></div>
+
+  <footer><p>Age of War · Battle reports. The link in a battle report opens it here.</p></footer>
+</main>
+<script>
+(() => {
+  'use strict';
+  const NAMES = { 2: 'Worker', 3: 'Warrior', 4: 'Scout', 5: 'Pikeman', 6: 'Swordsman', 7: 'Archer', 8: 'Transporter', 9: 'Cavalry', 10: 'Cataphract',
+    11: 'Ballista', 12: 'Battering Ram', 13: 'Catapult', 14: 'Trap', 15: 'Abatis', 16: 'Archer Tower', 17: 'Rolling Log', 18: 'Defensive Trebuchet' };
+  const ICONS = { 2: 'icon_t3_1', 3: 'icon_t3_7', 4: 'icon_t3_2', 5: 'icon_t3_8', 6: 'icon_t3_3', 7: 'icon_t3_9', 8: 'icon_t3_5', 9: 'icon_t3_4', 10: 'icon_t3_10',
+    11: 'icon_t3_11', 12: 'icon_t3_6', 13: 'icon_t3_12', 14: 'icon_t4_1', 15: 'icon_t4_2', 16: 'icon_t4_3', 17: 'icon_t4_4', 18: 'icon_t4_5' };
+  const RES = [['food', 'Food', 'images/Controls/tab/icon_t1_1.png'], ['wood', 'Wood', 'images/Controls/tab/icon_t1_2.png'], ['stone', 'Stone', 'images/Controls/tab/icon_t1_3.png'],
+    ['iron', 'Iron', 'images/Controls/tab/icon_t1_4.png'], ['gold', 'Gold', 'images/Controls/Icon/CityInfo/icon_16.png']];
+  const $ = id => document.getElementById(id);
+  const num = v => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString('en-US') : String(v ?? ''); };
+  // Elements built from text only: names in a report are what lords typed.
+  const h = (tag, props, ...kids) => {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(props || {})){ if (v == null || v === false) continue; if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v; else e.setAttribute(k, v); }
+    for (const k of kids.flat()) if (k != null && k !== false) e.append(k instanceof Node ? k : document.createTextNode(String(k)));
+    return e;
+  };
+  const art = p => /^images\/[\w./-]+\.(png|jpe?g|gif)$/i.test(String(p || '').replace(/^\//, '')) ? '/flash/' + String(p).replace(/^\//, '') : null;
+  const img = (src, cls) => { if (!src) return null; const i = h('img', { src, alt: '', class: cls, loading: 'lazy' }); i.onerror = () => { i.style.visibility = 'hidden'; }; return i; };
+  const attr = (el, k) => el ? el.getAttribute(k) : null;
+  const kids = (el, tag) => el ? [...el.children].filter(c => c.tagName === tag) : [];
+  const first = (el, tag) => el ? [...el.getElementsByTagName(tag)][0] || null : null;
+
+  // The report id in a link (…/report?id=<24 hex digits>) or on its own.
+  const idIn = text => { const m = /(?:[?&]id=|^)([0-9a-f]{24})\b/i.exec(String(text || '').trim()); return m ? m[1].toLowerCase() : null; };
+
+  function side(block, label, won){
+    const king = attr(block, 'king'), pos = attr(block, 'castlePos'), hero = attr(block, 'heroName');
+    const card = h('div', { class: 'side' },
+      h('h3', {}, label, king ? h('span', { class: 'lord', text: king }) : null, h('span', { class: 'res ' + (won ? 'win' : 'loss'), text: won ? 'Victory' : 'Defeat' })));
+    if (pos) card.append(h('p', { class: 'pos', text: pos }));
+    if (hero){
+      const lv = attr(block, 'heroLevel'), exp = attr(block, 'heroExp');
+      card.append(h('div', { class: 'herorow' }, img(art(attr(block, 'heroUrl'))),
+        h('div', {}, h('div', { class: 'nm', text: hero }), h('div', { class: 'sub', text: [lv != null ? `Level ${lv}` : '', exp ? `+${num(exp)} experience` : ''].filter(Boolean).join(' · ') }))));
+    }
+    const units = kids(block, 'troopUnit');
+    if (!units.length){ card.append(h('p', { class: 'none', text: 'No troops.' })); return card; }
+    const rows = units.map(u => {
+      const id = Number(attr(u, 'typeId')), count = Number(attr(u, 'count')) || 0, lose = Number(attr(u, 'lose')) || 0;
+      return h('tr', {}, h('td', {}, h('span', { class: 'unit' }, img(ICONS[id] ? `/flash/images/Controls/tab/${ICONS[id]}.png` : null), NAMES[id] || `Unit ${id}`)),
+        h('td', { text: num(count) }), h('td', { class: lose ? 'lose' : '', text: num(lose) }), h('td', { text: num(Math.max(0, count - lose)) }));
+    });
+    card.append(h('div', { class: 'tblwrap' }, h('table', {}, h('thead', {}, h('tr', {}, ['Unit', 'Amount', 'Casualties', 'Survived'].map(t => h('th', { text: t })))), h('tbody', {}, rows))));
+    return card;
+  }
+
+  function render(d){
+    const doc = new DOMParser().parseFromString(String(d.xml || ''), 'application/xml'), b = first(doc, 'battleReport');
+    if (!b || doc.getElementsByTagName('parsererror').length) throw new Error('This report could not be read.');
+    const won = attr(b, 'isAttackSuccess') === 'true', rounds = attr(b, 'round');
+    const out = $('report'); out.replaceChildren();
+    const meta = h('div', { class: 'meta' },
+      [['Time', d.eventTime], ['From', d.startPos], ['Location', d.targetPos], ['Rounds', rounds]].filter(([, v]) => v).map(([k, v]) => h('div', {}, h('span', { class: 'k', text: k }), h('span', { class: 'v', text: v }))));
+    const copy = h('button', { class: 'btn ghost', type: 'button', text: 'Copy link' });
+    copy.onclick = async () => { try { await navigator.clipboard.writeText(location.href); copy.textContent = 'Link copied'; } catch (e){ copy.textContent = 'Copy failed'; } setTimeout(() => { copy.textContent = 'Copy link'; }, 1800); };
+    const other = h('button', { class: 'btn ghost', type: 'button', text: 'Open another report' });
+    other.onclick = () => { $('open').hidden = false; $('link').focus(); };
+    out.append(h('section', { class: 'sum' }, h('h2', { text: d.title || 'Battle report' }), meta,
+      h('p', { class: 'outcome' + (won ? '' : ' loss') }, h('b', { text: won ? 'The attacker won the battle.' : 'The defender won the battle.' }),
+        rounds ? ` It lasted ${rounds} ${rounds === '1' ? 'round' : 'rounds'}.` : ''),
+      h('div', { class: 'tools' }, copy, other)));
+    out.append(h('div', { class: 'sides' }, side(first(b, 'attackTroop'), 'Attacker', won), side(first(b, 'defendTroop'), 'Defender', !won)));
+
+    const loot = first(b, 'lootResource');
+    const got = loot ? RES.map(([k, n, i]) => [n, Number(attr(loot, k)) || 0, i]).filter(([, v]) => v > 0) : [];
+    if (got.length) out.append(h('section', { class: 'box' }, h('h4', { text: 'Loot' }), h('div', { class: 'chips' }, got.map(([n, v, i]) => h('span', { class: 'chip' }, img('/flash/' + i), n, h('b', { text: num(v) }))))));
+    const items = String(attr(b, 'attackWinnerItems') || '').split(',').map(s => s.trim()).filter(Boolean).map(s => { const [id, c] = s.split('='); return { id: id.trim(), count: Number(c) || 1 }; });
+    if (items.length) out.append(h('section', { class: 'box' }, h('h4', { text: 'Treasures obtained' }),
+      h('div', { class: 'chips' }, items.map(it => { const def = (d.items || {})[it.id] || {}; return h('span', { class: 'chip' }, img(art(def.i)), def.n || it.id, it.count > 1 ? h('b', { text: '×' + num(it.count) }) : null); }))));
+    const stats = [['Prestige', attr(b, 'prestige')], ['Honor', attr(b, 'honor')], ['Hero experience', attr(b, 'heroExp')], ['Wounded', attr(b, 'injuredPer') != null ? attr(b, 'injuredPer') + '%' : null],
+      ['Loyalty change', attr(b, 'support')], ['Grievance change', attr(b, 'complaint')]].filter(([, v]) => v != null && v !== '' && v !== '0');
+    if (stats.length) out.append(h('section', { class: 'box' }, h('div', { class: 'stats' }, stats.map(([k, v]) => h('div', { class: 'stat' }, h('span', { class: 'k', text: k }), h('span', { class: 'v', text: /%$/.test(v) ? v : num(v) }))))));
+    const seize = attr(b, 'seizeProblem');
+    if (attr(b, 'isSeize') === 'true') out.append(h('section', { class: 'box' }, h('p', { class: 'note', text: 'The attack took the city.' })));
+    else if (seize && seize.trim()) out.append(h('section', { class: 'box' }, h('p', { class: 'note', text: seize })));
+    const back = first(b, 'backTroop'), home = back ? [...back.getElementsByTagName('troopInfo')] : [];
+    if (home.length) out.append(h('section', { class: 'box' }, h('h4', { text: 'Returning home' }),
+      h('div', { class: 'chips' }, home.map(t => { const id = Number(attr(t, 'typeId')); return h('span', { class: 'chip' }, img(ICONS[id] ? `/flash/images/Controls/tab/${ICONS[id]}.png` : null), NAMES[id] || `Unit ${id}`, h('b', { text: num(attr(t, 'remain')) })); }))));
+    $('lede').textContent = 'A battle report shared from Age of War.';
+    document.title = `Age of War · ${d.title || 'Battle Report'}`;
+    out.hidden = false;
+  }
+
+  async function load(id){
+    $('loading').hidden = false; $('report').hidden = true; $('msg').textContent = '';
+    try {
+      const r = await fetch('/report.json?id=' + encodeURIComponent(id), { cache: 'no-store' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'This report is not available.');
+      render(d); $('open').hidden = true;
+    } catch (e){
+      $('open').hidden = false; $('msg').textContent = e.message || 'The report could not be loaded.';
+    } finally { $('loading').hidden = true; }
+  }
+
+  $('open').addEventListener('submit', e => {
+    e.preventDefault();
+    const id = idIn($('link').value);
+    if (!id){ $('msg').textContent = 'That doesn\'t look like a battle report link. It should end in ?id= and 24 letters and digits.'; return; }
+    history.pushState(null, '', '/report?id=' + id);
+    load(id);
+  });
+  window.addEventListener('popstate', () => { const id = idIn(location.search); if (id) load(id); else { $('report').hidden = true; $('open').hidden = false; } });
+
+  const id = idIn(location.search);
+  if (id) load(id); else { $('open').hidden = false; $('link').focus(); }
+})();
+</script>
+</body>
+</html>

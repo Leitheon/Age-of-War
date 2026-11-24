@@ -68,8 +68,37 @@ function scoutXml(s, r = {}, battle = null){
   return el('reportData', {}, [el('scoutReport', r, kids)]);
 }
 
+// A battle report's link (Fox, Nov 24 2026): <site>/report?id=<share>, the report viewer page (pages/report.html),
+// for anyone the lord gives it to. The share id is random (24 hex digits) and given the first time the report is
+// sent; the link works while the report is in the lord's list. The clients show the root's reportUrl under the report.
+const SHARE = /^[0-9a-f]{24}$/;
 class Reports {
-  constructor(game){ this.game = game; }
+  constructor(game){ this.game = game; this.shares = null; }
+  shareable(r){ return r.type === TYPE.ARMY && /<battleReport[\s>/]/.test(r.content || ''); }
+  shareId(p, r){
+    if (!this.shareable(r)) return null;
+    if (!r.share){ r.share = require('crypto').randomBytes(12).toString('hex'); this.game.store.touch(); }
+    if (this.shares) this.shares.set(r.share, [p.id, r.id]);
+    return r.share;
+  }
+  link(share){ return `${String(this.game.siteUrl() || '').replace(/\/+$/, '')}/report?id=${share}`; }
+  // The report a link's id names, with its lord, or null (no such id, or the report was deleted).
+  find(share){
+    if (!SHARE.test(String(share || ''))) return null;
+    if (!this.shares){
+      this.shares = new Map();
+      for (const p of Object.values(this.game.db.players || {})) for (const r of p.reports || []) if (r.share) this.shares.set(r.share, [p.id, r.id]);
+    }
+    const at = this.shares.get(share); if (!at) return null;
+    const p = this.game.db.players[at[0]], r = p && this.list(p).find(x => x.id === at[1] && x.share === share);
+    if (!r){ this.shares.delete(share); return null; }
+    return { p, r };
+  }
+  // The report's content with its link on the root (reportUrl), for the clients.
+  content(p, r){
+    const id = p ? this.shareId(p, r) : null;
+    return id ? String(r.content).replace(/^(\s*<reportData)\b/, `$1 reportUrl="${esc(this.link(id))}"`) : r.content;
+  }
   list(p){ return p.reports || (p.reports = []); }
   unread(p){
     const c = { count: 0, army_count: 0, scout_cout: 0, trade_count: 0, other_count: 0 };
@@ -92,8 +121,8 @@ class Reports {
     g.push(p.id, 'server.NewReport', this.unread(p));
     return rep;
   }
-  bean(r){ return { id: r.id, type: r.type, armyType: r.armyType, attack: r.attack, back: r.back, title: r.title, startPos: r.startPos, targetPos: r.targetPos,
-    eventTime: r.eventTime, isRead: r.isRead, content: r.content, selected: false, isFlagged: r.isFlagged ? 1 : 0, automation: r.automation ? 1 : 0 }; }
+  bean(r, p = null){ return { id: r.id, type: r.type, armyType: r.armyType, attack: r.attack, back: r.back, title: r.title, startPos: r.startPos, targetPos: r.targetPos,
+    eventTime: r.eventTime, isRead: r.isRead, content: this.content(p, r), selected: false, isFlagged: r.isFlagged ? 1 : 0, automation: r.automation ? 1 : 0 }; }
 }
 
 module.exports = { Reports, REPORT_TYPE: TYPE, battleXml, scoutXml, stamp };

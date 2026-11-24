@@ -8,13 +8,13 @@ module.exports = (game, H) => {
     const p = conn.player, size = Math.max(1, Math.min(50, d.pageSize | 0 || 10));
     const list = R.list(p).filter(r => d.reportType == null || r.type === d.reportType);
     const total = Math.max(1, Math.ceil(list.length / size)), no = Math.max(1, Math.min(total, d.pageNo | 0 || 1));
-    game.reply(conn, cmd, { reports: list.slice((no - 1) * size, no * size).map(r => R.bean(r)), pageNo: no, totalPage: total });
+    game.reply(conn, cmd, { reports: list.slice((no - 1) * size, no * size).map(r => R.bean(r, p)), pageNo: no, totalPage: total });
   };
   H['report.markAsRead'] = (conn, d, cmd) => {
     const p = conn.player, r = R.list(p).find(x => x.id === d.reportId);
     if (!r) return game.fail(conn, cmd, -1, 'That report was deleted.');
     if (!r.isRead){ r.isRead = 1; game.store.touch(); pushCounts(p); }
-    game.reply(conn, cmd, { report: R.bean(r) });
+    game.reply(conn, cmd, { report: R.bean(r, p) });
   };
   H['report.readOverReport'] = (conn, d, cmd) => {
     const p = conn.player, want = new Set(ids(d.reportIds));

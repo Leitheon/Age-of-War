@@ -120,6 +120,10 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   troops fight without Medicine (`rules.npcMedicineFrom`): as in the community farming guide, about 450 ballistae
   with maxed research and 550 with less take an NPC 5 with no losses. **Valleys** taken, lost or given up show on the
   map at once.
+- **Battle report links**: every battle report ends with a link, `<site>/report?id=...`, that opens it on the site's
+  report viewer for anyone it's given to (while the report is kept); `/report` on its own asks for a link to be pasted.
+- **Pay with Gold** in the speed-up window costs the shop price of the most efficient (cheapest) Guidelines that would
+  finish the work, whatever the lord owns; Instant Complete uses only the lord's own items.
 - **Prisoners** take no Feasting Hall seat (`rules.prisonersNeedNoSeat`): a city with a Feasting Hall captures a hero
   however full it is, and persuading one waits for a free seat.
 - **Reports**: the last tab is Other (it was Automation), with the Other reports (a city founded, the innkeeper's

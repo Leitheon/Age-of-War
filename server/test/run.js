@@ -3432,7 +3432,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       for (const x of cities) x.res.gold = 0;
       pb.boundGold = 0; city.res.gold = 2e6; nc.res.gold = 1e6;
       Object.assign(city.buildings[18], { status: 1, startTime: G.now(), endTime: G.now() + 55 * 60e3 });
-      const price = G.items.coinsFor(55 * 60e3) * G.rules.webShop.goldPerCoin;
+      const price = G.goldToFinish(55 * 60e3);
       const paid = ask('castle.speedUpBuildCommand', { positionId: 18, itemId: 'gold.speed' });
       const spent = 2e6 - Math.floor(city.res.gold);
       ok(paid.ok === 1 && city.buildings[18].status === 0 && city.buildings[18].level === 2 && price === 100000 && Math.abs(spent - price) <= 10000 && Math.floor(nc.res.gold) >= 1e6 && nc.res.gold < 1e6 + 1000,
@@ -3442,6 +3442,22 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const poor = ask('castle.speedUpBuildCommand', { positionId: 18, itemId: 'gold.speed' });
       ok(poor.ok < 0 && /costs 100,000 gold; your cities have 500/.test(poor.errorMsg) && city.buildings[18].status === 1 && Math.floor(city.res.gold) === 500,
         'without the gold it\'s refused, and nothing is spent or finished');
+      // Fox (Nov 24 2026): Pay with Gold costs the shop price of the most efficient Guidelines that would finish it,
+      // whatever the lord owns (Instant Complete uses only his own items): 2h14m left is one Intermediate Guidelines,
+      // 200,000 gold, even with 20 Beginner Guidelines on hand (which stay); 3h05m is Intermediate + Primary,
+      // 300,000 (the old price, the biggest that fits and Beginners for the rest, was 350,000).
+      {
+        const itemsWas = pb.items; pb.items = { ...(pb.items || {}), 'consume.2.a': 20 };
+        for (const x of cities) x.res.gold = 0; city.res.gold = 2e6;
+        const left = (2 * 60 + 14) * 60e3, long = (3 * 60 + 5) * 60e3;
+        Object.assign(city.buildings[18], { status: 1, startTime: G.now(), endTime: G.now() + left });
+        const want = G.goldToFinish(left), plan = G.items.finishPlan(long), wantLong = G.goldToFinish(long);
+        const paid2 = ask('castle.speedUpBuildCommand', { positionId: 18, itemId: 'gold.speed' }), spent2 = 2e6 - Math.floor(city.res.gold);
+        ok(want === 200000 && wantLong === 300000 && plan.used['consume.2.b.1'] === 1 && plan.used['consume.2.b'] === 1 && G.items.coinsFor(long) === 35
+          && paid2.ok === 1 && city.buildings[18].status === 0 && Math.abs(spent2 - 200000) <= 5000 && pb.items['consume.2.a'] === 20,
+          `Pay with Gold costs the cheapest Guidelines that finish it, whatever the lord owns (2h14m: ${want.toLocaleString('en-US')}, paid ${spent2.toLocaleString('en-US')}; 3h05m: ${wantLong.toLocaleString('en-US')}, Intermediate + Primary)`);
+        pb.items = itemsWas;
+      }
       city.buildings[18].status = 0;
       // Historic Cities carry the client's own introduction for the field window.
       // (A few, Victoria, Anman, Mesa..., have an empty introduction in the client's list too; the window then says
@@ -3615,11 +3631,27 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       ok(/<battleReport[^>]*><isAttack>true<\/isAttack><isAttackSuccess>true<\/isAttackSuccess>/.test(battle.content) && /<troopUnit[^>]*><typeId>3<\/typeId><count>100<\/count><lose>5<\/lose><\/troopUnit>/.test(battle.content)
         && other.content === '<reportData><policyReport><detail>100 Warriors joined the army.</detail></policyReport></reportData>',
         'the web client gets each report value as a child element too (it reads <count>100</count>, not count="100"), and plain-text reports as a policyReport\'s detail');
+      // Fox (Nov 24 2026): a battle report carries a link to the report viewer, <site>/report?id=<24 hex digits>; the
+      // client shows the root's reportUrl under the report. Other reports have none.
+      { const url = /^<reportData reportUrl="([^"]+)">/.exec(battle.content)?.[1], id = /[?&]id=([0-9a-f]{24})$/.exec(url || '')?.[1];
+        const again = ask('report.receiveReportList', { reportType: 1, automation: 0, armyType: -1, attack: -1, pageNo: 1, pageSize: 50 }).reports.find(r => r.id === battle.id);
+        ok(url && id && url === `${G.siteUrl()}/report?id=${id}` && again.content.includes(url) && !/reportUrl/.test(other.content) && G.reports.find(id)?.r.id === battle.id,
+          `a battle report has its link (${url}), the same each time it's sent; an Other report has none`);
+        const [page, data, bad] = await Promise.all(['/report', `/report.json?id=${id}`, '/report.json?id=0123456789abcdef01234567'].map(get));
+        const d = JSON.parse(data.body), b2 = JSON.parse(bad.body);
+        ok(page.status === 200 && /text\/html/.test(page.type) && /Paste a battle report link/.test(page.body) && d.ok === 1 && d.title === 'Battle at (1,1)' && /<battleReport isAttack="true"/.test(d.xml)
+          && /<troopUnit typeId="3" count="100" lose="5"\/>/.test(d.xml) && b2.ok === 0 && /not available/.test(b2.error),
+          'the report viewer (/report) and its data (/report.json?id=): the shared report, and "not available" for an id that names none'); }
       { const keep = G.reports.list(pb).find(r => r.type === 2); keep.isFlagged = 1;
         G.reports.add(pb, { type: 2, title: 'Another other', content: 'x' });
         const del = ask('report.deleteAllReports', { reportType: 2, automation: 0, armyType: -1, attack: -1 }), left = G.reports.list(pb);
         ok(del.ok === 1 && left.filter(r => r.type === 2).length === 1 && left[0] && left.some(r => r.isFlagged && r.type === 2) && left.some(r => r.type === 1),
           'Delete All in the Other tab deletes every Other report but the flagged ones, and leaves the Army reports'); }
+      { // A deleted report's link no longer opens it.
+        const r = G.reports.list(pb).find(x => x.share), id = r.share;
+        pb.reports = G.reports.list(pb).filter(x => x !== r);
+        const gone = JSON.parse((await get(`/report.json?id=${id}`)).body);
+        ok(gone.ok === 0 && !G.reports.find(id), 'a deleted battle report\'s link says it is not available'); }
     }
     {
       // Age of War: the sign-in screen's reference pages (DoA's /heroes, /npcs and /droptable), on this server's data.

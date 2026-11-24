@@ -45,7 +45,7 @@ module.exports = (game, H) => {
     const p = conn.player, size = Math.max(1, Math.min(50, d.pageSize | 0 || 10));
     const list = R.list(p).filter(matches(d, !!conn.web));
     const total = Math.max(1, Math.ceil(list.length / size)), no = Math.max(1, Math.min(total, d.pageNo | 0 || 1));
-    const bean = conn.web ? r => ({ ...R.bean(r), content: webContent(r.content) }) : r => R.bean(r);
+    const bean = conn.web ? r => { const b = R.bean(r, p); return { ...b, content: webContent(b.content) }; } : r => R.bean(r, p);
     game.reply(conn, cmd, { reports: list.slice((no - 1) * size, no * size).map(bean), pageNo: no, totalPage: total, total: list.length });
   };
   H['report.flagReport'] = (conn, d, cmd) => {

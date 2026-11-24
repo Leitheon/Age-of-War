@@ -156,6 +156,30 @@ class Items {
     const single = [[q, qPrice], ...tiers].filter(([ms]) => ms >= remainingMs).map(([, c]) => c);
     return Math.max(1, Math.min(coins, ...single));
   }
+  // The most efficient Guidelines to finish remainingMs (Fox, Nov 24 2026: Pay with Gold costs their shop price,
+  // whatever the lord owns): the cheapest set of Beginner (15 min), Primary (1 h), Intermediate (2.5 h), Senior (8 h)
+  // and Master (counted as its least, 10 h) Guidelines that covers the time but the free last 5 minutes, fewest
+  // items on a tie. The web client's speed-up window works it out the same way (its ab(), on unlimited Guidelines).
+  // { used: {itemId: n}, coins }.
+  finishPlan(remainingMs){
+    const UNIT = 900, SLACK = 40, FREE = this.rules.freeSpeedupSeconds ?? 300;
+    const units = { 'consume.2.a': 1, 'consume.2.b': 4, 'consume.2.b.1': 10, 'consume.2.c': 32, 'consume.2.c.1': 40 }, ids = Object.keys(units);
+    const price = id => this.data.items?.[id]?.price || { 'consume.2.a': 5, 'consume.2.b': 10, 'consume.2.b.1': 20, 'consume.2.c': 50, 'consume.2.c.1': 80 }[id] || 1;
+    const sec = Math.ceil(Math.max(0, remainingMs) / 1000) - FREE;
+    if (sec <= 0) return { used: {}, coins: 0 };
+    const need = Math.ceil(sec / UNIT), top = need + SLACK - 1, parts = [];
+    ids.forEach((id, k) => { let d = Math.ceil(top / units[id]); for (let h = 1; d > 0; h *= 2){ const m = Math.min(h, d); parts.push([k, units[id] * m, m, price(id) * m]); d -= m; } });
+    const best = new Array(top + 1).fill(null); best[0] = { k: 0, n: 0, v: ids.map(() => 0) };
+    for (const [k, u, m, c] of parts) for (let h = top; h >= u; h--){
+      const prev = best[h - u]; if (!prev) continue;
+      const kk = prev.k + c, nn = prev.n + m;
+      if (best[h] && (best[h].k < kk || (best[h].k === kk && best[h].n <= nn))) continue;
+      const v = prev.v.slice(); v[k] += m; best[h] = { k: kk, n: nn, v };
+    }
+    let b = null; for (let h = need; h <= top; h++) if (best[h] && (!b || best[h].k < b.k || (best[h].k === b.k && best[h].n < b.n))) b = best[h];
+    const used = Object.fromEntries(ids.map((id, k) => [id, b.v[k]]).filter(([, n]) => n > 0));
+    return { used, coins: b.k };
+  }
 }
 
 module.exports = { Items, SPEEDUP, BUFF_ITEMS, BUFF_NAMES, DAY, HOUR };

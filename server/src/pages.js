@@ -6,6 +6,8 @@
 //   /heroes-status.json  { id: { k, t } }: owned (hired or held), barb (in a barbarian city), or no rumors
 //   /npcs                the NPC page (what's in a place is learned by scouting it)
 //   /droptable           rules.battleDrops, as tables
+//   /report              the battle report viewer: ?id= from a report's link, else a box to paste one into
+//   /report.json         ?id=: that report (its XML as the game keeps it, the names of the items it turned up)
 const fs = require('fs');
 const path = require('path');
 
@@ -74,5 +76,17 @@ module.exports = game => {
     return { body: fill(template('droptable.html'), { MIN_KILL: `${Math.round((cfg.minKillShare ?? 0) * 100)}%`, TABLES: tables }), type: HTML };
   };
 
-  return { '/heroes': heroesPage, '/heroes.json': heroesJson, '/heroes-status.json': heroesStatus, '/npcs': () => ({ body: template('npcs.html'), type: HTML }), '/droptable': dropPage };
+  // A battle report a lord shared by its link (reports.js: share ids). Only what the report itself says.
+  const reportJson = q => {
+    const found = game.reports.find(q.get('id'));
+    if (!found || !game.reports.shareable(found.r)) return { body: JSON.stringify({ ok: 0, error: 'This report is not available. The link may be wrong, or the report was deleted.' }), type: JSON_T };
+    const r = found.r, items = {};
+    for (const part of String(/\battackWinnerItems="([^"]*)"/.exec(r.content)?.[1] || '').split(',')){
+      const id = part.split('=')[0].trim(); if (!id) continue;
+      const it = game.data.items?.[id]; items[id] = { n: it?.name || id, i: it?.icon || '' };
+    }
+    return { body: JSON.stringify({ ok: 1, title: r.title || '', eventTime: r.eventTime || '', startPos: r.startPos || '', targetPos: r.targetPos || '', xml: r.content, items }), type: JSON_T };
+  };
+
+  return { '/report': () => ({ body: template('report.html'), type: HTML }), '/report.json': reportJson, '/heroes': heroesPage, '/heroes.json': heroesJson, '/heroes-status.json': heroesStatus, '/npcs': () => ({ body: template('npcs.html'), type: HTML }), '/droptable': dropPage };
 };

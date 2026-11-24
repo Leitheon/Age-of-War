@@ -1,7 +1,8 @@
 'use strict';
 // Finishing work with gold: the web client's "Pay with Gold" in its speed-up window sends itemId gold.speed to any
-// speed-up command. It costs what finishing with coins would (items.coinsFor, the Guidelines' shop prices) times
-// rules.webShop.goldPerCoin, the shop's rate, so it's the same as buying the speed-ups in the shop. Paid like the
+// speed-up command. It costs the shop price (at rules.webShop.goldPerCoin, the shop's rate) of the most efficient
+// Guidelines that would finish it, whatever the lord owns (items.finishPlan; Fox, Nov 24 2026). Instant Complete
+// is the other way: only the lord's own items. Paid like the
 // shop: the account-bound gold first, then the city doing the work, then the others, richest first.
 // rules.webShop.goldFinish: false turns it off (the client then shows no Pay with Gold row: /welcome.js).
 const GOLD = 'gold.speed';
@@ -16,6 +17,11 @@ module.exports = (game, H) => {
     const orig = H[cmd]; if (!orig) continue;
     H[cmd] = (conn, d, c) => { here = game.db.castles[d?.castleId] || null; try { return orig(conn, d, c); } finally { here = null; } };
   }
+  // What finishing remainingMs costs in gold (0: off): see the top.
+  game.goldToFinish = remainingMs => {
+    const rate = game.goldFinishRate(); if (!rate || !(remainingMs > 0)) return 0;
+    return Math.max(1, game.items.finishPlan(remainingMs).coins) * rate;
+  };
   // (also game.goldPool / game.payGold for anything else priced in gold: nocents.js)
   const pooled = p => {
     const now = game.now(), cs = game.castlesOf(p);
@@ -49,7 +55,7 @@ module.exports = (game, H) => {
     const rate = game.goldFinishRate();
     if (!rate) return { err: 'Finishing with gold is turned off on this server.' };
     if (!(left > 0)) return { err: 'There is nothing left to finish.' };
-    const gold = Math.max(1, coins) * rate, have = pooled(p), from = here;
+    const gold = game.goldToFinish(left), have = pooled(p), from = here;
     if (have < gold) return { err: `Finishing now costs ${gold.toLocaleString('en-US')} gold; your cities have ${have.toLocaleString('en-US')}.` };
     let paid = false;
     return { reduce: () => { if (!paid){ paid = true; pay(p, gold, from); } return 0; } };
