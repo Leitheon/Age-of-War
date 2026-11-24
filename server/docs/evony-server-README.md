@@ -506,8 +506,8 @@ From Fox's first recordings (27 RoboEvony accounts and his own on NA62, Nov 11-1
   - **Valley levels cycle daily**: at each daily reset every valley and flat goes up a level, from
     10 back to 1. A valley you hold keeps the level you took it at, and joins the cycle again once
     given up (`valleyCycle` in the rules turns this off).
-  - **Historic Cities**: Atlantis (level 18) at 0,0, the 16 state capitals (16), 126 level 14s
-    and 1,795 level 12s, with the same names in the same places as the live server. Each shows
+  - **Historic Cities**: Atlantis (level 18) at 0,0, and in each of the 16 states its capital (16), 8 level 14s
+    and 121 level 12s (128 and 1,936 in all), with the same names in the same places as the live server. Each shows
     Evony's art, title and built-in description.
   - The tile info window for every tile, with Scout and Attack on NPC and Historic Cities.
 - **Heroes**:
@@ -1266,8 +1266,8 @@ shows "This server doesn't support that yet (command name)".
   18 Historic Cities. The guide's troop pages agree with the client's troop table except that they
   give Workers 12 iron (the client: 10; the server keeps the client's).
 - **My estimates**, all in `src/rules.js` and adjustable in `data/rules.json`:
-  - (the last two level 14 slots, 693,759 and 759,759, are empty: Fox checked live);
-  - exactly how close to a bigger Historic City a level 12 spot stays empty (`historic.level12Clearance`);
+  - the names of the last two level 14s, 693,759 and 759,759 (the client's list runs out there; they take the
+    first names left over after the level 12s);
   - conquering NPC cities: the odds of the 2-4 drop above 80 (Fox: 4 only above 80; 1-3 at 10/40/50% below), the
     recovery rate (one point every 160 to 200 seconds fits), and loyalty being full after the daily reset;
   - wounded troops: the cure price of Workers, Warriors, Pikemen, Swordsmen, Transporters and siege engines

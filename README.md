@@ -86,7 +86,9 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   costs gold.
 - **Heroes** level up by themselves once they have the experience, with their attribute points
   (`rules.heroAutoLevel`), and the **Inn** puts a new hero in a hired one's place at once (`rules.innRestock`).
-- **Historic Cities** show their introductions from the client's own city list.
+- **Historic Cities** show their introductions from the client's own city list. Each of the 16 states has its capital,
+  8 level 14s and 121 level 12s (every 18 tiles from 9,9: Olathe at 99,99 beside Washington, D.C.), and every Historic
+  City has flats on all sides, except where another Historic City is (`rules.historic.flatRing`).
 - **Historic heroes** need no quest (`rules.historicHeroes.questFree`): Enquire Details at the Inn gives the hero's
   place and portrait, and taking that NPC city with the portrait in hand captures the hero, using the portrait up.
 - **The hero list is DoA's, up to the American Civil War**: 689 historic heroes, the client's 639 and 50 of the 59

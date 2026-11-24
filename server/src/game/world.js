@@ -23,8 +23,11 @@ function hash64(seed, x, y, salt){
 }
 function roll(seed, x, y, salt, mod){ let r = hash64(seed, x, y, salt) % BigInt(mod); if (r < 0n) r += BigInt(mod); return Number(r); }
 // Per 1,000 tiles: 130 barbarian (NPC) cities, 520 flats, then grassland, forest, hill, desert, swamp and lake.
+// The tiles around each Historic City are flats (Fox: for PvP, every Historic City has flats on all sides
+// within rules.historic.flatRing tiles, except where another Historic City is, as 99,99 beside 100,100).
 function terrain(seed, id){
   const { x, y } = xy(id), s = roll(seed, x, y, 1, 1000);
+  if (ring.has(id)) return { type: T.FLAT, level: 1 + roll(seed, x, y, 2, 10) };
   const type = s < 130 ? T.NPC : s < 650 ? T.FLAT : s < 732 ? T.GRASSLAND : s < 814 ? T.FOREST : s < 880 ? T.HILL : s < 935 ? T.DESERT : s < 974 ? T.SWAMP : T.LAKE;
   return { type, level: 1 + roll(seed, x, y, 2, 10) };
 }
@@ -39,8 +42,15 @@ function cycleDay(now = Date.now()){ return Math.floor((now - (cycle.resetHourUT
 function cycledLevel(base, now){ return cycle.enabled ? ((base - 1 + cycleDay(now)) % 10 + 10) % 10 + 1 : base; }
 
 // Historic Cities (see historic.js), set once at startup: fieldId -> { name, level, powerLevel, ... }
-let historic = new Map();
-function setHistoric(map){ historic = map; }
+let historic = new Map(), ring = new Set(), ringSize = 0;
+function setHistoric(map, { flatRing = 0 } = {}){
+  historic = map; ring = new Set(); ringSize = Math.max(0, Math.floor(Number(flatRing) || 0));
+  for (const h of map.values()) for (let dy = -ringSize; dy <= ringSize; dy++) for (let dx = -ringSize; dx <= ringSize; dx++){
+    const id = idOf(h.x + dx, h.y + dy);
+    if (!map.has(id)) ring.add(id);
+  }
+}
+function flatRing(){ return ringSize; }
 function historicAt(id){ return historic.get(id) || null; }
 function historicEntries(){ return historic.entries(); }
 
@@ -75,4 +85,4 @@ function findHome(store){
 // Two hex digits per tile for the map view: terrain type, then level (WorldMap.parserString / Tile.setFirstMap).
 function tileCode(t){ return t.type.toString(16) + Math.max(0, Math.min(15, t.level || 0)).toString(16); }
 
-module.exports = { SIZE, T, hash64, cycledLevel, xy, idOf, zoneOf, terrain, naturalTile, tileAt, findHome, tileCode, setHistoric, historicAt, historicEntries, setValleyCycle, cycleDay };
+module.exports = { SIZE, T, hash64, cycledLevel, xy, idOf, zoneOf, terrain, naturalTile, tileAt, findHome, tileCode, setHistoric, flatRing, historicAt, historicEntries, setValleyCycle, cycleDay };

@@ -582,10 +582,12 @@ const DEFAULTS = {
   levyLoyaltyCost: 20,             // the client says Levy lowers loyalty by 20
 
   // ---------- Historic Cities ----------
-  // Levels 18, 16 and 14 match the live game. Level 12s are every 18 tiles from 9,9 (Fox's notes); which
-  // name sits where among the level 12s is a guess: UNVERIFIED.
-  // level12Clearance: a level 12 grid tile this close to a bigger Historic City stays empty (Fox, live server).
-  historic: { level12Enabled: true, level12: { x0: 9, y0: 9, step: 18 }, level12Clearance: 9 },
+  // Fox: each state has 1 capital (16), 8 level 14s and 121 level 12s, the level 12s every 18 tiles from 9,9,
+  // with the live names at the spots Fox checked (San Jose 9,9, Olathe 99,99, Hong Kong 783,783 ...).
+  // level12Clearance: above 0, a level 12 grid tile this close to a level 14 stays empty (0: none do).
+  // flatRing: every Historic City has flats on all sides this many tiles out, for PvP (Fox), except where another
+  // Historic City is (99,99 beside 100,100). 0 leaves the map's own terrain there.
+  historic: { level12Enabled: true, level12: { x0: 9, y0: 9, step: 18 }, level12Clearance: 0, flatRing: 1 },
 
   // ---------- Items ----------
   blueprintFromLevel: 10,          // upgrading a building to this level uses a Michelangelo's Script (null: never; live: not past 10)

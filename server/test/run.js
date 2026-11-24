@@ -516,7 +516,52 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
     const live12 = [[9, 9, 'San Jose'], [675, 279, 'Townsville'], [243, 585, 'Jihlava'], [261, 585, 'Chomutov'], [279, 585, 'Prerov'], [783, 783, 'Hong Kong']];
     const bad12 = live12.filter(([x, y, n]) => { const h = world.historicAt(world.idOf(x, y)); return !h || h.level !== 12 || !near(h.name, n); });
     ok(bad12.length === 0, 'level 12 names match the live server' + (bad12.length ? ': ' + bad12.map(b => b.join(',')).join('; ') : ''));
-    ok(!world.historicAt(world.idOf(621, 297)) && !world.historicAt(world.idOf(99, 99)), 'no level 12 right next to Harare or Washington, D.C.');
+    {
+      // Fox: each state (200 x 200) has 1 capital, 8 level 14s and 121 level 12s, the level 12s every 18 tiles from 9,9.
+      const per = new Map();
+      for (const [, h] of world.historicEntries()){ if (h.level > 16) continue; const st = Math.floor(h.y / 200) * 4 + Math.floor(h.x / 200), o = per.get(st) || { 12: 0, 14: 0, 16: 0 }; o[h.level]++; per.set(st, o); }
+      const off = [...per].filter(([, o]) => o[12] !== 121 || o[14] !== 8 || o[16] !== 1);
+      ok(per.size === 16 && !off.length && srv.game.historicCount === 1 + 16 + 128 + 1936,
+        'every state has 1 capital, 8 level 14s and 121 level 12s' + (off.length ? ': ' + off.map(([st, o]) => `state ${st} ${JSON.stringify(o)}`).join('; ') : ''));
+      const h621 = world.historicAt(world.idOf(621, 297)), last14 = [[693, 759], [759, 759]].map(([x, y]) => world.historicAt(world.idOf(x, y)));
+      ok(h621?.level === 12 && last14.every(h => h?.level === 14 && h.name), 'the level 12 beside Harare (621,297) and the last two level 14s (693,759 and 759,759) are there');
+    }
+    {
+      // Fox: a level 12 at 99,99 in every version, Olathe on the live server, beside Washington, D.C.; each capital
+      // has its level 12 neighbour (Moscow's Pueblo at 693,99, Canberra's Las Palmas at 495,693 ...).
+      const olathe = world.historicAt(world.idOf(99, 99));
+      const capNear = [[297, 99], [693, 99], [99, 297], [297, 297], [693, 495], [495, 693], [693, 693]].filter(([x, y]) => world.historicAt(world.idOf(x, y))?.level !== 12);
+      ok(olathe?.level === 12 && olathe.name === 'Olathe' && world.historicAt(world.idOf(100, 100))?.level === 16 && !capNear.length,
+        'Olathe is the level 12 at 99,99 beside Washington, D.C., and every capital has its level 12' + (capNear.length ? ': missing ' + capNear.join('; ') : ''));
+      const t = world.tileAt(srv.store, world.idOf(99, 99));
+      ok(t.type === world.T.NPC && t.historic?.name === 'Olathe', 'the map shows Olathe at 99,99');
+    }
+    {
+      // Fox: for PvP every Historic City has flats on all sides within 1 tile, except where another Historic City is
+      // (99,99 beside 100,100). The web client draws the terrain itself, so its patched generator must agree.
+      let notFlat = [], rings = 0;
+      for (const [, h] of world.historicEntries()) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++){
+        if (!dx && !dy) continue;
+        const id = world.idOf(h.x + dx, h.y + dy);
+        if (world.historicAt(id) || srv.store.db.tiles[id]) continue;
+        rings++;
+        const tt = world.tileAt(srv.store, id);
+        if (tt.type !== world.T.FLAT && notFlat.length < 5) notFlat.push(`${h.x + dx},${h.y + dy} beside ${h.name}`);
+      }
+      ok(rings > 16000 && !notFlat.length && world.historicAt(world.idOf(100, 100))?.level === 16 && world.tileAt(srv.store, world.idOf(799, 799)).type === world.T.FLAT,
+        'every Historic City has flats all round it (Washington, D.C. and Olathe side by side; Atlantis\'s ring wraps)' + (notFlat.length ? ': not flat at ' + notFlat.join('; ') : ''));
+      const fs = require('fs'), path = require('path'), pub = path.join(__dirname, '..', 'public');
+      const js = fs.readFileSync(path.join(pub, 'assets', fs.readFileSync(path.join(pub, 'index.html'), 'utf8').match(/index-aow[0-9a-f]+\.js/)[0]), 'utf8');
+      const a = js.indexOf('const r1=1,i1=2'), END = 'return{type:a,level:r,power:4,name:""}}', b = js.indexOf(END, a) + END.length;
+      const cl = new Function(js.slice(a, b) + ';return { v1, av };')();
+      cl.v1({ seed: String(srv.store.db.seed), size: world.SIZE, resetDay: 0, historic: [...world.historicEntries()].map(([, h]) => ({ x: h.x, y: h.y, level: h.level, power: h.powerLevel, name: h.name })), flatRing: world.flatRing() });
+      let differ = 0;
+      for (const [, h] of world.historicEntries()) for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++){
+        const id = world.idOf(h.x + dx, h.y + dy), { x, y } = world.xy(id);
+        if (cl.av(x, y).type !== (world.historicAt(id) ? world.T.NPC : world.terrain(srv.store.db.seed, id).type)) differ++;
+      }
+      ok(differ === 0, 'the web client draws the same flats around Historic Cities as the server has' + (differ ? ` (${differ} tiles differ)` : ''));
+    }
     const g12 = srv.game.npc.full(l12);
     const either = (g12.troops.swordsmen || 0) + (g12.troops.pikemen || 0), cav = (g12.troops.heavyCavalry || 0) + (g12.troops.lightCavalry || 0);
     ok(g12.troops.militia === 1120000 && either === 162666 && g12.troops.archer === 42807 && cav === 108444 && g12.forts.trap === 22000 && g12.ruler.level === 100,
@@ -3233,7 +3278,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const pw = srv.game.db.players[acct.playerId], home = srv.game.castlesOf(pw)[0], hx = world.xy(home.fieldId);
       const delta = await call2('common.mapDelta', { x1: hx.x - 2, y1: hx.y - 2, x2: hx.x + 2, y2: hx.y + 2 });
       let same = true; for (let i = 0; i < 500; i++){ const id = (i * 7919) % (800 * 800), tt = world.tileAt(srv.game.store, id); if (srv.game.db.tiles[id] || world.historicAt(id)) continue; const n = world.terrain(BigInt(seed.data.seed), id); if (n.type !== tt.type) same = false; }
-      ok(li2.data.ok === 1 && seed.data.size === 800 && seed.data.historic.length === srv.game.historicCount && same
+      ok(li2.data.ok === 1 && seed.data.size === 800 && seed.data.historic.length === srv.game.historicCount && seed.data.flatRing === 1 && same
         && delta.data.castles.some(x => x.id === home.fieldId && x.ownerPlayerId === pw.id && x.level >= 1), 'the map seed gives the server\'s own terrain; the delta has the lord\'s city');
       const step = await call2('common.step', { clientTime: Date.now() });
       ok(step.data.ok === 1 && step.data.castles[0].id === home.id && Array.isArray(step.data.items) && Number.isFinite(step.data.serverTime) && 'boundGold' in step.data,

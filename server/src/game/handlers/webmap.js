@@ -18,7 +18,7 @@ module.exports = (game, H) => {
   H['common.mapSeed'] = (conn, d, cmd) => {
     const historic = [];
     for (const [id, h] of world.historicEntries()){ const { x, y } = world.xy(id); historic.push({ x, y, level: h.level, power: h.powerLevel ?? 4, name: h.name || '' }); }
-    game.reply(conn, cmd, { seed: String(game.db.seed), size: world.SIZE, resetDay: resetDay(), historic });
+    game.reply(conn, cmd, { seed: String(game.db.seed), size: world.SIZE, resetDay: resetDay(), historic, flatRing: world.flatRing() });
   };
 
   H['common.mapDelta'] = (conn, d, cmd) => {
@@ -35,7 +35,7 @@ module.exports = (game, H) => {
       if (t.type === world.T.CASTLE) castles.push(cityOnMap(conn, t));
       else {
         const natural = world.naturalTile(game.db.seed, id, game.now());
-        if (t.type !== natural.type || t.level !== natural.level) overrides.push([id, t.type, t.level]);
+        if (t.type !== natural.type || t.level !== natural.level || world.historicAt(id)) overrides.push([id, t.type, t.level]);   // (a valley held on a Historic City's spot)
       }
     }
     game.reply(conn, cmd, { castles, overrides, resetDay: resetDay() });

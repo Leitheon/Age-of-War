@@ -366,8 +366,8 @@ class QuestLogic {
       case 'valley': return { cur: Math.max(s.max.valley || 0, maxOver(x => (x.valleys || []).reduce((m, v) => { const tl = world.tileAt(g.store, v); return tl.type === world.T.FLAT ? m : Math.max(m, tl.level || 0); }, 0))), need: t.level };
       case 'flat': return { cur: s.flags.flat || castles.some(x => (x.valleys || []).some(v => world.tileAt(g.store, v).type === world.T.FLAT)) ? 1 : 0, need: 1 };
       // an NPC city conquered: the best level recorded when it was taken, or one held now (a city stands on an NPC
-      // city's spot only when it was taken from the NPCs; a Historic City counts as level 10, as the map shows it)
-      case 'npcCity': return { cur: Math.max(s.max.npcCity || 0, maxOver(x => { if (world.historicAt(x.fieldId)) return 10; const n = world.naturalTile(g.store.db.seed, x.fieldId, now); return n.type === world.T.NPC ? n.level || 0 : 0; })), need: t.level };
+      // city's spot only when it was taken from the NPCs; a Historic City taken counts as level 10, as the map shows it)
+      case 'npcCity': return { cur: Math.max(s.max.npcCity || 0, maxOver(x => { if (world.historicAt(x.fieldId) && (x.powerLevel ?? 4) < 4) return 10; const n = world.naturalTile(g.store.db.seed, x.fieldId, now); return n.type === world.T.NPC ? n.level || 0 : 0; })), need: t.level };
       case 'cities': return { cur: castles.length, need: t.n };
       case 'mayor': return { cur: castles.some(x => g.heroes.chief(x)) ? 1 : 0, need: 1 };
       case 'labor': return { cur: castles.some(x => Object.values(L.commence(x)).every(v => v >= 100)) ? 1 : 0, need: 1 };

@@ -101,7 +101,7 @@ class Game {
     this.research.mayorBonus = c => this.heroes.mayorBonus(c, 'points:int');
     const hist = historic.build(data.historicNames || [], rules);
     for (const h of hist.values()) h.intro = data.historicIntros?.[h.name.trim()] || '';   // (the field window's description)
-    world.setHistoric(hist);
+    world.setHistoric(hist, { flatRing: rules.historic?.flatRing ?? 1 });
     world.setValleyCycle({ enabled: rules.valleyCycle !== false, resetHourUTC: rules.dailyResetHourUTC || 0 });
     this.historicCount = hist.size;
     this.online = new Map();          // playerId -> Connection
@@ -183,6 +183,12 @@ class Game {
       if (!p.starterPacks){ p.starterPacks = 1; for (const id of STARTER_PACKS) this.items.add(p, id, 1); }
       // Before 0.3.13 hiring a historic hero left the finished quest behind, keeping the Quests button lit.
       for (const id of Object.keys(p.hhQuests || {})) if (this.db.hh?.[id]?.status === 'hired') delete p.hhQuests[id];
+    }
+    // 0.1.28: the whole level 12 grid (Olathe at 99,99 ...) and the last two level 14s are on the map now. A lord's
+    // city already on one of those spots stays; the Historic City shows there once that city moves away.
+    for (const c of Object.values(this.db.castles)){
+      const h = world.historicAt(c.fieldId);
+      if (h && (c.powerLevel ?? 4) >= 4) this.log.info(`${c.name} stands where the Historic City ${h.name.trim()} (${h.x},${h.y}) would be; it shows there once the city moves`);
     }
     for (const c of Object.values(this.db.castles)){
       c.troops = c.troops || {}; c.forts = c.forts || {}; c.trainQ = c.trainQ || {}; c.heroes = c.heroes || []; c.valleys = c.valleys || []; c.fortQ = c.fortQ || [];
