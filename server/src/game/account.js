@@ -148,8 +148,9 @@ class Account {
   midnight(ms, plusDays = 0){ const d = new Date(ms); return new Date(d.getFullYear(), d.getMonth(), d.getDate() + plusDays).getTime(); }
   startSec(h, m, s){ return (Math.floor(Number(h)) || 0) * 3600 + (Math.floor(Number(m)) || 0) * 60 + (Math.floor(Number(s)) || 0); }
   inDreamTruce(p, now = this.g.now()){ return this.dreamWindows(p).some(([a, b]) => now >= a && now < b); }
-  setDream(p, h, m, s, pwd, now){
-    if (!this.passwordOk(p, pwd)) return [-1, 'Wrong password.'];
+  // trusted: from the web client's My Items, which asks for no password.
+  setDream(p, h, m, s, pwd, now, trusted = false){
+    if (!trusted && !this.passwordOk(p, pwd)) return [-1, 'Wrong password.'];
     if (!this.g.items.has(p, 'player.truce.dream')) return [-44, 'You need a Dream Truce.'];
     const live = p.dreamTruce && this.dreamWindows(p).some(([, b]) => b > now);
     if (live) p.dreamTruce.days += 1;   // another day of the same time span

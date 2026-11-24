@@ -37,7 +37,8 @@ class TroopLogic {
     // The mayor's attack: each whole point takes rules.mayorStepPerPoint off what is left.
     const atk = Math.floor(this.castle.hooks?.mayor?.(c, 'attack') || 0);
     const mayor = atk > 0 ? Math.pow(this.rules.mayorStepPerPoint ?? 0.9986, atk) : 1;
-    return t.time / this.speed * science * mayor / (1 + barracksBonus);
+    const item = this.castle.hooks?.trainBonus?.(p, Date.now()) || 0;   // (Christmas Gift: +10% speed)
+    return t.time / this.speed * science * mayor / (1 + barracksBonus + item);
   }
   condition(c, p, typeId, num = 1){
     const t = this.data.troops[typeId];

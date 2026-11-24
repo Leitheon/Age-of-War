@@ -23,6 +23,7 @@ module.exports = (game, H) => {
     if (t.historic) return 'A War Teleporter can\'t land on a Historic City.';
     return t.type === world.T.NPC ? null : 'Choose a barbarian city: a War Teleporter lands on one.';
   };
+  game.landError = landError;   // (also where a Bronze, Silver or Gold Amulet's city may stand: itemUse.cityToken)
   // Move the city to `to`. Valleys are given up (as on the live game) and armies must be home.
   const move = (c, to, onBarbarian = false) => {
     const p = game.playerOf(c), rules = game.rules.teleport || {};
@@ -55,7 +56,7 @@ module.exports = (game, H) => {
     const c = game.castleOr(conn, cmd, d.castleId); if (!c) return;
     const p = conn.player;
     const itemId = itemIds.find(id => items.has(p, id));
-    if (!itemId) return game.fail(conn, cmd, -44, `You don't have ${items.name(itemIds[0])}.`);
+    if (!itemId) return game.fail(conn, cmd, -44, `You don't have ${items.name(itemIds[itemIds.length - 1])}.`);
     const to = pickTarget(c, d);
     if (Array.isArray(to)) return game.fail(conn, cmd, to[0], to[1]);
     const err = move(c, to, onBarbarian);
@@ -67,7 +68,8 @@ module.exports = (game, H) => {
     game.pushResources(c);
   };
   const chosen = (c, d) => Math.floor(Number(d.targetId));
-  H['city.advMoveCastle'] = teleport(['player.more.castle.1.a'], chosen);
+  // (the web client sends this for the Pioneer Express Teleport too, which goes first: it's free and expires)
+  H['city.advMoveCastle'] = teleport(['player.move.castle.1.b', 'player.more.castle.1.a'], chosen);
   H['city.uniteAdvMoveCastle'] = teleport(['player.move.castle.1.b', 'player.more.castle.1.a'], chosen);
   // War Teleporter: "Teleport your city to a barbarian city" - on top of it (Fox).
   H['city.WarMoveCastle'] = teleport(['player.more.castle.1.c'], chosen, true);
@@ -176,7 +178,9 @@ module.exports = (game, H) => {
   H['city.setStopWarState'] = (conn, d, cmd) => {
     const p = conn.player, itemId = d.ItemId || d.itemId || 'player.peace.1', now = game.now();
     const acct = Object.values(game.db.accounts).find(a => a.playerId === p.id);
-    if (acct && d.passWord && String(d.passWord).toLowerCase() !== acct.pwd) return game.fail(conn, cmd, -1, 'Wrong password.');
+    // (the web client asks for the password, but its accounts don't keep it the Flash client's way: no check, as for
+    // giving up a city)
+    if (!conn.web && acct && d.passWord && String(d.passWord).toLowerCase() !== acct.pwd) return game.fail(conn, cmd, -1, 'Wrong password.');
     if (itemId !== 'player.peace.1') return game.fail(conn, cmd, -40, "That item doesn't start a truce.");
     const had = game.activeBuffs(p, now);
     if (!items.take(p, itemId)) return game.fail(conn, cmd, -44, 'You need a Truce Agreement.');

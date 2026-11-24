@@ -1328,6 +1328,16 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         && L.maxLevelOf(nc, 7) === 10 && L.maxLevelOf(nc, 29) === 10 && L.maxLevelOf({ powerLevel: 2 }, 6) === 14 && L.maxLevelOf({ powerLevel: 4 }, 6) === 10,
         'a Bronze Amulet founds an ordinary city (power level 4) with a level 10 Town Hall and Walls, a level 11 Rally Spot on plot 31 and all 40 resource fields at 11 (9 Farms, 15 Sawmills, 15 Ironmines, 1 Quarry), none of them upgradeable (Fox\'s live capture); a level 14 Historic City\'s fields go to 14');
 
+      // The web client's amulet (shop.useDevilItem with its Target X and Y): the city is founded on that spot, an empty flat.
+      { const W = require('../src/game/world'); me.title = 2; give('player.gen.castle.2');
+        let spot = null; for (let i = 1000; i < 640000 && spot == null; i += 997){ const t = W.tileAt(srv.store, i); if (t.type === W.T.FLAT && !t.historic && !srv.store.db.tiles[i]) spot = i; }
+        const taken = W.xy(srv.store.db.castles[castle.id].fieldId), at = W.xy(spot);
+        const onCity = await c.call('shop.useDevilItem', { itemId: 'player.gen.castle.2', x: taken.x, y: taken.y });
+        const made = await c.call('shop.useDevilItem', { itemId: 'player.gen.castle.2', x: at.x, y: at.y });
+        const nc2 = srv.store.db.castles[made.castleId];
+        ok(onCity.ok < 0 && /already stands/.test(onCity.errorMsg) && made.ok === 1 && nc2?.fieldId === spot && nc2.buildings[31]?.level === 12 && !me.items['player.gen.castle.2'] && srv.store.db.tiles[spot]?.castleId === nc2.id,
+          `the web client's Silver Amulet founds its city on the spot asked for (${at.x},${at.y}), with a level 12 Rally Spot; not on another city ("${onCity.errorMsg}")`); }
+
       // Michelangelo's Script for level 10.
       const farm = Object.entries(city.buildings).find(([, b]) => b.typeId === 7);
       farm[1].level = 9;
@@ -3389,6 +3399,42 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         city.heroes = was; city.res.gold = gold;
         ok(seats > 0 && full0 === 0 && p1 && p2 && p2.status === 4 && noSeat?.ok < 0 && /free seat/.test(noSeat.errorMsg) && yes?.ok === 1 && p1.status === 0 && after === 0 && !noHall && old === null,
           `a Feasting Hall with all ${seats} seats taken still holds prisoners (two captured); persuading one waits for a free seat ("${noSeat?.errorMsg}"), and a city without a Feasting Hall holds none`); }
+      // Items do what their descriptions say, used the way the web client uses them (Fox, Nov 2026: "test all items").
+      { const has = id => pb.items[id] || 0, give = (id, n = 1) => { pb.items[id] = (pb.items[id] || 0) + n; }, use = id => ask('shop.useGoods', { itemId: id, num: 1 });
+        const sum = ids => ids.reduce((s, id) => s + has(id), 0), angels = [70, 71, 72].map(n => `player.box.present.money.${n}`), devils = [74, 75, 76, 77].map(n => `player.box.present.money.${n}`);
+        give('hero.reset.1.a'); const hw0 = has('hero.reset.1'), hw = use('hero.reset.1.a');
+        give('player.box.present.money.108'); give('player.box.present.money.109'); const a0 = sum(angels), d0 = sum(devils);
+        const treat = use('player.box.present.money.108'), trick = use('player.box.present.money.109');
+        give('consume.key.1'); delete pb.items['player.box.1']; const lonely = use('consume.key.1');
+        give('player.box.1'); const opened = use('consume.key.1');
+        const r0 = { ...city.res }; give('player.box.online.bonus.2'); const pack = use('player.box.online.bonus.2');
+        const got = k => Math.round(city.res[k] - r0[k]);
+        give('player.box.present.money.4'); const t0 = has('consume.move.1'), s0 = has('consume.blueprint.1'), bonus = use('player.box.present.money.4');
+        delete pb.items['player.key.silver']; give('player.key.birthdaykey.2015'); give('player.box.present.money.212'); const yearKey = use('player.box.present.money.212');
+        for (const id of ['player.easter.stoptoopsupkeep', 'player.item.birthdaycake', 'player.chocolate.bunny', 'player.item.memoryofthesun', 'player.christmas.gift']){ give(id); use(id); }
+        const live = k => (pb.buffs?.[k] || 0) > G.now(), fast = G.troops.unitSeconds(city, pb, 3), tsb = pb.buffs.TrainSpeedBuff;
+        delete pb.buffs.TrainSpeedBuff; const slow = G.troops.unitSeconds(city, pb, 3); pb.buffs.TrainSpeedBuff = tsb;
+        city.loyalty = 40; city.complaint = 30; give('player.heart.1.a'); const speech = use('player.heart.1.a');
+        city.pop = Math.floor(G.logic.popMax(city) / 2); const pop0 = city.pop; give('player.pop.1.a'); const civil = use('player.pop.1.a');
+        give('player.truce.dream'); const dream = use('player.truce.dream');
+        give('player.peace.1'); const truce = ask('city.setStopWarState', { itemId: 'player.peace.1', ItemId: 'player.peace.1', password: 'not checked', passWord: 'not checked' });
+        ok(hw?.ok === 1 && has('hero.reset.1') === hw0 + 5 && treat?.ok === 1 && trick?.ok === 1 && sum(angels) === a0 + 1 && sum(devils) === d0 + 1
+          && lonely?.ok < 0 && /opens a Bronze Lockbox/.test(lonely.errorMsg) && opened?.ok === 1 && !has('player.box.1') && !has('consume.key.1')
+          && pack?.ok === 1 && ['food', 'wood', 'stone', 'iron'].every(k => got(k) === 5000) && bonus?.ok === 1 && has('consume.move.1') === t0 + 1 && has('consume.blueprint.1') === s0 + 1
+          && yearKey?.ok === 1 && !has('player.key.birthdaykey.2015')
+          && live('ReduceTroopsUpkeepBuff') && live('TroopReliveBuff') && live('IncFoodProduceBuff') && live('HealBonusBuff') && live('TrainSpeedBuff') && slow > fast
+          && speech?.ok === 1 && city.loyalty === 100 && !city.complaint && civil?.ok === 1 && city.pop > pop0 && dream?.ok === 1 && G.account.inDreamTruce(pb, G.now() + 120000) && truce?.ok === 1 && live('PlayerPeaceBuff'),
+          'items work from My Items: Holy Water (5 pieces) gives 5 Holy Water, Treat and Trick Tokens an Angel and a Devil item, a Bronze Key opens a Bronze Lockbox (and says so without one), the Resources Package 5,000 of each, Cents Bonus its 11 items, a Birthday Key of another year its chest, Marshmallow Meep, Birthday Cake, Chocolate Bunny, Memory of the Sun and the Christmas Gift their bonuses (training 10% faster), Speech Text and Civil Code their city, a Dream Truce starts now, and a Truce Agreement needs no password'); }
+      // The Pioneer Express Teleport moves a city through the web client's Adv City Teleporter window.
+      { const acct2 = { name: 'pioneer', createdAt: G.now(), playerId: null }; G.db.accounts.pioneer = acct2;
+        const pp = G.createPlayer(acct2), pc = G.castlesOf(pp)[0], rr = [];
+        const pconn = { id: 'pioneer', web: true, player: pp, ip: 'test', closed: false, send: (cmd, data) => rr.push({ cmd, data }), close(){} };
+        const W = require('../src/game/world'); let spot = null;
+        for (let i = 2000; i < 640000 && spot == null; i += 1013){ const t = W.tileAt(srv.store, i); if (t.type === W.T.FLAT && !t.historic && !G.db.tiles[i]) spot = i; }
+        pp.items['player.move.castle.1.b'] = 1; G.handle(pconn, 'city.advMoveCastle', { castleId: pc.id, targetId: spot, packageId: 1 });
+        const r = rr.find(x => x.cmd === 'city.advMoveCastle')?.data;
+        ok(r?.ok === 1 && pc.fieldId === spot && !pp.items['player.move.castle.1.b'] && G.charms.isDevil('player.box.present.money.77.2'),
+          'the Pioneer Express Teleport moves a city from the Adv City Teleporter window, and the second Broken Gates is a Devil item like the first'); }
       // Historic heroes without quests (rules.historicHeroes.questFree): the portrait alone captures, and is used up.
       { const HR = G.rules.historicHeroes; HR.questFree = true;
         const [[f1, id1], [f2, id2]] = [...G.hh.byField.entries()].filter(([, id]) => G.hh.state(id)?.status === 'free').slice(0, 2);

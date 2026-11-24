@@ -167,9 +167,14 @@ class ChestReader {
         const missed = this.unread, left = []; this.unread = left;
         const got = this.setsFrom(String(text || '').replace(/\r/g, ''), strict);
         this.unread = missed; if (missed) missed.push(...left);
-        return { got, whole: !left.length };
+        // (a chest never holds itself: "Cents bonus package." read as the Gold Bonus's own name)
+        const own = got.map(set => set.filter(e => e.id !== id)).filter(set => set.length);
+        return { got: own, whole: !left.length, n: own.reduce((a, set) => a + set.length, 0) };
       }).filter(r => r.got.length);
-      sets = (reads.find(r => r.whole) || reads[0])?.got || [];
+      // A text read in full first; of two read in full, the one that lists more ("This package includes resources."
+      // beside "Includes: Food, Lumber, Stone and Iron 1,000 respectively.").
+      const whole = reads.filter(r => r.whole).sort((a, b) => b.n - a.n);
+      sets = (whole[0] || reads[0])?.got || [];
     }
     this.cache.set(id, sets);
     return sets;

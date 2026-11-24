@@ -32,17 +32,18 @@ const BUFF_ITEMS = {
   'player.speak.silver_publicity_ambassador.permanent': ['PlayerSpeakerBuf_SPAP', 3650 * DAY], 'player.speak.silver_publicity_ambassador.15': ['PlayerSpeakerBuf_SPAP_15', 15 * DAY],
   'player.speak.gold_publicity_ambassador.permanent': ['PlayerSpeakerBuf_GPAP', 3650 * DAY], 'player.speak.gold_publicity_ambassador.15': ['PlayerSpeakerBuf_GPAP_15', 15 * DAY],
 };
-// "+15% to Heal, +25% to Resource Production for 24 hours" - the production part.
-const MULTI_BUFF_ITEMS = { 'player.christmas.gift': [['IncFoodProduceBuff', DAY], ['IncWoodProduceBuff', DAY], ['IncStoneProduceBuff', DAY], ['IncIronProduceBuff', DAY]] };
+// "+15% to Heal for 24 hours, +25% to Resource Production for 24 hours, 10% Speed to Recruiting queue for 24 hours".
+const MULTI_BUFF_ITEMS = { 'player.christmas.gift': [['IncFoodProduceBuff', DAY], ['IncWoodProduceBuff', DAY], ['IncStoneProduceBuff', DAY], ['IncIronProduceBuff', DAY], ['HealBonusBuff', DAY], ['TrainSpeedBuff', DAY]] };
 const BUFF_NAMES = {
   IncFoodProduceBuff: 'Food production +25%', IncWoodProduceBuff: 'Lumber production +25%', IncStoneProduceBuff: 'Stone production +25%', IncIronProduceBuff: 'Iron production +25%',
   IncGoldProduceBuff: 'Tax revenue +100%', PlayerIncArmyAttachBuff: 'Troop attack +20%', PlayerIncArmyDefenceBuff: 'Troop defence +20%', TroopReliveBuff: 'Battle losses -30%',
   ReduceTroopsUpkeepBuff: 'Troop upkeep -50%', StopTroopsUpkeepBuff: 'No troop upkeep', doubleBuilding: 'Two buildings at once', EMCardBuff: 'Evony membership',
+  HealBonusBuff: 'Healing +15%', TrainSpeedBuff: 'Recruiting speed +10%',
   HauntedCastleBuf: 'Resource production +10%, Rally Spot limit +25%', HauntedCastleAdvBuf: 'Resource production +10%, Rally Spot limit +25%',
   PlayerPeaceBuff: 'Truce', TopeVotesPrivilegeBuf: 'Governor', PlayerSpeakerBuf_BPAP: 'Publicity Ambassador', PlayerSpeakerBuf_BPAP_15: 'Publicity Ambassador', PlayerSpeakerBuf_SPAP: 'Publicity Ambassador', PlayerSpeakerBuf_SPAP_15: 'Publicity Ambassador', PlayerSpeakerBuf_GPAP: 'Publicity Ambassador', PlayerSpeakerBuf_GPAP_15: 'Publicity Ambassador',
 };
 const STOP_UPKEEP = /\bno upkeep\b|consume no food|100% free upkeep|no troops? upkeep/i;
-const HALF_UPKEEP = /50% upkeep|50% less food|50% free upkeep|upkeep by 50%|half as hungry|eat less|feelings of hunger/i;
+const HALF_UPKEEP = /50% upkeep|50% less food|50% free upkeep|upkeep by 50%|consume by 50%|half as hungry|eat less|feelings of hunger/i;
 
 class Items {
   constructor(data, rules){
@@ -54,6 +55,10 @@ class Items {
       if (STOP_UPKEEP.test(it.desc)) this.buffItems[it.id] = ['StopTroopsUpkeepBuff', DAY];
       else if (HALF_UPKEEP.test(it.desc)) this.buffItems[it.id] = ['ReduceTroopsUpkeepBuff', DAY];
     }
+    // rules.eventItemBuffs: { itemId: [[buff, hours], ...] }, holiday items whose descriptions say what they do but not
+    // by how much.
+    this.multiBuffs = { ...MULTI_BUFF_ITEMS };
+    for (const [id, list] of Object.entries(rules?.eventItemBuffs || {})) if (Array.isArray(list) && list.length) this.multiBuffs[id] = list.map(([b, h]) => [b, h * HOUR]);
   }
   saleTypes(){
     return SHOP_CATEGORIES.map(cat => ({ typeName: cat, items: Object.values(this.data.items).filter(i => i.type === cat && i.price > 0).map(i => i.id).join('#') }));
@@ -95,13 +100,16 @@ class Items {
   startBuff(p, id, ms, now){ p.buffs = p.buffs || {}; p.buffs[id] = Math.max(p.buffs[id] || 0, now) + ms; return id; }
   // Start the buff an item gives; returns the buff ids, or null if the item gives none.
   applyBuffItem(p, itemId, now){
-    const list = MULTI_BUFF_ITEMS[itemId] || (this.buffItems[itemId] ? [this.buffItems[itemId]] : null);
+    const list = this.multiBuffs[itemId] || (this.buffItems[itemId] ? [this.buffItems[itemId]] : null);
     if (!list) return null;
     return list.map(([id, ms]) => this.startBuff(p, id, ms, now));
   }
   // +20% troop attack / defence while War Horn or Corselet is running.
   battleBuff(p, now = Date.now()){ return { attack: this.active(p, 'PlayerIncArmyAttachBuff', now) ? 20 : 0, defence: this.active(p, 'PlayerIncArmyDefenceBuff', now) ? 20 : 0 }; }
   reliveShare(p, now = Date.now()){ return this.active(p, 'TroopReliveBuff', now) ? 0.3 : 0; }
+  // Christmas Gift: wounded troops +15%, training 10% faster.
+  healBonus(p, now = Date.now()){ return this.active(p, 'HealBonusBuff', now) ? 0.15 : 0; }
+  trainBonus(p, now = Date.now()){ return this.active(p, 'TrainSpeedBuff', now) ? 0.1 : 0; }
   upkeepRate(p, now = Date.now()){ return this.active(p, 'StopTroopsUpkeepBuff', now) ? 0 : this.active(p, 'ReduceTroopsUpkeepBuff', now) ? 0.5 : 1; }
   castleThemeActive(p, now = Date.now()){ return this.active(p, 'HauntedCastleBuf', now) || this.active(p, 'HauntedCastleAdvBuf', now); }
   // Two buildings at once in each city: Gundulf's Compass, and every new lord for his first 72 hours ("Congratulations!

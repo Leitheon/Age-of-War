@@ -30,6 +30,7 @@ const DEVIL = {
   'player.box.present.money.76': { key: 'poison', hours: 2, max: 3, label: 'Poisoned Feast' },
   'player.box.present.money.77': { key: 'gates', hours: 1, perDay: 5, label: 'Broken Gates' },
 };
+DEVIL['player.box.present.money.77.2'] = DEVIL['player.box.present.money.77'];   // (a second Broken Gates item)
 const live = (list, now) => (list || []).filter(t => t > now);
 
 class Charms {

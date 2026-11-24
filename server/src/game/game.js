@@ -77,6 +77,7 @@ class Game {
       valleys: c => this.armies.valleyBonuses(c),
       salary: c => this.heroes.salary(c),
       upkeepRate: (p, now) => this.items.upkeepRate(p, now),
+      trainBonus: (p, now) => this.items.trainBonus(p, now),
       themeBonus: (p, now) => this.items.castleThemeActive(p, now) ? 10 : 0,
       buildSlots: p => this.items.buildSlots(p),
       items: p => p?.items || {},

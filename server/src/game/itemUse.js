@@ -21,6 +21,10 @@ const MEDAL_LOYALTY = { 'hero.loyalty.1': 5, 'hero.loyalty.2': 10, 'hero.loyalty
 const EXP_BOOKS = { 'player.experience.1.a': [1000, 0.08], 'player.experience.1.b': [10000, 0.3], 'player.experience.1.c': [100000, 1] };
 const STRENGTH_ITEMS = new Set(['hero.item.Tea', 'hero.item.Lugui_Wine', 'hero.item.Panax_ginseng', 'hero.item.Essential_Oil']);
 const LOCKBOX = { 'player.box.1': ['consume.key.1', [3, 4]], 'player.box.2': ['consume.key.2', [2, 3]], 'player.box.3': ['consume.key.3', [1, 2]] };
+const TOKEN_POOLS = {
+  'player.box.present.money.108': ['player.box.present.money.70', 'player.box.present.money.71', 'player.box.present.money.72'],   // Treat Token: an Angel item
+  'player.box.present.money.109': ['player.box.present.money.74', 'player.box.present.money.75', 'player.box.present.money.76', 'player.box.present.money.77'],   // Trick Token: a Devil item
+};
 const CITY_TOKENS = { 'player.gen.castle.1': 11, 'player.gen.castle.2': 12, 'player.gen.castle.3': 14 };
 // Hero helms: [min level, max level, special attribute range or null, all attributes].
 const HELMS = {
@@ -171,7 +175,8 @@ class ItemUse {
   }
 
   // ---------- using an item from the inventory (shop.useGoods) ----------
-  use(p, c, itemId, now, rnd = Math.random){
+  // opts.fieldId: where a Bronze, Silver or Gold Amulet's city goes (the web client's Target X and Y).
+  use(p, c, itemId, now, rnd = Math.random, opts = {}){
     const it = this.g.data.items[itemId];
     if (!it) return [-40, 'Unknown item.'];
     const out = this.newOut();
@@ -195,9 +200,41 @@ class ItemUse {
       p.spins = p.spins || {}; const day = new Date(now).toISOString().slice(0, 10); p.spins[day] = (p.spins[day] || 0) + 1;
       return out;
     }
+    // Speech Text and Civil Code: the web client uses them from My Items, on the city it's in.
+    if (itemId === 'player.pop.1.a' || itemId === 'player.heart.1.a') return this.useOnCastle(p, c, itemId, now);
+    // A Treat Token is one of the Angel items, a Trick Token one of the Devil items ("one of the Treat Tokens").
+    if (TOKEN_POOLS[itemId]){
+      const pool = TOKEN_POOLS[itemId].filter(id => this.g.data.items[id]), won = pool[Math.floor(rnd() * pool.length)];
+      this.items.take(p, itemId); this.items.add(p, won, 1); out.items.add(itemId); out.items.add(won);
+      out.awards.push({ id: won, count: 1 }); out.text.push(this.name(won));
+      return out;
+    }
+    // A Bronze, Silver or Golden Key used by itself opens that lockbox, if there is one.
+    const box = Object.entries(LOCKBOX).find(([, [key]]) => key === itemId)?.[0];
+    if (box){
+      if (!this.items.has(p, box)) return [-44, `${String(it.name).trim()} opens a ${String(this.name(box)).trim()}, and you have none.`];
+      return this.use(p, c, box, now, rnd, opts);
+    }
+    // A Stone of Finding: "remembering their name and using this stone will summon them back to you" - the hero
+    // lost most recently (the web client has no list to pick from).
+    if (itemId === 'player.item.stoneoffinding'){
+      const lost = this.g.captives.lost(p, now);
+      if (!lost.length) return [-1, 'None of your heroes has been captured in the last 24 hours.'];
+      const r = this.g.captives.recover(p, c, lost[lost.length - 1].id ?? lost[lost.length - 1].heroId, now);
+      if (Array.isArray(r)) return r;
+      out.items.add(itemId); out.note = `${r.hero.name} came back to ${c.name}.`; out.text.push(`${r.hero.name} came back`);
+      return out;
+    }
+    // A Dream Truce from My Items: its 10 hours start now (the web client has no window to set the time).
+    if (itemId === 'player.truce.dream'){
+      const d = new Date(now + 60000), r = this.g.account.setDream(p, d.getHours(), d.getMinutes(), d.getSeconds(), '', now, true);
+      if (Array.isArray(r)) return r;
+      out.items.add(itemId); out.buffs = true; out.note = 'Your Dream Truce starts now and lasts 10 hours.';
+      return out;
+    }
     if (HELMS[itemId]) return this.helm(p, c, itemId, out, rnd);
     if (itemId === 'player.box.hero.npc') return this.epicHero(p, c, itemId, out, rnd);
-    if (CITY_TOKENS[itemId]) return this.cityToken(p, c, itemId, out, now);
+    if (CITY_TOKENS[itemId]) return this.cityToken(p, c, itemId, out, now, opts.fieldId ?? null);
     if (itemId === 'consume.hegemony.1' || /^alliance\.ritual_of_pact\./.test(itemId)){
       const r = this.g.alliances.pact(p, itemId, now); if (Array.isArray(r)) return r;
       this.items.take(p, itemId); out.items.add(itemId); out.note = r.note; return out;
@@ -213,7 +250,10 @@ class ItemUse {
       const keys = this.keysFor.get(itemId);
       let key = null;
       if (keys){
-        key = keys.find(k => this.items.has(p, k)) || (LOCKBOX[itemId] ? null : this.items.has(p, 'player.key.silver') ? 'player.key.silver' : null);
+        // (or any key of the same name: there are several Birthday, Easter and Skeleton Keys, one for each year)
+        const names = new Set(keys.map(k => this.name(k).toLowerCase()));
+        const alike = () => Object.keys(p.items || {}).find(k => (p.items[k] || 0) > 0 && /\bkey\b/i.test(this.name(k)) && names.has(this.name(k).toLowerCase()));
+        key = keys.find(k => this.items.has(p, k)) || alike() || (LOCKBOX[itemId] ? null : this.items.has(p, 'player.key.silver') ? 'player.key.silver' : null);
         if (!key) return [-44, `Opening ${it.name} needs ${keys.map(k => this.name(k)).filter((v, i, a) => a.indexOf(v) === i).join(' or ')}${LOCKBOX[itemId] ? '' : ' (or a Silver Key)'}.`];
       }
       this.items.take(p, itemId); out.items.add(itemId);
@@ -222,9 +262,10 @@ class ItemUse {
       else this.openContents(p, c, itemId, out, rnd);
       return out;
     }
-    // Speaker packages open into that many Speakers (the World channel also opens one by itself when it needs to).
-    const pack = { 'consume.1.b': 10, 'consume.1.c': 100 }[itemId];
-    if (pack){ this.items.take(p, itemId); this.items.add(p, 'consume.1.a', pack); out.items.add(itemId); out.items.add('consume.1.a'); return out; }
+    // Packages of pieces open into that many: Speakers (the World channel also opens one by itself when it needs to)
+    // and Holy Water.
+    const pack = { 'consume.1.b': ['consume.1.a', 10], 'consume.1.c': ['consume.1.a', 100], 'hero.reset.1.a': ['hero.reset.1', 5] }[itemId];
+    if (pack){ const [one, n] = pack; this.items.take(p, itemId); this.items.add(p, one, n); out.items.add(itemId); out.items.add(one); out.awards.push({ id: one, count: n }); out.text.push(`${n} ${this.name(one)}`); return out; }
     if (/^(consume\.1\.|player\.speak)/.test(itemId)) return [-40, 'Speakers are used up when you talk in the World channel.'];
     if (itemId === 'consume.blueprint.1') return [-40, "Michelangelo's Script is used automatically when you upgrade a building to level 10."];
     if (itemId === 'player.queue.building') return [-40, "Bernini's Hammer is used when you queue a building: Queue Upgrade in a building's window, or build while your builders are busy."];
@@ -319,8 +360,9 @@ class ItemUse {
   }
 
   // ---------- city tokens (Bronze, Silver and Gold Amulets) ----------
-  // "Generate a city in a random location with Rally Spot and all resource buildings to level N."
-  cityToken(p, c, itemId, out, now){
+  // "Generate a city in a random location with Rally Spot and all resource buildings to level N." The web client asks
+  // for Target X and Y (shop.useDevilItem): fieldId is that spot, which must be an empty flat.
+  cityToken(p, c, itemId, out, now, fieldId = null){
     // Each title rules one more city (Civilian 1 ... Prinzessin 10).
     const max = this.g.quests.maxCities(p);
     if (p.castles.length >= max) return [-1, p.castles.length >= (this.g.rules.maxCities || 10) ? `You already rule ${p.castles.length} cities, the most a lord can hold.`
@@ -331,7 +373,8 @@ class ItemUse {
     // client (power level 4), its level 14 Rally Spot on plot 31, and nothing in it upgradeable past 10, so its
     // Rally Spot and fields stay at the amulet's level ("The building has already reached maximum level.").
     const L = CITY_TOKENS[itemId];
-    const nc = this.g.createCastle(p, { now });
+    if (fieldId != null){ const err = this.g.landError?.(fieldId); if (err) return [-13, err === 'You can only move your city to an empty flat.' ? 'A new city can only be founded on an empty flat.' : err]; }
+    const nc = this.g.createCastle(p, { now, ...(fieldId != null ? { fieldId } : {}) });
     const B = (typeId, level) => ({ typeId, level, status: BSTATUS.NORMAL, startTime: 0, endTime: 0 });
     // All 40 field plots at that level (the item: "all resource buildings to level N"; Fox: 9 Farms, 15 Sawmills, 15
     // Ironmines and 1 Quarry).

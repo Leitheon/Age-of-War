@@ -1,6 +1,8 @@
 'use strict';
 // Shop: buying with coins, using items (chests, the Wheel of Fortune, buffs, city items). (Gift packages: friends.js.)
 const { REPORT_TYPE } = require('../reports');
+const world = require('../world');
+const { CITY_TOKENS } = require('../itemUse');
 
 module.exports = (game, H) => {
   // Items the client doesn't know (or knows differently): historic heroes added or changed by the sheet. Live sends
@@ -59,7 +61,22 @@ module.exports = (game, H) => {
     game.pushItems(p, out.items);
   };
   H['shop.useAngelItem'] = charm((p, d) => game.charms.useAngel(p, String(d.itemId || ''), d.playername, game.now()));
-  H['shop.useDevilItem'] = charm((p, d) => game.charms.useDevil(p, String(d.itemId || ''), d.x, d.y, d.paramdata, game.now()));
+  const devil = charm((p, d) => game.charms.useDevil(p, String(d.itemId || ''), d.x, d.y, d.paramdata, game.now()));
+  // The web client sends a Bronze, Silver or Gold Amulet here too, with the Target X and Y it asks for: the new city
+  // is founded there (itemUse.cityToken).
+  H['shop.useDevilItem'] = (conn, d, cmd) => {
+    const itemId = String(d.itemId || ''), p = conn.player;
+    if (!CITY_TOKENS[itemId]) return devil(conn, d, cmd);
+    const c = game.castleFor(conn, d.castleId) || game.castlesOf(p)[0]; if (!c) return game.fail(conn, cmd, -30, 'You have no city.');
+    if (!game.items.has(p, itemId)) return game.fail(conn, cmd, -44, `You don't have a ${game.items.name(itemId)}.`);
+    const x = Math.floor(Number(d.x)), y = Math.floor(Number(d.y));
+    if (!(x >= 0 && x < world.SIZE && y >= 0 && y < world.SIZE)) return game.fail(conn, cmd, -13, `Enter a spot on the map: X and Y from 0 to ${world.SIZE - 1}.`);
+    const now = game.now(), had = game.activeBuffs(p, now), out = game.itemUse.use(p, c, itemId, now, undefined, { fieldId: world.idOf(x, y) });
+    if (Array.isArray(out)) return game.fail(conn, cmd, out[0], out[1]);
+    game.store.touch();
+    game.reply(conn, cmd, { castleId: out.newCastle?.id, x, y });
+    after(conn, c, out, had, itemId);
+  };
   // Buying resources with cents (the city window's Buy button, GoldBuyResourceWin): "1 cent game coin(s) = N Food",
   // up to so much of each a day in each city ("For sale"). Rates and daily amounts: rules.buyResources (UNVERIFIED).
   const KINDS = ['food', 'wood', 'stone', 'iron'];

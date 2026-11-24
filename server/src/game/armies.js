@@ -833,7 +833,7 @@ class ArmyLogic {
   // Losses from a battle: a share comes back wounded. With Auto Heal on and the gold in the city, every wounded
   // troop there is cured at once. Returns what was healed and its cost, or null.
   wound(c, p, lost, now){
-    const share = (this.g.rules.wounded?.share ?? 0) + (this.g.effort.bonus(p, 'wounded') || 0) / 100, w = this.wounded(c, now);   // (+1% a level: achievements)
+    const share = ((this.g.rules.wounded?.share ?? 0) + (this.g.effort.bonus(p, 'wounded') || 0) / 100) * (1 + this.g.items.healBonus(p, now)), w = this.wounded(c, now);   // (Christmas Gift: +15%)   // (+1% a level: achievements)
     let any = false;
     for (const [k, n] of Object.entries(lost)){ const hurt = Math.floor(n * share); if (hurt > 0){ w[k] = (w[k] || 0) + hurt; any = true; } }
     if (!any) return null;

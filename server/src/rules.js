@@ -190,6 +190,16 @@ const DEFAULTS = {
   heroAutoLevel: true,
   // A hero hired from the Inn is replaced by a new one at once; false leaves the slot empty until the Inn refreshes.
   innRestock: true,
+  // Holiday items whose descriptions say what they do but not by how much (Fox, Nov 2026: items should do what their
+  // descriptions say): { itemId: [[buff, hours], ...] }. Food for the troops halves their upkeep for a day; the two
+  // that bring more troops home from battle work as Penicillin does; Memory of the Sun is a day of Plowshares.
+  eventItemBuffs: Object.fromEntries([
+    ...['player.item.afeastforthepeople', 'player.item.feastforthepeople.2015', 'player.item.afeastforthepeople2016', 'player.item.afeastforthepeople2017',
+      'player.anniversary.cake', 'player.item.birthdaycake', 'player.item.birthdaycake.2015', 'player.item.birthdaycake.2016', 'player.item.birthdaycake2017',
+      'player.itish.stew', 'player.item.sweatofthesun'].map(id => [id, [['ReduceTroopsUpkeepBuff', 24]]]),
+    ...['player.chocolate.bunny', 'player.leafofthetree'].map(id => [id, [['TroopReliveBuff', 24]]]),
+    ...['player.item.memoryofthesun', 'player.item.memoryofthesun.2017'].map(id => [id, [['IncFoodProduceBuff', 24]]]),
+  ]),
   // A Feasting Hall holds any number of prisoners (Fox, Nov 2026): with every seat taken a city can still capture a
   // hero, and persuading one needs a free seat. false: a prisoner takes a seat, and with none free the hero gets away.
   prisonersNeedNoSeat: true,
