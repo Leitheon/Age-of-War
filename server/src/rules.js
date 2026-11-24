@@ -94,6 +94,7 @@ const DEFAULTS = {
   // Coins (shown in the client as your coin wallet). The local "Get More Coins" page can add more.
   startCoins: 1000,
   coinsPage: true,
+  debugCoins: false,            // the debug menu's Coins section (Fox, Nov 24 2026: hidden for this version)
 
   // Troops. typeId -> [[ 'b', buildingTypeId, level ] | [ 't', techId, level ], ...]
   // UNVERIFIED: best guesses; compare with the live game's barracks requirements.

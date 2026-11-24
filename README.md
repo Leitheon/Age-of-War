@@ -50,7 +50,9 @@ Game rules (speeds, prices, limits) are in `server/src/rules.js`; put the ones y
 - **Reset link**: a one-day link that lets the player choose a new password (a local server sends no e-mail, so
   pass it on yourself). A player who uses "Forgot password?" gets one written in the server window too;
 - **Close** / **Reopen** an account;
-- **Debug tools** for a lord: coins, resources, troops, items, research, gear, gift packages, the news ticker.
+- **Debug tools** for a lord: resources and troops (up to 2,145,000,000 at a time; a city's troop count stops at
+  2,147,483,647), items, research, gear, gift packages, the news ticker. The coins section is hidden for now
+  (`debugCoins` in `data/rules.json` brings it back).
 
 ## Letting other people in
 

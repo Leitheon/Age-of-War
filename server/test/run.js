@@ -200,7 +200,12 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
     const tooMuch = await c.call('shop.buy', { itemId: 'player.speedup.1', amount: 100 });
     ok(tooMuch.ok < 0 && /coins/.test(tooMuch.errorMsg), 'buying more than you can afford is refused');
 
-    const coinsPage = await get(`/coins?from=game&user=Tester&add=1000`);
+    // (Fox, Nov 24 2026: the debug menu's coins hidden for this version: rules.debugCoins)
+    const hidden = (await get(`/coins?from=game&user=Tester&add=1000`)).body.toString();
+    ok(!/<h2>Coins<\/h2>|Added 1,000 coins|Add coins/.test(hidden) && /Lord: <b>Tester<\/b>/.test(hidden) && srv.store.db.players[p.playerInfo.id].coins === 990,
+      'the debug menu has no Coins section and adds no coins (rules.debugCoins off)');
+    srv.game.rules.debugCoins = true;
+    const coinsPage = await get(`/coins?from=game&user=Tester&add=1000`); srv.game.rules.debugCoins = false;
     ok(coinsPage.status === 200 && coinsPage.body.toString().includes('Added 1,000 coins'), 'the Get More Coins page adds coins');
     ok((await c.wait('server.PlayerInfoUpdate')).data.playerInfo.medal === 1990, 'added coins reach the game right away');
     const cres = srv.store.db.castles[castle.id].res, wood0 = cres.wood;
@@ -208,6 +213,20 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
     const filled = (await c.wait('server.ResourceUpdate', 3000, d => d.resource.wood.amount >= 100000000)).data;
     ok(fillPage.body.toString().includes('Added 100,000,000') && filled.resource.food.amount >= 100000000 && filled.resource.gold >= 100000000 && cres.wood >= wood0 + 100000000 - 1,
       'the owner panel adds 100 million of each resource (to what the city has) and the game sees it');
+    { // (Fox, Nov 24 2026: "give up to 2.145B of resources and troops")
+      const G = srv.game, cs = G.castlesOf(srv.store.db.players[p.playerInfo.id]), was = cs.map(x => ({ ...x.res })), w0 = cres.wood;
+      const big = (await get(`/coins?from=game&user=Tester&fill=2145000000`)).body.toString(), w1 = cres.wood;
+      const over = (await get(`/coins?from=game&user=Tester&fill=2145000001`)).body.toString(), w2 = cres.wood;
+      cs.forEach((x, i) => { x.res = was[i]; });
+      const city = srv.store.db.castles[castle.id], tw = { ...city.troops }, a0 = city.troops.archer || 0;
+      const t1 = (await get(`/coins?from=game&user=Tester&city=${castle.id}&troop=archer&tn=2145000000`)).body.toString(), a1 = city.troops.archer;
+      const t2 = (await get(`/coins?from=game&user=Tester&city=${castle.id}&troop=archer&tn=10000000`)).body.toString(), a2 = city.troops.archer;
+      const t3 = (await get(`/coins?from=game&user=Tester&city=${castle.id}&troop=archer&tn=2145000001`)).body.toString();
+      city.troops = tw;
+      ok(big.includes('Added 2,145,000,000 food') && w1 >= w0 + 2145000000 - 1 && !over.includes('Added') && w2 === w1 && /max="2145000000"/.test(big)
+        && /Added 2,145,000,000 Archers? to/.test(t1) && a1 === a0 + 2145000000 && /stopped at 2,147,483,647/.test(t2) && a2 === 2147483647 && /from 1 to 2,145,000,000/.test(t3),
+        `the debug menu gives up to 2,145,000,000 of each resource and of troops at a time, and a troop count stops at 2,147,483,647 rather than turning negative (archers ${a0} -> ${a1} -> ${a2})`);
+    }
     const givePage = await get(`/coins?from=game&user=Tester&give=${encodeURIComponent('Saxon Beer Chest A')}&n=2`);
     const gotItem = (await c.wait('server.ItemUpdate', 3000, d => d.items.some(i => i.id === 'player.box.present.money.96'))).data;
     ok(givePage.body.toString().includes('Added 2 x Saxon Beer Chest A') && gotItem.items[0].count === 2, 'the owner panel gives any item, event chests included');

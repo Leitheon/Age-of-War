@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const world = require('./world');
-const { CastleLogic, STATUS, addTroops } = require('./castle');
+const { CastleLogic, STATUS, TROOP_MAX } = require('./castle');
 const { TroopLogic } = require('./troops');
 const { ResearchLogic } = require('./research');
 const { Items } = require('./items');
@@ -695,8 +695,11 @@ class Game {
     let note = '';
     const eq = this.equipment, techIds = Object.keys(this.data.techs).map(Number), gearTypes = eq.types();
     // (changes only with the page's own token, t, so another site can't make the admin's browser do them)
+    // (Fox, Nov 24 2026: resources and troops up to 2.145 billion at a time; the coins hidden for this version,
+    // rules.debugCoins)
+    const MAX = 2145000000, coinsOn = this.rules.debugCoins !== false;
     if (p && this.rules.coinsPage && query.get('t') === this.adminToken){
-      const add = Math.floor(Number(query.get('add')));
+      const add = coinsOn ? Math.floor(Number(query.get('add'))) : 0;
       if (add > 0 && add <= 100000000){
         p.coins = (p.coins || 0) + add; this.store.touch(); this.pushPlayerInfo(p);
         note = `<p class="ok">Added ${n(add)} coins. They're already in your wallet in the game.</p>`;
@@ -719,12 +722,15 @@ class Game {
       if (troopRaw){
         const tn = Math.floor(Number(query.get('tn')) || 0), cs = this.castlesOf(p), c = cs.find(x => x.id === Number(query.get('city'))) || cs[0];
         const kinds = troopRaw === 'all' ? Object.values(this.data.troops) : Object.values(this.data.troops).filter(t => t.field === troopRaw);
-        if (!c || !kinds.length || !(tn > 0 && tn <= 100000000)) note = '<p class="bad">Pick a city, a kind of troop and an amount from 1 to 100,000,000.</p>';
+        if (!c || !kinds.length || !(tn > 0 && tn <= MAX)) note = `<p class="bad">Pick a city, a kind of troop and an amount from 1 to ${n(MAX)}.</p>`;
         else {
-          for (const t of kinds) c.troops[t.field] = addTroops(c.troops[t.field], tn);
+          // (a count stops at 2,147,483,647 here: past it a city's count turns negative and bricks the city, as on live)
+          const full = [];
+          for (const t of kinds){ const have = c.troops[t.field] || 0; if (have + tn > TROOP_MAX) full.push(t.name); c.troops[t.field] = Math.min(TROOP_MAX, have + tn); }
           this.store.touch(); this.pushTroops(c);
           const what = troopRaw === 'all' ? 'of every kind of troop' : esc(kinds[0].name);
-          note = `<p class="ok">Added ${n(tn)} ${what} to ${esc(c.name)}. They're already in the city in the game.</p>`;
+          note = `<p class="ok">Added ${n(tn)} ${what} to ${esc(c.name)}. They're already in the city in the game.</p>`
+            + (full.length ? `<p class="bad">${full.map(esc).join(', ')} stopped at ${n(TROOP_MAX)}, the most a city can hold.</p>` : '');
           this.log.info(`Owner page: gave ${p.name} ${tn} ${troopRaw} in ${c.name}`);
         }
       }
@@ -810,7 +816,7 @@ class Game {
       if (said.length) note += said.join('');
       if (query.get('perf') === 'reset' && this.perf){ this.perf.reset(); note += '<p class="ok">Server speed counters cleared. Play a while, then reload this page.</p>'; }
       const fill = Math.floor(Number(query.get('fill')));
-      if (fill > 0 && fill <= 1000000000){
+      if (fill > 0 && fill <= MAX){
         const now = this.now();
         for (const c of this.castlesOf(p)){
           this.logic.settle(c, p, now);
@@ -826,16 +832,17 @@ class Game {
     const levels = (max, sel) => Array.from({ length: max + 1 }, (_, i) => `<option value="${i}"${i === sel ? ' selected' : ''}>${i}</option>`).join('');
     const body = !this.rules.coinsPage ? '<p>This page is turned off on this server (coinsPage in data/rules.json).</p>'
       : !p ? '<p>Open this page from the <a href="/admin" style="color:#e6c27a">admin page</a> (Debug tools beside a lord).</p>'
-      : `<p><b>${esc(p.name)}</b> has <b>${n(p.coins || 0)}</b> coins.</p>${note}
+      : (coinsOn ? `<p><b>${esc(p.name)}</b> has <b>${n(p.coins || 0)}</b> coins.</p>${note}
          <h2>Coins</h2><p>${[1000, 10000, 100000, 1000000].map(v => link('add=' + v, 'Add ' + n(v))).join(' ')}</p>
-         <form><input type="hidden" name="user" value="${esc(name)}"><input type="hidden" name="t" value="${this.adminToken}"><input name="add" type="number" min="1" max="100000000" placeholder="Other amount"> <button class="btn">Add coins</button></form>
-         <h2>Resources</h2><p>Adds this much food, lumber, stone, iron and gold to every city. Amounts above a city's storage stay until you spend them.</p>
-         <p>${[1000000, 10000000, 100000000].map(v => link('fill=' + v, '+' + n(v) + ' each')).join(' ')}</p>
-         <form><input type="hidden" name="user" value="${esc(name)}"><input type="hidden" name="t" value="${this.adminToken}"><input name="fill" type="number" min="1" max="1000000000" placeholder="Other amount"> <button class="btn">Add to each</button></form>
-         <h2>Troops</h2><p>Adds troops to one of your cities, straight into its army.</p>
+         <form><input type="hidden" name="user" value="${esc(name)}"><input type="hidden" name="t" value="${this.adminToken}"><input name="add" type="number" min="1" max="100000000" placeholder="Other amount"> <button class="btn">Add coins</button></form>`
+         : `<p>Lord: <b>${esc(p.name)}</b></p>${note}`) + `
+         <h2>Resources</h2><p>Adds this much food, lumber, stone, iron and gold to every city, up to ${n(MAX)} at a time. Amounts above a city's storage stay until you spend them.</p>
+         <p>${[1000000, 10000000, 100000000, 1000000000, MAX].map(v => link('fill=' + v, '+' + n(v) + ' each')).join(' ')}</p>
+         <form><input type="hidden" name="user" value="${esc(name)}"><input type="hidden" name="t" value="${this.adminToken}"><input name="fill" type="number" min="1" max="${MAX}" placeholder="Other amount"> <button class="btn">Add to each</button></form>
+         <h2>Troops</h2><p>Adds troops to one of your cities, straight into its army, up to ${n(MAX)} at a time (a city holds at most ${n(TROOP_MAX)} of a kind).</p>
          <form><input type="hidden" name="user" value="${esc(name)}"><input type="hidden" name="t" value="${this.adminToken}"><select name="city">${this.castlesOf(p).map(c => { const { x, y } = world.xy(c.fieldId); return `<option value="${c.id}">${esc(c.name)} (${x},${y})</option>`; }).join('')}</select>
          <select name="troop"><option value="all">Every kind</option>${Object.values(this.data.troops).map(t => `<option value="${esc(t.field)}">${esc(t.name)}</option>`).join('')}</select>
-         <input name="tn" type="number" min="1" max="100000000" value="10000" style="width:110px"> <button class="btn">Add troops</button></form>
+         <input name="tn" type="number" min="1" max="${MAX}" value="10000" style="width:130px"> <button class="btn">Add troops</button></form>
          <h2>Research</h2><p>Sets research levels at once (they're shared by all your cities). Now: ${techIds.map(id => `${esc(this.data.techs[id].name.trim())} ${p.techs?.[id] || 0}`).join(', ')}.</p>
          <form><input type="hidden" name="user" value="${esc(name)}"><input type="hidden" name="t" value="${this.adminToken}"><select name="tech"><option value="all">All research</option>${techIds.map(id => `<option value="${id}">${esc(this.data.techs[id].name.trim())}</option>`).join('')}</select>
          <select name="tl">${levels(10, 10)}</select> <button class="btn">Set research</button></form>
@@ -862,7 +869,7 @@ class Game {
       h2{font-size:17px;margin:28px 0 6px;color:#e6c27a}input,select{padding:7px;border-radius:4px;border:1px solid #666;background:#2b2722;color:#eee;width:160px}select{width:auto;margin-right:4px}
       .btn{display:inline-block;background:#b8860b;color:#111;padding:8px 14px;border-radius:4px;text-decoration:none;font-weight:bold;margin:4px 6px 4px 0;border:0;cursor:pointer;font:bold 14px Arial,sans-serif}.ok{color:#9be29b}.bad{color:#f29b9b}
       table{border-collapse:collapse;font-size:14px}td{padding:4px 10px 4px 0;vertical-align:top}td:first-child{color:#e6c27a;white-space:nowrap}</style></head>
-      <body><h1>Debug menu</h1><p>This is your local server, so coins, resources, troops, items, research and gear are free here.</p>${body}</body></html>`;
+      <body><h1>Debug menu</h1><p>This is your local server, so ${coinsOn ? 'coins, ' : ''}resources, troops, items, research and gear are free here.</p>${body}</body></html>`;
   }
 }
 
