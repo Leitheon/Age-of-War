@@ -554,6 +554,8 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const js = fs.readFileSync(path.join(pub, 'assets', fs.readFileSync(path.join(pub, 'index.html'), 'utf8').match(/index-aow[0-9a-f]+\.js/)[0]), 'utf8');
       const a = js.indexOf('const r1=1,i1=2'), END = 'return{type:a,level:r,power:4,name:""}}', b = js.indexOf(END, a) + END.length;
       const cl = new Function(js.slice(a, b) + ';return { v1, av };')();
+      ok(js.includes('(ue==="server.CastleUpdate"||ue==="server.CastleFieldUpdate")&&(clearTimeout(Y),Y=setTimeout(ae,250))'),
+        'the web map asks for the city\'s valleys again when one is taken, lost or given up (server.CastleFieldUpdate), so it shows at once');
       cl.v1({ seed: String(srv.store.db.seed), size: world.SIZE, resetDay: 0, historic: [...world.historicEntries()].map(([, h]) => ({ x: h.x, y: h.y, level: h.level, power: h.powerLevel, name: h.name })), flatRing: world.flatRing() });
       let differ = 0;
       for (const [, h] of world.historicEntries()) for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++){
@@ -648,13 +650,39 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       ok(C.pick({ ranged: true, x: 0, range: 2100 }, [melee, arch]) === arch && C.pick({ ranged: true, x: 0, range: 1000 }, [melee, arch]) === melee
         && C.pick({ ranged: false, x: 1400, range: 200 }, [melee, arch]) === arch,
         'a ballista with an archer stack in range shoots it before closer melee; with none in range it shoots the closest');
-      const t10 = { techEffect: (p, id) => techs[id]?.levels[9]?.effect || 0 }, farmer = { level: 50, base: { atk: 250, int: 250 }, added: { atk: 0, int: 0 } };
-      const farm = [[1, 20], [2, 50], [3, 170], [4, 270], [5, 550]].map(([L, n]) => {
-        const tile = { type: 12, level: L }, g = N.full(tile);
-        const r = C.fight({ troops: { ballista: n }, mods: C.mods(t10, {}, farmer, { ballista: n }) }, { troops: g.troops, forts: g.forts, mods: N.mods(tile, techs, null) });
-        return r.attackerWon && r.att[0].lose === 0;
-      });
-      ok(farm.every(Boolean), `20/50/170/270/550 ballistae with research 10 beat NPC 1-5 without loss (the guide's farming table): ${farm}`);
+      // The community farming guide (Fox, Nov 24 2026): "the safe numbers for heroes with no attack" are 20/50/170/250/550
+      // ballistae for NPC 1-5, with one of its 0-loss Archery/Horseback Riding pairs; Fox: 450 with maxed research.
+      const t10 = { techEffect: (p, id) => techs[id]?.levels[9]?.effect || 0 };
+      const research = (A = 10, H = 10, other = 10) => ({ techEffect: (p, id) => { const v = id === 14 ? A : id === 13 ? H : other; return v ? techs[id]?.levels[v - 1]?.effect || 0 : 0; } });
+      const heroOf = atk => ({ level: 1, base: { atk, int: 0 }, added: { atk: 0, int: 0 } });
+      const farmFight = (L, troops, { A = 10, H = 10, hero = null, hold = true } = {}) => {
+        const tile = { type: 12, level: L }, g = N.full(tile), saved = C.rules.battle.transportersHoldBack;
+        C.rules.battle.transportersHoldBack = hold;
+        try { return C.fight({ troops, mods: C.mods(research(A, H), {}, hero, troops) }, { troops: g.troops, forts: g.forts, mods: N.mods(tile, techs, null) }); }
+        finally { C.rules.battle.transportersHoldBack = saved; }
+      };
+      const clean = r => r.attackerWon && r.att.every(u => u.lose === 0);
+      const farm = [[1, 20], [2, 50], [3, 170], [4, 250], [5, 550]].map(([L, n]) => clean(farmFight(L, { ballista: n })));
+      ok(farm.every(Boolean) && clean(farmFight(5, { ballista: 450 }, { hero: heroOf(25) })) && !clean(farmFight(5, { ballista: 450 })),
+        `the guide's 20/50/170/250/550 ballistae beat NPC 1-5 without loss with research 10 and a hero of no attack; 450 do it with a hero of 25 attack, not with none: ${farm}`);
+      // The guide's table at an NPC 5 (550 ballistae, a hero of no attack): 0 losses, small losses (from units, out of the
+      // towers' range) or massive losses (in the towers' range), by Archery and Horseback Riding.
+      const table = { '8/3': 'M', '8/4': 'S', '8/5': '0', '8/6': '0', '8/7': 'S', '8/8': 'M', '8/9': 'M', '9/1': 'S', '9/2': 'S', '9/3': '0', '9/5': 'S', '9/6': 'S',
+        '9/7': 'S', '9/8': '0', '9/9': '0', '10/0': '0', '10/5': '0', '10/6': '0', '10/7': '0', '10/8': '0', '10/9': '0', '10/10': '0' };
+      const miss = Object.entries(table).filter(([k, want]) => {
+        const [A, H] = k.split('/').map(Number), r = farmFight(5, { ballista: 550 }, { A, H }), lost = r.att[0].lose;
+        return (!r.attackerWon || lost > 110 ? 'M' : lost > 0 ? 'S' : '0') !== want;
+      }).map(([k]) => k);
+      ok(miss.length <= 2, `the guide's Archery/Horseback Riding table at an NPC 5 comes out as it has it in ${22 - miss.length} of 22 rows (off: ${miss.join(', ') || 'none'})`);
+      // Fox (Nov 24 2026): with ballistae and transporters an NPC 1-5 costs nothing; the transporters had walked up to
+      // the walls and lost 230 to the towers while the ballistae lost none. They stay back now while anything else fights.
+      const hauls = [[1, 20], [2, 50], [3, 170], [4, 250], [5, 550]].map(([L, n]) => farmFight(L, { ballista: n, carriage: 1000 }));
+      const old5 = farmFight(5, { ballista: 550, carriage: 1000 }, { hold: false }), alone = C.fight({ troops: { carriage: 1000 } }, { troops: { militia: 100 } });
+      ok(hauls.every(clean) && old5.att.find(u => u.field === 'carriage').lose > 0 && alone.round > 1 && alone.att[0].lose > 0,
+        'ballistae with 1,000 transporters beat NPC 1-5 without losing a transporter (they walked into the towers before); transporters on their own still march in'
+        + ` (without holding back NPC 5 kills ${old5.att.find(u => u.field === 'carriage').lose})`);
+      ok(N.mods({ type: 12, level: 5 }, techs, null).life === 0 && N.mods({ type: 12, level: 6 }, techs, null).life > 0 && N.mods({ type: 12, level: 5, historic: { level: 12 } }, techs, null).life > 0,
+        'NPC 1-5 fight without Medicine; NPC 6-10 and Historic Cities with it');
       // Fox's wave on a level 12 Historic City's remnants (Oct 26 2026): 1,000 of each troop and 90,000 catapults
       // against 108,444 ballistae, 6,666 towers and a few troops. dxcalc: the wave dies, every troop but the
       // ballistae dies, the traps and abatis are spent, no tower falls (dxcalc also kills 52 ballistae; we kill none).

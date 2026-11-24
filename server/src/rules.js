@@ -292,6 +292,10 @@ const DEFAULTS = {
     // their range before anything else they don't counter (the Age I combat guide: "they will always attack
     // enemy ranged units first"). With it the guide's lossless ballista farming of NPC 1-5 comes out lossless.
     rangedFirst: true,
+    // Transporters stay back while anything else of their side still fights, so ballistae and transporters farm
+    // NPC 1-5 without losses, as on live (Fox, Nov 2026: they walked up to the walls, and the towers killed them
+    // while the ballistae lost nothing). With nothing else of their side left they move up like the rest.
+    transportersHoldBack: true,
     // Experiments, off: distMod (ranged units do 50% beyond half their range, 100% within it, 25% point-blank,
     // the guide's table, instead of rangedScale's flat half), ballistaCreep ('A' or 'both': ballistae keep
     // moving while they shoot), defendersStay ('ranged' or 'all' hold the wall), wallRangeTowersOnly,
@@ -361,6 +365,14 @@ const DEFAULTS = {
   // NPC cities fight with every military research at their own level and a hero of this attack/intelligence
   // (dxcalc's presets: 33 at levels 1-4, 44 from level 5).
   npcHero: { 1: 33, 2: 33, 3: 33, 4: 33, 5: 44, 6: 44, 7: 44, 8: 44, 9: 44, 10: 44 },
+  // ...except Medicine below level npcMedicineFrom: NPC 1-5's troops get no life from it. Fox (Nov 24 2026) and the
+  // community farming guide: 450 ballistae with maxed research, 550 with less, take an NPC 5 without losses; with
+  // Medicine the NPC's swordsmen reached the ballistae unless there were 660 (hero of no attack). Without it the
+  // guide's table of Archery/Horseback Riding levels (0, small or massive losses at 550 ballistae) comes out right
+  // in 20 of its 22 rows, NPC 1-5 need 20/30/140/210/530 ballistae with research 10 and a hero of no attack (the
+  // guide: 20/50/170/250/550 are safe), 450 with a hero of 25 attack. NPC 6-10 keep it: the guide's live table of
+  // NPC 6-9 losses was fitted with it. (1 gives every NPC city Medicine, as before.)
+  npcMedicineFrom: 6,
   // What Scouts see of an NPC city besides its garrison (Fox's live scout reports, Oct 22 2026): its population and
   // loyalty, by level 1-10 (a Historic City: level 10's), and its buildings (see NpcLogic.buildings). Its hero has
   // an ordinary name and a level from 1 to npcHeroMaxLevel (live: 3 to 50); the battle still uses npcHero above.

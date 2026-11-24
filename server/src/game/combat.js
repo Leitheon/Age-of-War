@@ -15,6 +15,9 @@
 //     towerScale) / life, rounded up (players' Age I formula; bonus from rules.counters, e.g. pikemen x1.8
 //     against horsemen; defence counts as at least defenceFloor; however high it is, minDefenceFactor of the
 //     damage gets through).
+//   - Transporters stay back while anything else of their side is still fighting (rules.battle.transportersHoldBack;
+//     Fox: farming an NPC 5 or lower with ballistae and transporters costs nothing, as on live, when the
+//     ballistae lose nothing); with nothing else left they move up like the rest.
 //   - After the troops, while attackers are left, the walls act: archer's towers shoot; trapRatePercent of the
 //     traps fire each round at foot or horse; fortRatePercent of the abatis (at horsemen), rolling logs (at foot
 //     soldiers) and defensive trebuchets (siege engines first) a round, rounded up (dxcalc: of 30 logs and 25
@@ -22,7 +25,7 @@
 const CLASS = { 2: 'foot', 3: 'foot', 4: 'foot', 5: 'foot', 6: 'foot', 7: 'foot',
   8: 'siege', 9: 'mounted', 10: 'mounted', 11: 'siege', 12: 'siege', 13: 'siege', 16: 'fort' };
 const RANGED = new Set([7, 11, 13, 16]);
-const SCOUT = 4, BALLISTA = 11;
+const SCOUT = 4, CARRIAGE = 8, BALLISTA = 11;
 const FORT = { trap: 14, abatis: 15, arrowTower: 16, rollingLogs: 17, rockfall: 18 };
 const TECH = { ATTACK: 9, DEFENCE: 10, COMPASS: 12, HORSEBACK: 13, ARCHERY: 14, MEDICINE: 16, ENGINEERING: 18 };
 
@@ -114,7 +117,8 @@ class Combat {
       // together, so a stack wiped out this round still strikes back (dxcalc: 156,000 pikemen meeting 1.36 million
       // cataphracts all die but kill 12,779 of them).
       const mode = cfg.turn || 'moveOrAttack', simul = !!cfg.simultaneous, pending = [];
-      const holds = s => s.who === 'D' && (cfg.defendersStay === 'all' || (cfg.defendersStay === 'ranged' && s.ranged));
+      const holds = s => (s.who === 'D' && (cfg.defendersStay === 'all' || (cfg.defendersStay === 'ranged' && s.ranged)))
+        || (cfg.transportersHoldBack && s.typeId === CARRIAGE && all.some(o => o.who === s.who && o.count > 0 && o.typeId !== CARRIAGE));
       const step = (s, enemies) => {
         const near = enemies.reduce((a, b) => Math.abs(b.x - s.x) < Math.abs(a.x - s.x) ? b : a), gap = Math.abs(near.x - s.x);
         s.x += Math.sign(near.x - s.x) * Math.min(s.speed, Math.max(0, gap - (cfg.stopAtRange ? s.range : 0)));

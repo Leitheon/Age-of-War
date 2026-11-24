@@ -163,8 +163,9 @@ class NpcLogic {
   // Research level an NPC or Historic City fights with (all military research at this level, per dxcalc).
   techLevel(tile){ return tile.historic ? 10 : Math.max(1, Math.min(10, tile.level || 1)); }
   // Battle bonuses (%) for an NPC city or Historic City, from its research, its Walls (the same level) and its hero or ruler.
+  // An NPC city below rules.npcMedicineFrom fights without Medicine's life bonus (Historic Cities always have it).
   mods(tile, techs, ruler){
-    const L = this.techLevel(tile), e = id => techs[id]?.levels[L - 1]?.effect || 0;
+    const L = this.techLevel(tile), e = id => id === 16 && !tile.historic && L < (this.rules.npcMedicineFrom ?? 1) ? 0 : techs[id]?.levels[L - 1]?.effect || 0;
     const h = ruler || { attack: this.rules.npcHero[L] || 0, intelligence: this.rules.npcHero[L] || 0 };
     return { attack: e(9) + h.attack * this.rules.heroAttackPerPoint, defence: e(10) + h.intelligence * this.rules.heroDefencePerIntelligence,
       life: e(16), range: e(14) + L * (this.rules.battle?.wallRangePerLevel || 0), wall: L * (this.rules.battle?.wallRangePerLevel || 0), fortLife: e(18), speedFoot: e(12), speedHorse: e(13) };

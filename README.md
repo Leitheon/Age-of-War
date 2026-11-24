@@ -115,6 +115,11 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   full contents list, Speech Text, Civil Code, the Dream Truce (starts now), the Truce Agreement (no password check),
   the Pioneer Express Teleport and the Christmas Gift's healing and training bonuses work, and holiday treats whose
   descriptions say what they do but not how much get a day of it (`rules.eventItemBuffs`).
+- **Farming NPC 1-5**: transporters stay back while anything else in their army still fights
+  (`rules.battle.transportersHoldBack`), so ballistae and transporters take an NPC 1-5 without losses, and NPC 1-5's
+  troops fight without Medicine (`rules.npcMedicineFrom`): as in the community farming guide, about 450 ballistae
+  with maxed research and 550 with less take an NPC 5 with no losses. **Valleys** taken, lost or given up show on the
+  map at once.
 - **Prisoners** take no Feasting Hall seat (`rules.prisonersNeedNoSeat`): a city with a Feasting Hall captures a hero
   however full it is, and persuading one waits for a free seat.
 - **Reports**: the last tab is Other (it was Automation), with the Other reports (a city founded, the innkeeper's
