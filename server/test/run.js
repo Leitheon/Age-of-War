@@ -2268,6 +2268,16 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const flee = await c.call('hero.getFleeHeroList', { castleId: castle.id });
       ok(show.ok === 1 && show.selectheroids.some(x => x.selectshowheroid === hero.id) && seen.heros.length === 1 && seen.heros[0].id === hero.id && hide.selectheroids.length === 0 && none.heros.length === 0
         && nobody.ok < 0 && flee.ok === 1 && flee.heros.length === 0, 'Champions: a lord picks the heroes other lords see; Hero Ransom stays empty (no salary penalty on Age II)');
+      { // Fox (Nov 24 2026): at most 3 champions; the web client asks for its own list and names the lord as userName.
+        const cs = G.castlesOf(me)[0], extra = [1, 2, 3].map(() => ({ ...G.heroes.makeHero(1, null, new Set()), id: srv.store.id(), status: 0 }));
+        G.heroes.list(cs).push(...extra);
+        const picks = []; for (const h of [hero, ...extra]) picks.push(await c.call('hero.SetShowHeroId', { heroid: h.id, bAddOrDel: true }));
+        const mine = await c.call('hero.GetShowHeroIds', {}), web = await c.call('hero.ShowPlayerHerosByUserName', { userName: me.name });
+        for (const h of [hero, ...extra]) await c.call('hero.SetShowHeroId', { heroid: h.id, bAddOrDel: false });
+        cs.heroes = G.heroes.list(cs).filter(h => !extra.includes(h));
+        ok(picks.slice(0, 3).every(x => x.ok === 1) && picks[3].ok < 0 && /up to 3 champions/.test(picks[3].errorMsg) && mine.selectheroids.length === 3
+          && web.ok === 1 && web.heros.length === 3 && web.heros.every(h => Array.isArray(h.equipmentbean)),
+          'a lord shows at most 3 champions (a 4th is refused); the web client gets its own list and another lord\'s champions, with their gear'); }
       // An attacking hero with 0 loyalty is captured by the city that beats it.
       const foe = G.createPlayer({ name: 'Warden' }, { userName: 'Warden' }), fc = G.castlesOf(foe)[0];
       me.createdAt = foe.createdAt = Date.now() - 8 * 86400000; W.declare(me, foe, Date.now() - 31 * 60000);
@@ -2350,6 +2360,12 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         ok(/className:"fc-btn fc-ring"[^}]*onClick:\(\)=>j\(t\.jsx\(aowRingWin/.test(js) && /hero\.GenSaveRandomHero",\{castleid:e,heroname:h,faceurl:face\}/.test(js) && js.includes('"images/icon/player/faceA"+(i+1)+".jpg"')
           && /\.fc-ring\{bottom:218px;background-image:url\(\/flash\/ui\/menu\/stone_up\.png\)\}/.test(css) && css.includes('.fc-btn.ui-disabled{filter:none;opacity:1'),
           'the web client has the Recruit Hero button (the pink gem) and window, which sends the picked portrait; the buttons beside the portrait are never greyed out'); }
+      { // Player Info as the live game's: every hero with sorting and the Select (champion) box; the field window's Champions.
+        const pub = path.join(__dirname, '..', 'public'), html = fs.readFileSync(path.join(pub, 'index.html'), 'utf8');
+        const js = fs.readFileSync(path.join(pub, 'assets', html.match(/index-aow[0-9a-f]+\.js/)[0]), 'utf8');
+        ok(js.includes('className:"aowpi-win"') && js.includes('aowTh("lv","Lv")') && js.includes('H("hero.SetShowHeroId",{heroid:id,bAddOrDel:!on})')
+          && js.includes('children:"Champions"') && !js.includes('children:"Show Heroes"') && js.includes('function aowChampions(') && !/Security code|Account Protection/i.test(js.slice(js.indexOf('className:"aowpi-win"'), js.indexOf('className:"aowpi-win"') + 6000)),
+          'the web client\'s Player Info lists every hero, sortable, with up to 3 champions to select; another lord\'s city has Champions (Hero Attributes)'); }
       // Fox's live capture of a Ring hero (Jessica): an On War book, then level-ups to 13 with 2,500 left over.
       me.items['player.experience.1.c'] = 1;
       const book = await c.call('hero.useItem', { castleId: castle.id, itemId: 'player.experience.1.c', heroId: rh.id });

@@ -93,15 +93,20 @@ module.exports = (game, H) => {
   // Champions button).
   const shown = p => (p.showHeroes || []).filter(id => game.castlesOf(p).some(c => { const h = heroes.find(c, id); return h && !heroes.seized(h); }));
   game.heroes.shownOf = p => shown(p).map(id => ({ selectshowheroid: id }));
+  // At most rules.championsMax (3: Fox, the live game) at once.
   H['hero.SetShowHeroId'] = (conn, d, cmd) => {
-    const p = conn.player, id = Number(d.heroid), add = d.bAddOrDel !== false && d.bAddOrDel !== 'false';
+    const p = conn.player, id = Number(d.heroid ?? d.heroId), add = d.bAddOrDel !== false && d.bAddOrDel !== 'false', max = game.rules.championsMax ?? 3;
     if (!game.castlesOf(p).some(c => heroes.find(c, id))) return game.fail(conn, cmd, -1, 'That hero is not yours.');
-    const set = new Set(shown(p)); if (add) set.add(id); else set.delete(id);
+    const set = new Set(shown(p));
+    if (add && !set.has(id) && set.size >= max) return game.fail(conn, cmd, -1, `You can choose up to ${max} champions. Untick one first.`);
+    if (add) set.add(id); else set.delete(id);
     p.showHeroes = [...set]; game.store.touch();
     game.reply(conn, cmd, { selectheroids: game.heroes.shownOf(p) });
   };
+  // (the web client's Player Info asks for the lord's own list)
+  H['hero.GetShowHeroIds'] = (conn, d, cmd) => game.reply(conn, cmd, { selectheroids: game.heroes.shownOf(conn.player) });
   H['hero.ShowPlayerHerosByUserName'] = (conn, d, cmd) => {
-    const name = String(d.UserName || '').trim().toLowerCase(), q = Object.values(game.db.players).find(x => x.name.toLowerCase() === name);
+    const name = String(d.UserName || d.userName || '').trim().toLowerCase(), q = Object.values(game.db.players).find(x => x.name.toLowerCase() === name);
     if (!q) return game.fail(conn, cmd, -1, 'There is no lord by that name.');
     const ids = new Set(shown(q)), list = [];
     for (const c of game.castlesOf(q)) for (const h of heroes.list(c)) if (ids.has(h.id)) list.push(heroes.bean(h));

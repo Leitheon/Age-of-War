@@ -131,6 +131,9 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   game: pick the hero's portrait, name him, roll politics, attack and intelligence (lock up to two, reset 3 times a
   day free, then gold), and a Legendary Ring makes the hero. The Acquire Historic City quests (City Expansion) give a Legendary Ring each for capturing a
   level 12, 14, 16 and 18 Historic City: four at most.
+- **Player Info** (click the portrait) is laid out as the live game's: the lord's details with Change buttons, and
+  every hero he has, sortable by any column, with a Select box for up to 3 champions. Any lord can see them from
+  the Champions button on that lord's cities (Hero Attributes: portraits, stats and gear).
 - **Prisoners** take no Feasting Hall seat (`rules.prisonersNeedNoSeat`): a city with a Feasting Hall captures a hero
   however full it is, and persuading one waits for a free seat.
 - **Reports**: the last tab is Other (it was Automation), with the Other reports (a city founded, the innkeeper's
