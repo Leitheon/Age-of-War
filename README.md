@@ -138,8 +138,11 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   frame, its title on the red banner. Every window's X sits on its frame's silver tab, whatever the window's size.
 - **Historic City rulers**: Poseidon rules Atlantis and a famous hero each capital (`historic.rulers`: Napoleon in
   Paris, Caesar in Rome, Saladin in Jerusalem ...). He leads its defence with the city's own hero numbers under his
-  name and portrait, is out of the barbarian cities and the Inn's rumours, and is taken prisoner (level 100) when the
-  city falls; freed, he goes back to rule it. The website's Heroes page shows where each rules.
+  name and portrait, and is out of the barbarian cities and the Inn's rumours. He is bound to his city: whoever
+  takes it gets him there (level 100, 99 in each stat, leadership 150), to lead its armies out (attack, scout,
+  transport) but never to reinforce or found another city, be dismissed or be captured; another lord taking the city
+  takes him with it, and a city given up has him rule it again, as he was. The website's Heroes page shows where.
+- **Be an Evonian**: the quest window has its Add to favorites button.
 - **Historic heroes get 1 point a level** (counting the first: 150 at level 150; wild ones at 30 come with 30), as
   live: Gao Guiying at 150 in the live ranking is her sheet + 150 + her gear. Ring heroes keep 2 a level. Heroes saved
   with more lose the extra at startup, unspent points first, then in proportion to where they went.

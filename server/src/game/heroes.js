@@ -39,7 +39,8 @@ class HeroLogic {
   // A lord's King or Queen (from the Queen quests' helm) takes no seat (Fox: ten heroes and the King or Queen as an
   // eleventh), so only the others count.
   // With rules.prisonersNeedNoSeat captives take no seat either.
-  vacancies(c){ const free = this.rules.prisonersNeedNoSeat; return Math.max(0, this.hallSize(c) - this.list(c).filter(h => !h.king && !(free && h.status === STATUS.SEIZED)).length); }
+  // (a Historic City's ruler, bound to it, takes no seat either)
+  vacancies(c){ const free = this.rules.prisonersNeedNoSeat; return Math.max(0, this.hallSize(c) - this.list(c).filter(h => !h.king && h.bound == null && !(free && h.status === STATUS.SEIZED)).length); }
   // Room to hold a prisoner: any Feasting Hall with rules.prisonersNeedNoSeat, else a free seat.
   canHold(c){ return this.rules.prisonersNeedNoSeat ? this.hallSize(c) > 0 : this.vacancies(c) > 0; }
   expToNext(level){ return Math.round(this.rules.heroExpBase * level * level); }
@@ -220,6 +221,7 @@ class HeroLogic {
   fire(c, id){
     const h = this.find(c, id); if (!h) return [-1, 'No such hero.'];
     if (h.status === STATUS.SENT) return [-1, 'That hero is leading an army. Recall the army first.'];
+    if (h.bound != null) return [-1, `${h.name} is bound to ${c.name} and can't be dismissed: he serves whoever holds the city.`];
     c.heroes = this.list(c).filter(x => x !== h);
     return { hero: h };
   }

@@ -1179,8 +1179,10 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         ok(farm14.ok === -57 && rally10.ok === -57 && farm13.ok === 1 && farm13.conditionBean.food === G.logic.condition(h, me, 7, 14).food,
           'in a level 14 Historic City a Farm goes from 13 to 14 but no further, and the Rally Spot stops at 10 (live)');
         // Fox (Nov 24 2026): Poseidon rules Atlantis, and each capital the hero most associated with it
-        // (rules.historic.rulers). He leads its defence with the city's own hero numbers, is out of the barbarian
-        // cities and the Inn's rumours, and is taken prisoner when the city falls; freed, he goes back to rule it.
+        // (rules.historic.rulers). He leads its defence with the city's own hero numbers and is out of the barbarian
+        // cities and the Inn's rumours. "lock them to their city. They cannot be reinforced to another city, and they
+        // cannot be captured. They can be marched. Whomever owns the city gets to use them from the city. Also let's
+        // make their base stats 99 and their leadership base 150."
         {
           const HH = G.hh, at = name => [...world.historicEntries()].find(([, x]) => x.name === name)?.[0];
           const paris = at('Paris'), atl = at('Atlantis'), nap = [...HH.roster.values()].find(h => h.name === 'Napoleon Bonaparte');
@@ -1188,23 +1190,29 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           const pT = world.tileAt(srv.store, paris), base = G.npc.state(db, pT, Date.now()).ruler, led = HH.asRuler(paris, base);
           const notWild = !HH.free().some(h => h.id === nap.id) && HH.search(me, 'Napoleon').length === 0;
           const lord = G.createPlayer({ name: 'Ruletaker' }, { userName: 'Ruletaker' }), home = G.castlesOf(lord)[0];
-          home.buildings[3] = { typeId: 27, level: 10 };   // (a Feasting Hall to hold him)
-          const army = { troops: { archer: 50 }, loot: {} };
-          const won = A.conquer(army, lord, home, null, pT, G.npc.state(db, pT, Date.now()), {}, null, Date.now());
-          const cap = won.captive, capOk = cap && cap.name === 'Napoleon Bonaparte' && cap.level === 100 && cap.status === 4 && cap.added.pol + cap.added.atk + cap.added.int === 100 && HH.state(nap.id).status === 'seized';
-          const kingNow = HH.rulerAt(paris) === null;
-          G.heroes.list(won.heldIn).splice(G.heroes.list(won.heldIn).indexOf(cap), 1); HH.release(nap.id);
-          const waitsForCity = HH.state(nap.id).status === 'ruler' && HH.rulerAt(paris) === null;
-          G.abandonCastle(lord, won.castle);
-          const back = HH.rulerAt(paris)?.id === nap.id;
-          home.troops = { archer: 10 };
-          const hit = { id: srv.store.id(), playerId: lord.id, castleId: home.id, heroId: 0, mission: 5, from: home.fieldId, target: atl, troops: { archer: 10 }, carry: {}, loot: null, startTime: Date.now(), reachTime: Date.now(), oneWay: 1000, direction: 1, restTime: 0 };
-          db.armies[hit.id] = hit; A.arrive(hit, Date.now()); delete db.armies[hit.id];
-          const rep = (lord.reports || [])[0]?.content || '';
-          const inReport = /Poseidon/.test(rep) && !/name="(King|Queen)"/.test(rep);
+          const won = A.conquer({ troops: { archer: 50 }, loot: {} }, lord, home, null, pT, G.npc.state(db, pT, Date.now()), {}, null, Date.now());
+          const P = won.castle, him = G.heroes.list(P).find(h => h.historic === nap.id);
+          const joined = him && him.status === 0 && him.bound === paris && him.level === 100 && him.points === 100 && him.base.pol === 99 && him.base.atk === 99 && him.base.int === 99
+            && G.heroes.leadership(him) === 150 + 99 && him.loyalty === 100 && HH.state(nap.id).status === 'bound' && won.captive === null && G.heroes.vacancies(P) === G.heroes.hallSize(P);
+          // He marches out (attack) but can't be sent to stay in another city, or dismissed.
+          P.troops = { archer: 100 }; P.buildings[5] = { typeId: 29, level: 10 };   // (a Rally Spot to send from)
+          const send = A.send(P, lord, { missionType: 2, heroId: him.id, targetPoint: home.fieldId, troops: { archer: 10 }, resource: {}, restTime: 0 }, Date.now());
+          const fire = G.heroes.fire(P, him.id);
+          // Another lord takes Paris: Napoleon serves him there, not as a prisoner.
+          const lord2 = G.createPlayer({ name: 'Ruletaker2' }, { userName: 'Ruletaker2' }), home2 = G.castlesOf(lord2)[0];
+          const took = A.takeCity({ troops: { archer: 5 }, loot: null, carry: {} }, lord2, home2, null, P, lord, Date.now());
+          const stays = G.heroes.list(P).includes(him) && P.playerId === lord2.id && him.status === 0 && took.captives.every(h => h !== him);
+          him.level = 120;
+          G.abandonCastle(lord2, P);
+          const back = HH.rulerAt(paris)?.id === nap.id && HH.state(nap.id).hero?.level === 120;
+          const won2 = A.conquer({ troops: { archer: 50 }, loot: {} }, lord, home, null, pT, G.npc.state(db, pT, Date.now()), {}, null, Date.now());
+          const again = G.heroes.list(won2.castle).find(h => h.historic === nap.id);
+          G.abandonCastle(lord, won2.castle);
+          const json = (await get('/heroes.json')).body.toString(), poseidon = JSON.parse(json).find(h => h.name === 'Poseidon');
           ok(rulers === 17 && pos === 'Poseidon' && napRules && led.name === 'Napoleon Bonaparte' && led.attack === base.attack && led.intelligence === base.intelligence && led.face === nap.portrait
-            && notWild && capOk && kingNow && waitsForCity && back && inReport,
-            `Historic City rulers: Poseidon in Atlantis and 16 capitals (Napoleon in Paris), leading with the city's own hero numbers (${base.attack} attack) under their names, out of the barbarian cities; taking Paris takes Napoleon prisoner at level 100, and freed he rules Paris again once it's an NPC's; Poseidon leads Atlantis in the battle report`);
+            && notWild && joined && Array.isArray(send) && /bound to Paris/.test(send[1]) && Array.isArray(fire) && /can't be dismissed/.test(fire[1]) && stays && back && again?.level === 120
+            && poseidon.attack === 99 && poseidon.leadership === 150,
+            `Historic City rulers: Poseidon in Atlantis and 16 capitals (Napoleon in Paris), leading with the city's own hero numbers (${base.attack} attack) under their names, out of the barbarian cities; whoever takes Paris gets Napoleon there (level 100, 99 in each stat, leadership 150 + his levels), bound to it: no reinforcing ("${send?.[1]}"), no dismissing, never a prisoner; given up, he rules Paris again as he was`);
         }
         // Fox (Oct 29 2026): taking a level 8 NPC city didn't finish the Queen's "Conquer a level 8 NPC city".
         const qs = G.quests.state(me), rec = qs.max.npcCity, q8 = G.quests.check(me, city, { kind: 'npcCity', level: 8 }, Date.now());
@@ -2450,6 +2458,12 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         ok(js.includes('className:"aowpi-win"') && js.includes('aowTh("lv","Lv")') && js.includes('H("hero.SetShowHeroId",{heroid:id,bAddOrDel:!on})')
           && js.includes('children:"Champions"') && !js.includes('children:"Show Heroes"') && js.includes('function aowChampions(') && !/Security code|Account Protection/i.test(js.slice(js.indexOf('className:"aowpi-win"'), js.indexOf('className:"aowpi-win"') + 6000)),
           'the web client\'s Player Info lists every hero, sortable, with up to 3 champions to select; another lord\'s city has Champions (Hero Attributes)'); }
+      { // Fox (Nov 24 2026): "Be an Evonian" couldn't be done: the web client had no Add to favorites button.
+        const pub = path.join(__dirname, '..', 'public'), html = fs.readFileSync(path.join(pub, 'index.html'), 'utf8');
+        const js = fs.readFileSync(path.join(pub, 'assets', html.match(/index-aow[0-9a-f]+\.js/)[0]), 'utf8');
+        const q = G.quests.defs.get(226);
+        ok(js.includes('onClick:aowFavGo,children:"Add to favorites"') && js.includes('H("common.addToFavorites",{})') && /Age of War/.test(JSON.stringify(q)) && !/%s/.test(JSON.stringify(q)),
+          'the quest window has an Add to favorites button for Be an Evonian, which ticks it (common.addToFavorites), and the quest names Age of War'); }
       // Fox's live capture of a Ring hero (Jessica): an On War book, then level-ups to 13 with 2,500 left over.
       me.items['player.experience.1.c'] = 1;
       const book = await c.call('hero.useItem', { castleId: castle.id, itemId: 'player.experience.1.c', heroId: rh.id });

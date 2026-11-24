@@ -129,6 +129,9 @@ class ArmyLogic {
       if (hero.status === HERO_STATUS.CHIEF) return [-1, `${hero.name} is the mayor. Relieve them before sending them out.`];
       if (hero.status === HERO_STATUS.SEIZED) return [-1, `${hero.name} is a captive. Persuade the hero first.`];
       if (hero.status !== HERO_STATUS.FREE) return [-1, `${hero.name} is busy.`];
+      // (a Historic City's ruler is bound to his city: he marches out to attack, scout or transport, and comes back)
+      if (hero.bound != null && [MISSION.SEND, MISSION.CONSTRUCT, MISSION.COLONIZE].includes(mission))
+        return [-13, `${hero.name} is bound to ${c.name}: he can lead attacks, scouting and transports from it, but can't be moved to another city.`];
     } else if (mission === MISSION.OCCUPY || mission === MISSION.COLONIZE) return [-13, `${mission === MISSION.COLONIZE ? 'Colonizing' : 'An attack'} needs a hero to lead it.`];
     const tile = world.tileAt(g.store, target);
     if (mission === MISSION.TRANS || mission === MISSION.SEND){
@@ -685,7 +688,7 @@ class ArmyLogic {
     // An attacking hero whose loyalty is 0 is captured by the lord's city that beats it (Fox), if its Feasting Hall
     // can hold him (heroes.canHold). Its lord counts it lost (captives.js).
     let heroSeized = false;
-    if (dc && !r.attackerWon && hero && c && (hero.loyalty ?? g.rules.heroStartLoyalty ?? 70) <= 0 && g.heroes.canHold(dc)){
+    if (dc && !r.attackerWon && hero && c && hero.bound == null && (hero.loyalty ?? g.rules.heroStartLoyalty ?? 70) <= 0 && g.heroes.canHold(dc)){
       g.captives.capture(hero, c, dc, p, now); a.heroId = 0; heroSeized = true; g.effort.note(dp, 'captive');
       g.log.info(`${dp.name}'s ${dc.name} captured ${p.name}'s hero ${hero.name}`);
     }
@@ -926,13 +929,17 @@ class ArmyLogic {
     nc.forts = Object.fromEntries(Object.entries(forts).filter(([, n]) => n > 0));
     for (const [k, n] of Object.entries(a.troops)) if (n > 0) nc.troops[k] = n;
     a.troops = {}; a.loot = null; a.carry = {};
-    if (hero && c){ c.heroes = g.heroes.list(c).filter(h => h !== hero); hero.status = HERO_STATUS.FREE; nc.heroes.push(hero); g.pushHero(c, hero, 1); }
+    if (hero && c){
+      if (hero.bound != null){ hero.status = HERO_STATUS.FREE; g.pushHero(c, hero, 2); }   // (a bound ruler goes home)
+      else { c.heroes = g.heroes.list(c).filter(h => h !== hero); hero.status = HERO_STATUS.FREE; nc.heroes.push(hero); g.pushHero(c, hero, 1); }
+    }
     const seize = tmpl => {
       for (const at of [nc, c].filter(Boolean)){ const h = g.heroes.seize(at, tmpl, () => g.store.id()); if (h) return { hero: h, castle: at }; }
       return null;
     };
-    // (a Historic City's ruling hero, rules.historic.rulers, is taken prisoner)
-    const hh = hc ? g.hh.captureRuler(tile.id, seize, rulerHero) : g.hh.conquered(tile.id, p, seize);
+    // (a Historic City's ruler, rules.historic.rulers, serves the lord who took it, there)
+    const ruler = rulerHero ? g.hh.joinRuler(nc, rulerHero, () => g.store.id()) : null;
+    const hh = hc ? null : g.hh.conquered(tile.id, p, seize);
     const held = hh ? (hh.captive ? { hero: hh.captive, castle: hh.castle } : null) : npcHero ? seize(npcHero) : null;
     if (held && held.castle === c) g.pushHero(c, held.hero, 0);
     g.store.touch();
@@ -941,7 +948,7 @@ class ArmyLogic {
     if (hc) g.quests.flag(p, `captureHC${hc.level}`);
     g.effort.note(p, 'seize'); if (!hc && tile.level >= 10) g.effort.note(p, 'barbarian10'); if (held) g.effort.note(p, 'captive');
     g.log.info(`${p.name} conquered ${this.placeName(tile.id)}${held ? `, capturing ${held.hero.name}` : ''}`);
-    return { castle: nc, captive: held?.hero || null, heldIn: held?.castle || null, hh, npcHero };
+    return { castle: nc, captive: held?.hero || null, heldIn: held?.castle || null, hh, npcHero, ruler };
   }
   // An NPC city at loyalty 0 under a No Capture attack (Fox): not taken. Its hero, a historic hero (with the
   // portrait, as when it's taken) or its own, is a prisoner in the attacking city's Feasting Hall, if it has a seat;
@@ -949,7 +956,7 @@ class ArmyLogic {
   zeroNoCapture(p, c, tile, npcHero, now){
     const g = this.g;
     const seize = tmpl => { const h = c && g.heroes.seize(c, tmpl, () => g.store.id()); return h ? { hero: h, castle: c } : null; };
-    const hh = tile.historic ? g.hh.captureRuler(tile.id, seize) : g.hh.conquered(tile.id, p, seize);
+    const hh = g.hh.conquered(tile.id, p, seize);
     const held = hh ? (hh.captive ? { hero: hh.captive, castle: hh.castle } : null) : npcHero ? seize(npcHero) : null;
     if (held) g.pushHero(c, held.hero, 0);
     if (held){ g.effort.note(p, 'captive'); g.log.info(`${p.name} brought ${this.placeName(tile.id)} to loyalty 0 without taking it, capturing ${held.hero.name}`); }
@@ -965,6 +972,7 @@ class ArmyLogic {
       return;
     }
     add(`City conquered at (${x},${y})`, `${here} is now your city ${won.castle.name}. The army that took it stays there as its garrison.`);
+    if (won.ruler) add(`${won.ruler.name} serves you`, `${won.ruler.name}, ruler of ${won.castle.name}, now serves you there (level ${won.ruler.level}). He is bound to ${won.castle.name}: he can lead its armies out to attack, scout or transport, but can't be moved to another city, dismissed or captured, and serves whoever holds the city.`);
     this.heroReports(p, won, here);
   }
   // What became of an NPC city's hero when it was taken, or brought to 0 with No Capture.
@@ -1088,10 +1096,14 @@ class ArmyLogic {
       if (x.playerId !== dp.id || x.castleId !== dc.id) continue;
       x.castleId = other.id;
       const h = g.heroes.find(dc, x.heroId);
+      if (h?.bound != null){ x.heroId = 0; continue; }   // (the city's ruler leaves the march: he stays with his city)
       if (h){ dc.heroes = g.heroes.list(dc).filter(y => y !== h); g.heroes.list(other).push(h); g.pushHero(other, h, 0); }
     }
     const captives = [];
-    for (const h of [...g.heroes.list(dc)]) if (h.status !== HERO_STATUS.SEIZED) captives.push(g.captives.capture(h, dc, dc, dp, now));
+    for (const h of [...g.heroes.list(dc)]){
+      if (h.bound != null){ h.status = HERO_STATUS.FREE; continue; }   // (its ruler serves the new lord, there)
+      if (h.status !== HERO_STATUS.SEIZED) captives.push(g.captives.capture(h, dc, dc, dp, now));
+    }
     dp.castles = dp.castles.filter(id => id !== dc.id); p.castles.push(dc.id);
     dc.playerId = p.id;
     if (this.db.tiles[dc.fieldId]) this.db.tiles[dc.fieldId].playerId = p.id;
@@ -1099,7 +1111,10 @@ class ArmyLogic {
     for (const [k, n] of Object.entries(a.troops)) if (n > 0) dc.troops[k] = addTroops(dc.troops[k], n);
     for (const [k, v] of Object.entries(a.loot || {})) dc.res[k] = (dc.res[k] || 0) + v;
     a.troops = {}; a.loot = null; a.carry = {};
-    if (hero && c){ c.heroes = g.heroes.list(c).filter(h => h !== hero); hero.status = HERO_STATUS.FREE; g.heroes.list(dc).push(hero); g.pushHero(c, hero, 1); }
+    if (hero && c){
+      if (hero.bound != null){ hero.status = HERO_STATUS.FREE; g.pushHero(c, hero, 2); }   // (a bound ruler goes home)
+      else { c.heroes = g.heroes.list(c).filter(h => h !== hero); hero.status = HERO_STATUS.FREE; g.heroes.list(dc).push(hero); g.pushHero(c, hero, 1); }
+    }
     g.store.touch();
     g.push(dp.id, 'server.CastleUpdate', { updateType: 1, castleBean: { id: dc.id, name: dc.name, fieldId: dc.fieldId } });
     g.pushCastle(dc, 0); g.pushPlayerInfo(p); g.pushPlayerInfo(dp); g.pushArmies(dp); g.pushTroops(c);

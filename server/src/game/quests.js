@@ -235,7 +235,7 @@ function catalog(){
     { typeId: 93, name: 'Military Operation', description: 'Heal your wounded troops.', chains: [[q(213, 'Heal the Wounded', [flag('cure', 'Cure wounded troops')], 'Gold*2000', { needs: 'injured' })]] },
     { typeId: 94, name: 'The Medals', description: 'Medals are needed for ranks and titles. Win them in battle, then contribute your first of each kind for two more.', chains:
       MEDALS.map((id, i) => [q(214 + i, `${MEDAL_NAMES[i]} Medal`, [kind('item', { id, n: 1 })], `#${id}*2, Prestige*100, Food*10000`)]) },
-    { typeId: 95, name: 'Be an Evonian', description: 'Add Evony to your favourites.', chains: [[q(EVONIAN, 'Add to favorites', [flag('favorite', 'Add %s to your browser\'s favorites with the Add to favorites button below')],
+    { typeId: 95, name: 'Be an Evonian', description: 'Add Age of War to your favorites.', chains: [[q(EVONIAN, 'Add to favorites', [flag('favorite', 'Add Age of War to your browser\'s favorites with the Add to favorites button below')],
       'Aries Amulet*1, Beginner Guidelines*1, Population*30, ' + res4(200, 1000, 200, 100))]] },
     { typeId: 96, name: 'Stratagem', description: 'Use a stratagem.', chains: [
       [q(660, 'Stratagem', [flag('stratagemOwn', 'Use a stratagem on your own city')], 'Cents*10', { needs: 'stratagem' })],

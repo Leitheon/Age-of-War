@@ -39,7 +39,8 @@ module.exports = game => {
   };
 
   const heroesJson = () => {
-    const list = [...game.hh.roster.values()].map(h => ({ id: h.id, name: h.name, leadership: h.ldr || 0, attack: h.atk || 0, politics: h.pol || 0, intelligence: h.int || 0, bio: h.bio || '' }));
+    // (a Historic City's ruler with his ruler's stats, rules.historic.rulerStats)
+    const list = [...game.hh.roster.values()].map(h => { const b = game.hh.baseOf(h); return { id: h.id, name: h.name, leadership: b.ldr || 0, attack: b.atk || 0, politics: b.pol || 0, intelligence: b.int || 0, bio: h.bio || '' }; });
     return { body: JSON.stringify(list), type: JSON_T };
   };
 
@@ -54,7 +55,8 @@ module.exports = game => {
         out[h.id] = { k: 'owned', t: p ? `${s.status === 'hired' ? 'Serving' : 'Held by'} ${p.name}` : 'Owned' };
       } else if (s.status === 'free' && s.fieldId != null) out[h.id] = { k: 'barb', t: 'In a barbarian city' };
       // (a Historic City's ruler, rules.historic.rulers: while a lord holds the city, it waits to rule it again)
-      else if (s.status === 'ruler'){ const hc = world.historicAt(s.fieldId); out[h.id] = { k: 'hc', t: game.hh.rulerAt(s.fieldId)?.id === h.id ? `Rules ${hc?.name}` : `Rules ${hc?.name} once it's free again` }; }
+      else if (s.status === 'ruler'){ const hc = world.historicAt(s.fieldId); out[h.id] = { k: 'hc', t: `Rules ${hc?.name}` }; }
+      else if (s.status === 'bound'){ const c = game.db.castles[s.castleId], p = c && game.db.players[c.playerId]; out[h.id] = { k: 'owned', t: `Rules ${c?.name || 'his city'}${p ? ` for ${p.name}` : ''}` }; }
     }
     return { body: JSON.stringify(out), type: JSON_T };
   };

@@ -345,7 +345,7 @@ class Game {
     for (const v of [...(c.valleys || [])]) this.armies.giveUp(c, v);
     for (const h of [...this.heroes.list(c)]){
       if (h.capturedFrom && this.captives.releaseHome(h)) continue;
-      if (h.historic) this.hh.release(h.historic);
+      if (h.historic) this.hh.release(h.historic, h.bound != null ? h : null);   // (a Historic City's ruler rules it again, as he was)
     }
     const m = this.market.db();
     for (const [id, o] of Object.entries(m.orders)) if (o.castleId === c.id) delete m.orders[id];

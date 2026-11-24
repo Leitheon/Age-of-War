@@ -352,7 +352,7 @@ class Colonies {
     const heroes = g.heroes.list(dc).filter(x => x.status !== HERO_STATUS.SEIZED);
     for (const x of heroes) x.loyalty = Math.max(0, (x.loyalty ?? start) - drop);
     let captured = null;
-    const free = heroes.filter(x => x.status === HERO_STATUS.FREE);
+    const free = heroes.filter(x => x.status === HERO_STATUS.FREE && x.bound == null);   // (a Historic City's ruler can't be captured)
     if (free.length && g.heroes.canHold(c) && rnd() < (this.rules.sowCaptureChance ?? 0.2)){
       captured = free.reduce((a, b) => (b.loyalty < a.loyalty ? b : a));
       g.captives.capture(captured, dc, c, dp, now);   // its lord counts it lost (Stone of Finding)
