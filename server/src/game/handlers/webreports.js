@@ -1,11 +1,9 @@
 'use strict';
-// The web client's Reports window: its filters (the tab's report type, the Automation tab, march type, side,
-// unread, flagged, a search and a city), flagging a report, and marking everything a filter shows as read.
-// This client has no Other tab, so the Other reports (a city founded, troops stationed or sent home, what an opened
-// item gave that its award window can't show, charms, policies...) are listed and counted with the Army reports.
-// (The Flash client, which has an Other tab and shares this command, gets them only there.)
-const { REPORT_TYPE } = require('../reports');
-const ARMY = REPORT_TYPE.ARMY, OTHER = REPORT_TYPE.OTHER;
+// The web client's Reports window: its filters (the tab's report type, march type, side, unread, flagged, a search
+// and a city), flagging a report, marking everything a filter shows as read, and deleting all of it.
+// Fox (Nov 2026): its last tab, Automation, is Other (client patch): the Other reports (a city founded, troops
+// stationed or sent home, what an opened item gave, the innkeeper's news, charms, policies...) are there, and the
+// automation's own battle reports are with the rest, in Army (scouting in Scout).
 
 // The report's content as this client reads it. The server writes the Flash client's XML, every value an attribute
 // (<troopUnit typeId="3" count="100" lose="5"/>); this client reads each value from a child element of that name
@@ -35,8 +33,8 @@ module.exports = (game, H) => {
   const matches = (d, web = true) => {
     const type = num(d.reportType), army = num(d.armyType), side = num(d.attack), auto = Number(d.automation) === 1;
     const search = String(d.search || '').trim().toLowerCase(), coord = /^\d+,\d+$/.test(String(d.cityCoord || '')) ? `(${d.cityCoord})` : '';
-    return r => (auto ? !!r.automation : !r.automation)
-      && (type < 0 || r.type === type || (web && type === ARMY && r.type === OTHER)) && (army < 0 || r.armyType === army) && (side < 0 || !!r.attack === (side === 1))
+    return r => (web ? !auto || !!r.automation : auto ? !!r.automation : !r.automation)
+      && (type < 0 || r.type === type) && (army < 0 || r.armyType === army) && (side < 0 || !!r.attack === (side === 1))
       && (!Number(d.unreadOnly) || !r.isRead) && (!Number(d.flaggedOnly) || r.isFlagged)
       && (!search || `${r.title} ${r.startPos} ${r.targetPos}`.toLowerCase().includes(search))
       && (!coord || String(r.startPos).includes(coord) || String(r.targetPos).includes(coord));
@@ -55,6 +53,15 @@ module.exports = (game, H) => {
     if (!r) return game.fail(conn, cmd, -1, 'That report was deleted.');
     if (Number(d.flagged)) r.isFlagged = 1; else delete r.isFlagged;
     game.store.touch(); game.reply(conn, cmd, { reportId: r.id, flagged: r.isFlagged ? 1 : 0 });
+  };
+  // Delete All: everything the tab and filter show, but flagged reports (as the client says). (The Flash client's
+  // deletes a whole report type: reports.js.)
+  const deleteType = H['report.deleteAllReports'];
+  H['report.deleteAllReports'] = (conn, d, cmd) => {
+    if (!conn.web) return deleteType(conn, d, cmd);
+    const p = conn.player, shown = matches(d, true), before = R.list(p).length;
+    p.reports = R.list(p).filter(r => r.isFlagged || !shown(r));
+    game.store.touch(); game.reply(conn, cmd, { deleted: before - p.reports.length }); pushCounts(p);
   };
   H['report.markAllReportsRead'] = (conn, d, cmd) => {
     const p = conn.player; let n = 0;

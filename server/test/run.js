@@ -91,7 +91,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
   // The tests were written for a richer first city than the live game's (which has only a Town Hall): a Cottage, four
   // fields and plenty of resources. The live start is checked on its own further down. (Age of War's level 1 Walls in
   // every city, startWalls, and its gold in place of cents, noCents, are off for the live checks and tested on their own.)
-  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, heroAutoLevel: false, innRestock: false, prisonersNeedNoSeat: false, historicHeroes: { questFree: false }, npcConquest: { layout: { keepCottages: null } }, dynamiteFullDemolish: false, mayorExp: 0, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
+  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, heroAutoLevel: false, innRestock: false, prisonersNeedNoSeat: false, reports: { heroCapture: true, itemOpened: true, reinforcements: true, outcomeInTitle: false }, historicHeroes: { questFree: false }, npcConquest: { layout: { keepCottages: null } }, dynamiteFullDemolish: false, mayorExp: 0, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
     population: 100, taxRate: 20, productionRate: 100, buildings: { '0': [1, 1], '1001': [7, 1], '1002': [4, 1], '1003': [5, 1], '1004': [6, 1] } } }));
   const srv = main({ ...PORTS, dataDir, cacheDir: path.join(dataDir, 'cache'), speed: 600, logLevel: 'warn', embedded: true, assetCdn: '', flashClient: true, legacyLogin: true, adminPassword: ADMIN.pw });
   ADMIN.token = srv.game.adminToken;
@@ -852,6 +852,11 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
     ok(!e1 && /heroName="Caesar"/.test(r1?.content || '') && /heroUrl="images\/icon\/hero\/146.png"/.test(r1.content)
       && new RegExp(`support="-\\d" complaint="\\d" isSeize="false" seizeProblem="The Loyalty of this city is ${loy1}."`).test(r1.content) && /injuredPer="10"/.test(r1.content) && loy1 < 80 && loy1 >= 70 && r1.title === 'Attack Reports',
       `a won attack lowers the city's loyalty (80 to ${loy1}) and the report, titled "Attack Reports", says so as live; Caesar leads the defence` + (e1 ? ': ' + e1 : r1 ? ': ' + r1.title : ''));
+    // Age of War (rules.reports.outcomeInTitle): the subject says Victory or Defeat.
+    { const was = G.rules.reports; G.rules.reports = { ...was, outcomeInTitle: true };
+      const e9 = await hit(npcTile), r9 = await lastReport(); G.rules.reports = was;
+      ok(!e9 && /^(Victory|Defeat)( at |: )/.test(r9?.title || '') && (/isAttackSuccess="true"/.test(r9.content) === r9.title.startsWith('Victory')),
+        `a battle report's subject says Victory or Defeat ("${r9?.title}")`); }
     {
       const at = (l, x) => A.loyaltyDrop(l, 1, () => x);
       let n = 0, l = 90; const rng = (s => () => (s = (s * 16807) % 2147483647) / 2147483647)(7);
@@ -3403,6 +3408,16 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         city.heroes = was; city.res.gold = gold;
         ok(seats > 0 && full0 === 0 && p1 && p2 && p2.status === 4 && noSeat?.ok < 0 && /free seat/.test(noSeat.errorMsg) && yes?.ok === 1 && p1.status === 0 && after === 0 && !noHall && old === null,
           `a Feasting Hall with all ${seats} seats taken still holds prisoners (two captured); persuading one waits for a free seat ("${noSeat?.errorMsg}"), and a city without a Feasting Hall holds none`); }
+      // Age of War sends no report for a hero captured or getting away, an opened item's troops or new city, or
+      // reinforcements reaching a city (rules.reports).
+      { const was = G.rules.reports; G.rules.reports = { heroCapture: false, itemOpened: false, reinforcements: false, outcomeInTitle: true };
+        const n0 = (pb.reports || []).length;
+        G.armies.heroReports(pb, { captive: { name: 'Nobody', level: 1 }, heldIn: city }, 'here');
+        pb.items['player.box.fbgift.troop.minor'] = 1; const box = ask('shop.useGoods', { itemId: 'player.box.fbgift.troop.minor', num: 1 });
+        const n1 = (pb.reports || []).length; G.rules.reports = was;
+        G.armies.heroReports(pb, { captive: { name: 'Somebody', level: 1 }, heldIn: city }, 'here');
+        ok(box?.ok === 1 && n1 === n0 && (pb.reports || []).length === n0 + 1,
+          'no report for a captured hero or for the troops an opened package gives (rules.reports), as before with the reports on'); }
       // Items do what their descriptions say, used the way the web client uses them (Fox, Nov 2026: "test all items").
       { const has = id => pb.items[id] || 0, give = (id, n = 1) => { pb.items[id] = (pb.items[id] || 0) + n; }, use = id => ask('shop.useGoods', { itemId: id, num: 1 });
         const sum = ids => ids.reduce((s, id) => s + has(id), 0), angels = [70, 71, 72].map(n => `player.box.present.money.${n}`), devils = [74, 75, 76, 77].map(n => `player.box.present.money.${n}`);
@@ -3510,19 +3525,28 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         && pool4.some(([id, n]) => id === 'player.box.gambling.gold' && n === 100000) && pool3.some(([id, n]) => id === 'player.box.gambling.gold' && n === 1000000)
         && wares.length > 50 && centsShown.length === 0,
         `no cents: a quest's Cents*10 is 100,000 gold, a chest's 5 cents 50,000 gold, the wheel's cents prizes gold, and no shop item mentions cents (${centsShown.slice(0, 2).map(w => w.name).join(', ')})`);
-      // Reports: the Other ones (here an opened box's troops) show and count with the Army ones; no Other tab.
+      // Reports (Fox): the Other ones (here an opened box's troops) in the Other tab (the client's last, which was
+      // Automation), the automation's battles in Army with the rest; Delete All deletes everything a tab shows.
       G.reports.add(pb, { type: 2, title: 'Beginner Package: opened', content: '100 Warriors joined the army.' });
+      G.reports.add(pb, { type: 1, title: 'Automation battle', content: '', automation: true });
       G.reports.add(pb, { type: 1, title: 'Battle at (1,1)', content: require('../src/game/reports').battleXml({ isAttack: true, won: true, round: 2, attacker: { king: 'Buildy', units: [{ typeId: 3, count: 100, lose: 5 }] }, defender: { king: '', units: [{ typeId: 5, count: 40, lose: 40 }] } }) });
       const armyTab = ask('report.receiveReportList', { pageNo: 1, pageSize: 10, reportType: 1, automation: 0, armyType: -1, attack: -1 });
+      const otherTab = ask('report.receiveReportList', { pageNo: 1, pageSize: 10, reportType: 2, automation: 0 });
       const scoutTab = ask('report.receiveReportList', { pageNo: 1, pageSize: 10, reportType: 3, automation: 0 });
       const step = ask('common.step', {});
-      ok(armyTab.ok === 1 && armyTab.reports.some(r => r.type === 2) && armyTab.reports.some(r => r.type === 1) && scoutTab.reports.length === 0
-        && step.newReportCount_army === step.newReportCount && step.newReportCount >= 2,
-        'the Army tab lists the Other reports too, and its badge counts them (the web client has no Other tab)');
-      const battle = armyTab.reports.find(r => r.type === 1), other = armyTab.reports.find(r => r.type === 2);
+      ok(armyTab.ok === 1 && !armyTab.reports.some(r => r.type === 2) && armyTab.reports.some(r => r.title === 'Battle at (1,1)') && armyTab.reports.some(r => r.title === 'Automation battle')
+        && otherTab.reports.some(r => r.title === 'Beginner Package: opened') && otherTab.reports.every(r => r.type === 2) && scoutTab.reports.length === 0
+        && step.newReportCount_army >= 2 && step.newReportCount_automation >= 1 && step.newReportCount === step.newReportCount_army + step.newReportCount_automation + step.newReportCount_scout + step.newReportCount_trade,
+        'the Other reports are in the Other tab with their own badge, and the automation\'s battles in Army with the rest');
+      const battle = armyTab.reports.find(r => r.type === 1 && r.title === 'Battle at (1,1)'), other = otherTab.reports.find(r => r.type === 2);
       ok(/<battleReport[^>]*><isAttack>true<\/isAttack><isAttackSuccess>true<\/isAttackSuccess>/.test(battle.content) && /<troopUnit[^>]*><typeId>3<\/typeId><count>100<\/count><lose>5<\/lose><\/troopUnit>/.test(battle.content)
         && other.content === '<reportData><policyReport><detail>100 Warriors joined the army.</detail></policyReport></reportData>',
         'the web client gets each report value as a child element too (it reads <count>100</count>, not count="100"), and plain-text reports as a policyReport\'s detail');
+      { const keep = G.reports.list(pb).find(r => r.type === 2); keep.isFlagged = 1;
+        G.reports.add(pb, { type: 2, title: 'Another other', content: 'x' });
+        const del = ask('report.deleteAllReports', { reportType: 2, automation: 0, armyType: -1, attack: -1 }), left = G.reports.list(pb);
+        ok(del.ok === 1 && left.filter(r => r.type === 2).length === 1 && left[0] && left.some(r => r.isFlagged && r.type === 2) && left.some(r => r.type === 1),
+          'Delete All in the Other tab deletes every Other report but the flagged ones, and leaves the Army reports'); }
     }
     {
       // Age of War: the sign-in screen's reference pages (DoA's /heroes, /npcs and /droptable), on this server's data.

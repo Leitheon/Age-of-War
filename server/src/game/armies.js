@@ -377,7 +377,7 @@ class ArmyLogic {
       const dest = this.db.castles[tile.castleId];
       if (dest && a.mission === MISSION.SEND && dest.playerId !== p.id){
         // Reinforcing a colonization: the troops (and what they carry) stay with the stationed army.
-        if (g.colonies.reinforce(a, p, dest, now)){ report(p, { type: REPORT_TYPE.OTHER, title: `Reinforcements joined the colonizing army at ${here}`, content: '' }); return; }
+        if (g.colonies.reinforce(a, p, dest, now)){ if (g.rules.reports?.reinforcements !== false) report(p, { type: REPORT_TYPE.OTHER, title: `Reinforcements joined the colonizing army at ${here}`, content: '' }); return; }
         const host = this.db.players[dest.playerId], ally = g.alliances.same(p, host), why = ally ? this.cantStation(p, dest, a) : null;
         if (ally && !why){ this.station(a, p, dest, host, here, report, now); return; }
         report(p, { type: REPORT_TYPE.OTHER, title: `Reinforcements couldn't stay at ${here}`, content: why ? `${why[1]} Your troops are heading home.` : `The colonization of ${dest.name} is over. Your troops are heading home.` });
@@ -399,7 +399,7 @@ class ArmyLogic {
             hero.status = HERO_STATUS.FREE; a.heroId = 0; moved = true;
             g.pushHero(c, hero, 1); g.pushHero(dest, hero, 0);
           }
-          report(p, { type: REPORT_TYPE.OTHER, title: `Reinforcements reached ${here}`,
+          if (g.rules.reports?.reinforcements !== false) report(p, { type: REPORT_TYPE.OTHER, title: `Reinforcements reached ${here}`,
             content: hero ? (moved ? `${hero.name} has joined ${dest.name}.` : `${dest.name}'s Feasting Hall has no free seat, so ${hero.name} is heading home.`) : '' });
         } else report(p, { type: REPORT_TYPE.TRADE, title: `Transport delivered ${what} to ${here}`, content: '' });
         if (dest.playerId !== p.id) report(this.db.players[dest.playerId], { type: REPORT_TYPE.TRADE, attack: false, title: `${p.name} delivered ${what} to ${dest.name}`, content: '' });
@@ -725,18 +725,21 @@ class ArmyLogic {
     // Live (Fox's Basilisk report, Oct 29 2026): an attack's report is titled "Attack Reports", whatever came of it,
     // as a scout's is "Scout Reports"; a conquest, a colonization, a taken valley and a captured hero keep their own.
     const plain = !won && !parked && !colony && !captured && !heroSeized && !won?.captive;
-    report(p, { type: REPORT_TYPE.ARMY, title: plain ? 'Attack Reports' : `Your army ${verb}${note}`, content: battleXml({ ...body, injuredPer, autoHeal: this.healXml(attHeal, c), isAttack: true, won: r.attackerWon, honor: hon?.att, prestige: prestige || undefined, items: found.length ? found.map(f => (f.n > 1 ? `${f.id}=${f.n}` : f.id)).join(',') : undefined }) });
+    // (rules.reports.outcomeInTitle, Fox: "Victory at Barbarian's city(263,597)", "Defeat: your army was beaten at ...")
+    const out = g.rules.reports?.outcomeInTitle, mine = r.attackerWon ? 'Victory' : 'Defeat', theirs = r.attackerWon ? 'Defeat' : 'Victory';
+    const atkTitle = plain ? (out ? `${mine} at ${here}` : 'Attack Reports') : `${out ? mine + ': your' : 'Your'} army ${verb}${note}`;
+    report(p, { type: REPORT_TYPE.ARMY, title: atkTitle, content: battleXml({ ...body, injuredPer, autoHeal: this.healXml(attHeal, c), isAttack: true, won: r.attackerWon, honor: hon?.att, prestige: prestige || undefined, items: found.length ? found.map(f => (f.n > 1 ? `${f.id}=${f.n}` : f.id)).join(',') : undefined }) });
     if (won) this.conquestReports(p, won, here);
     if (conquest?.freed) this.heroReports(p, conquest.freed, here);
     // The allied troops' lords get the battle too; an army with nobody left, or in a city that changed hands, goes home.
     for (const ga of guests){
       const gp = this.db.players[ga.playerId]; if (!gp) continue;
-      report(gp, { type: REPORT_TYPE.ARMY, attack: false, title: `${p.name} attacked ${dc.name}, where your troops are stationed`, content: battleXml({ ...body, injuredPer, isAttack: false, won: r.attackerWon, back: null }) });
+      report(gp, { type: REPORT_TYPE.ARMY, attack: false, title: `${out ? theirs + ': ' : ''}${p.name} attacked ${dc.name}, where your troops are stationed`, content: battleXml({ ...body, injuredPer, isAttack: false, won: r.attackerWon, back: null }) });
       if (won || parked || !Object.values(ga.troops).some(n => n > 0)) this.sendHome(ga, now);
       g.pushArmies(gp);
     }
     if (guests.length) g.pushFriends(dp);
-    if (dp) report(dp, { type: REPORT_TYPE.ARMY, attack: false, title: won ? `${p.name} conquered ${dc.name}` : parked ? `${p.name} is colonizing ${dc.name}` : colony ? `${p.name} suppressed ${dc.name}'s uprising` : heroSeized ? `${p.name} attacked ${dc.name}; you captured ${hero.name}` : `${p.name} attacked ${dc.name}`, content: battleXml({ ...body, injuredPer, autoHeal: this.healXml(defHeal, dc), isAttack: false, won: r.attackerWon, back: null, honor: hon?.def }) });
+    if (dp) report(dp, { type: REPORT_TYPE.ARMY, attack: false, title: (out ? theirs + ': ' : '') + (won ? `${p.name} conquered ${dc.name}` : parked ? `${p.name} is colonizing ${dc.name}` : colony ? `${p.name} suppressed ${dc.name}'s uprising` : heroSeized ? `${p.name} attacked ${dc.name}; you captured ${hero.name}` : `${p.name} attacked ${dc.name}`), content: battleXml({ ...body, injuredPer, autoHeal: this.healXml(defHeal, dc), isAttack: false, won: r.attackerWon, back: null, honor: hon?.def }) });
     g.log.info(`${p.name} attacked ${here}: ${r.attackerWon ? 'won' : 'lost'} in ${r.round} round${r.round > 1 ? 's' : ''}${loot ? `, loot ${Object.values(loot).reduce((x, y) => x + y, 0)}` : ''}${captured ? ', valley taken' : ''}${conquest ? `, loyalty ${conquest.loyalty}` : ''}${found.length ? `, found ${foundText}` : ''}`);
     // Live (Fox): a lost attack doesn't march home; what is left of the army is home at once (arrive()).
     if (!r.attackerWon) a.lost = true;
@@ -945,6 +948,7 @@ class ArmyLogic {
   }
   // What became of an NPC city's hero when it was taken, or brought to 0 with No Capture.
   heroReports(p, won, here){
+    if (this.g.rules.reports?.heroCapture === false) return;   // (Age of War: none, rules.reports)
     const g = this.g, add = (title, content) => g.reports.add(p, { type: REPORT_TYPE.OTHER, startPos: here, targetPos: here, title, content });
     const h = won.captive;
     if (h){

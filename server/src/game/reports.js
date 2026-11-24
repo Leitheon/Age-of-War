@@ -74,7 +74,7 @@ class Reports {
   unread(p){
     const c = { count: 0, army_count: 0, scout_cout: 0, trade_count: 0, other_count: 0 };
     for (const r of this.list(p)) if (!r.isRead){
-      if (r.automation){ c.automation_count = (c.automation_count || 0) + 1; continue; }   // (the Automation tab's own badge)
+      if (r.automation) c.automation_count = (c.automation_count || 0) + 1;   // (counted by their type too: Fox, the web client's Army tab)
       c.count++;
       if (r.type === TYPE.ARMY) c.army_count++; else if (r.type === TYPE.SCOUT) c.scout_cout++; else if (r.type === TYPE.TRADE) c.trade_count++; else c.other_count++;
     }

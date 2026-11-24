@@ -27,8 +27,9 @@ module.exports = (game, H) => {
     // A new city: the client asks for its name when an ordinary city (power level 4, as an amulet city is) arrives.
     if (out.newCastle){ game.push(p.id, 'server.CastleUpdate', { updateType: 0, castleBean: game.beans.castle(out.newCastle, p) }); game.pushPlayerInfo(p); }
     game.pushResources(c);
-    // The award window can't show troops, heroes or new cities, so those get a report.
-    if (out.troopText.length || out.note){
+    // The award window can't show troops, heroes or new cities, so those get a report (none in Age of War:
+    // rules.reports.itemOpened).
+    if (game.rules.reports?.itemOpened !== false && (out.troopText.length || out.note)){
       const name = game.data.items[itemId]?.name || itemId;
       const lines = [out.note, out.troopText.length ? `${out.troopText.join(', ')} joined the army in ${c.name}.` : ''].filter(Boolean);
       game.reports.add(p, { type: REPORT_TYPE.OTHER, title: `${name}: ${out.text.length ? out.text.join(', ') : 'opened'}`.slice(0, 120), content: lines.join(' ') });

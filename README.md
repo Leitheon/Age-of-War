@@ -115,8 +115,11 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   descriptions say what they do but not how much get a day of it (`rules.eventItemBuffs`).
 - **Prisoners** take no Feasting Hall seat (`rules.prisonersNeedNoSeat`): a city with a Feasting Hall captures a hero
   however full it is, and persuading one waits for a free seat.
-- **Reports**: this client has no Other tab, so the Other reports (a city founded, what a box gave...) are with the
-  Army ones; each report's values are sent the way this client reads them.
+- **Reports**: the last tab is Other (it was Automation), with the Other reports (a city founded, the innkeeper's
+  news, charms...); the automation's battles are in Army with the rest. Delete All deletes everything the tab shows
+  except flagged reports. There are no reports for a hero captured or getting away, for what an opened item gave or
+  for reinforcements reaching a city, and battle subjects start with Victory or Defeat (`rules.reports`). Each
+  report's values are sent the way this client reads them.
 - **Chat**: World and Alliance chat of the last 48 hours (`rules.chat.historyHours`) is kept through restarts and
   shown on signing in. **Flags** take up to 4 characters (`rules.flagLength`).
 - **The sign-in screen's pages**: `/heroes` (every historic hero, with DoA's stats from the hero sheet and where each is:

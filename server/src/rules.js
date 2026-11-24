@@ -190,6 +190,9 @@ const DEFAULTS = {
   heroAutoLevel: true,
   // A hero hired from the Inn is replaced by a new one at once; false leaves the slot empty until the Inn refreshes.
   innRestock: true,
+  // Reports (Fox, Nov 2026): Age of War sends none for a hero captured (or getting away), for what an opened item
+  // gave, or for reinforcements reaching a city; and a battle report's subject starts with Victory or Defeat.
+  reports: { heroCapture: false, itemOpened: false, reinforcements: false, outcomeInTitle: true },
   // Holiday items whose descriptions say what they do but not by how much (Fox, Nov 2026: items should do what their
   // descriptions say): { itemId: [[buff, hours], ...] }. Food for the troops halves their upkeep for a day; the two
   // that bring more troops home from battle work as Penicillin does; Memory of the Sun is a day of Plowshares.
