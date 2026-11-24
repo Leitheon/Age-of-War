@@ -271,7 +271,7 @@ class HistoricHeroLogic {
   joinRuler(c, h, nextId){
     const b = this.baseOf(h), L = this.rulerLevel();
     const hero = { name: h.name, level: L, exp: 0, base: { pol: b.pol, atk: b.atk, int: b.int },
-      added: { pol: 0, atk: 0, int: 0 }, points: L * this.ppl(), face: h.portrait, sex: h.female, historic: h.id, leadership: b.ldr, infro: h.bio };
+      added: { pol: 0, atk: 0, int: 0 }, points: this.pointsAt(L), face: h.portrait, sex: h.female, historic: h.id, leadership: b.ldr, infro: h.bio };
     Object.assign(hero, { id: nextId(), status: 0, loyalty: 100, bound: c.fieldId });
     this.g.heroes.list(c).push(hero);
     this.db.hh[h.id] = { status: 'bound', castleId: c.id, heroId: hero.id };
@@ -313,24 +313,26 @@ class HistoricHeroLogic {
     this.db.hh[id] = { status: 'free', fieldId: null };
     return null;
   }
-  // A wild hero is level 30 (Fox), with 1 point a level counting the first spread at random (live). Holy Water resets
-  // them so the owner can place them.
-  // (Live, Fox, Nov 24 2026: Gao Guiying at level 150 in the live hero ranking has 815 attack, her sheet's 96 + 150
-  // points + 569.7 from 15 pieces of level 10 gear at 15 stars, so 1 point a level counting the first; the ranking
-  // counts gear in, which is why most level 150s there are exactly 300 over their sheet: 150 points and 150 from
-  // level 10 gear without stars. 0.3.61 to 0.1.42 read that as 2 a level.)
+  // A wild hero is level 30 (Fox), with 1 point for each level after the first spread at random (live). Holy Water
+  // resets them so the owner can place them.
+  // (Live, Fox, Nov 24 2026: Gao Guiying at level 150 in the live hero ranking has 815 attack, her sheet's 96 + her
+  // level points + 569.7 from 15 pieces of level 10 gear at 15 stars, so 1 point a level, not 2 as 0.3.61 to 0.1.42
+  // had it; and "at level 1, heroes shouldn't have a stat point to distribute": 149 at 150, as a Ring hero's 2 a
+  // level start after the first.)
   ppl(){ return this.rules.pointsPerLevel ?? 1; }
+  // The points a historic hero holds at a level: one a level after the first.
+  pointsAt(level){ return Math.max(0, (level || 1) - 1) * this.ppl(); }
   randomAlloc(){
     const a = { pol: 0, atk: 0, int: 0 }, keys = Object.keys(a);
-    // 1 a level, counting the first, so a level 30 hero comes with 30.
-    for (let i = 0; i < (this.rules.level || 1) * this.ppl(); i++) a[keys[Math.floor(Math.random() * 3)]]++;
+    // (a level 30 hero comes with 29)
+    for (let i = 0; i < this.pointsAt(this.rules.level || 1); i++) a[keys[Math.floor(Math.random() * 3)]]++;
     return a;
   }
   alloc(id){ const s = this.state(id); if (s.alloc) this.topUp(s.alloc); return s.alloc || (s.alloc = this.randomAlloc()); }
   // A wild hero's points to what his level brings: the missing ones spread at random, extra ones (from 0.3.61 to
   // 0.1.42, 2 a level) taken off in proportion. True if changed.
   topUp(a){
-    const keys = ['pol', 'atk', 'int'], want = (this.rules.level || 1) * this.ppl();
+    const keys = ['pol', 'atk', 'int'], want = this.pointsAt(this.rules.level || 1);
     let have = keys.reduce((s, k) => s + (a[k] || 0), 0);
     if (have > want){ shrink(a, have - want); return true; }
     if (have >= want) return false;
@@ -456,12 +458,12 @@ class HistoricHeroLogic {
     this.place(id);
     return { hero: h, moved: true, needQuest: !q && !free, needPortrait: !portrait };
   }
-  // A historic hero taken from an NPC city starts at level 1, with his sheet's stats and that level's point to place
+  // A historic hero taken from an NPC city starts at level 1, with his sheet's stats and no points
   // (Fox, Nov 24 2026: "when a historic hero is captured from an NPC city, it will always be level 1 and must be
   // leveled up"; rules.historicHeroes.capturedLevel). One taken from a lord keeps his level and stats (captives.js).
   captive(h){
     const L = this.rules.capturedLevel ?? 1;
-    return { ...this.offer(h), level: L, added: { pol: 0, atk: 0, int: 0 }, points: L * this.ppl() };
+    return { ...this.offer(h), level: L, added: { pol: 0, atk: 0, int: 0 }, points: this.pointsAt(L) };
   }
   offer(h, alloc = this.randomAlloc()){
     const level = this.rules.level || 1;
@@ -477,13 +479,13 @@ class HistoricHeroLogic {
     hero.base = base; hero.leadership = b.ldr;
     return true;
   }
-  // A historic hero has 1 point for every level, counting his first (live: 150 at level 150). Short of that, the
-  // missing points are his to spend; over it (from 0.3.61 to 0.1.42 he got 2 a level: Fox, Nov 24 2026, "some
-  // heroes are getting 2 points when leveling up"), the extra come off his unspent points first, then off his
-  // attributes in proportion to where they went. True if anything changed.
+  // A historic hero has 1 point for every level after the first (149 at level 150). Short of that, the missing
+  // points are his to spend; over it (from 0.3.61 to 0.1.42 he got 2 a level: Fox, Nov 24 2026, "some heroes are
+  // getting 2 points when leveling up"; to 0.1.46 one more for his first), the extra come off his unspent points
+  // first, then off his attributes in proportion to where they went. True if anything changed.
   owed(hero){
     if (hero?.historic == null || hero.ringHero) return false;
-    const want = (hero.level || 1) * this.ppl(), a = hero.added || (hero.added = { pol: 0, atk: 0, int: 0 });
+    const want = this.pointsAt(hero.level), a = hero.added || (hero.added = { pol: 0, atk: 0, int: 0 });
     const have = (a.pol || 0) + (a.atk || 0) + (a.int || 0) + (hero.points || 0);
     if (have === want) return false;
     if (have < want){ hero.points = (hero.points || 0) + want - have; return true; }

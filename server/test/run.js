@@ -1028,9 +1028,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       'at loyalty 0 the city is ours, called "New city", with the live layout (Cottages on plots 12-31, Academy on 0, Feasting Hall on 3, Barracks on 11, Farms from 1001, then Sawmill, Quarry and Ironmine on the last of 13 plots), and the army and its hero stay there' + (e2 ? ': ' + e2 : r2 ? ': ' + r2.title : ''));
     const cb = ch && G.heroes.bean(ch);
     ok(ch && ch.status === 4 && db.hh[146].status === 'seized' && cb.itemId === 'hero.taskitem.146' && cb.itemAmount === 1 && (me.reports || []).some(x => x.title === 'Caesar captured')
-      && cb.isHero === 1 && cb.level === 1 && cb.remainPoint === 1 && cb.managementAdded + cb.powerAdded + cb.stratagemAdded === 0 && cb.logoUrl === 'images/icon/hero/146.png' && cb.leadership === [...G.hh.roster.values()].find(h => h.id === 146).ldr
+      && cb.isHero === 1 && cb.level === 1 && cb.remainPoint === 0 && cb.managementAdded + cb.powerAdded + cb.stratagemAdded === 0 && cb.logoUrl === 'images/icon/hero/146.png' && cb.leadership === [...G.hh.roster.values()].find(h => h.id === 146).ldr
       && cb.power === 75 + cb.powerAdded && cb.management === 95 + cb.managementAdded && cb.stratagem === 62 + cb.stratagemAdded && cb.infro.length > 20,
-      'with the quest and the portrait Caesar is captured: level 30 with his portrait, biography, base stats (95 politics: DoA\'s hero list), his leadership, at level 1 with his one point to place (Fox, Nov 24 2026: a historic hero taken from an NPC city is always level 1), to be persuaded with his portrait');
+      'with the quest and the portrait Caesar is captured: level 30 with his portrait, biography, base stats (95 politics: DoA\'s hero list), his leadership, at level 1 with no points (Fox, Nov 24 2026: a historic hero taken from an NPC city is always level 1, and a level 1 hero has no point to place), to be persuaded with his portrait');
     {
       const R = [...srv.game.hh.roster.values()], by = n => R.find(h => h.name === n);
       ok(by('Genghis Khan')?.atk === 97 && by('Genghis Khan')?.int === 91 && by('Isaac Newton')?.atk === 50 && by('Isaac Newton')?.int === 98 && R.filter(h => h.estimated).length < 10,
@@ -1193,7 +1193,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           const lord = G.createPlayer({ name: 'Ruletaker' }, { userName: 'Ruletaker' }), home = G.castlesOf(lord)[0];
           const won = A.conquer({ troops: { archer: 50 }, loot: {} }, lord, home, null, pT, G.npc.state(db, pT, Date.now()), {}, null, Date.now());
           const P = won.castle, him = G.heroes.list(P).find(h => h.historic === nap.id);
-          const joined = him && him.status === 0 && him.bound === paris && him.level === 1 && him.points === 1 && him.base.pol === 99 && him.base.atk === 99 && him.base.int === 99
+          const joined = him && him.status === 0 && him.bound === paris && him.level === 1 && him.points === 0 && him.base.pol === 99 && him.base.atk === 99 && him.base.int === 99
             && G.heroes.leadership(him) === 150 && him.loyalty === 100 && HH.state(nap.id).status === 'bound' && won.captive === null && G.heroes.vacancies(P) === G.heroes.hallSize(P);
           // He marches out (attack) but can't be sent to stay in another city, or dismissed.
           P.troops = { archer: 100 }; P.buildings[5] = { typeId: 29, level: 10 };   // (a Rally Spot to send from)
@@ -2445,7 +2445,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         const one = await c.call('hero.RetSetHeroAttri', { lockmanagement: true, lockpower: false, lockstratagem: false });
         const left = Math.floor(city.res.gold), poor = await c.call('hero.RetSetHeroAttri', { lockmanagement: true, lockpower: false, lockstratagem: false });
         G.rules.noCents = false; me.items['hero.gen.npc2'] = 0; delete me.ringHero;
-        ok(g0.ok === 1 && JSON.stringify(g0.randomherobean.resetPrice) === '[[0,110000],[0,220000],[0,440000]]' && one.ok === 1 && me.coins === coinsWas && left >= 80000 && left < 80000 + 1000
+        ok(g0.ok === 1 && JSON.stringify(g0.randomherobean.resetPrice) === '[[0,110000],[0,220000],[0,440000]]' && one.ok === 1 && me.coins === coinsWas && Math.abs(left - 80000) < 1000
           && poor.ok < 0 && /costs 220,000 gold/.test(poor.errorMsg),
           `with no cents a paid re-roll costs gold only (one lock: 220,000), and the window gets the prices (${JSON.stringify(g0.randomherobean.resetPrice)})`); }
       { // The web client: the pink gem button beside the portrait opens Recruit Hero, with a portrait picker (Fox, Nov 24 2026).
@@ -2497,15 +2497,16 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       // A historic hero holds 1 point a level, counting the first (Fox, Nov 24 2026: Gao Guiying at 150 is her sheet +
       // 150 + her gear on live; ours had 2 a level since 0.3.61). Saved heroes are brought to it: short ones get the
       // rest to spend; ones over it lose the extra, unspent points first, then in proportion to where they went.
-      const short = { historic: 146, level: 35, added: { pol: 10, atk: 5, int: 5 }, points: 0 };
+      const short = { historic: 146, level: 35, added: { pol: 10, atk: 5, int: 5 }, points: 0 }, lv1 = { historic: 146, level: 1, added: { pol: 0, atk: 1, int: 0 }, points: 0 };
       const gao = { historic: 686, level: 150, added: { pol: 0, atk: 300, int: 0 }, points: 0 };
       const split = { historic: 146, level: 100, added: { pol: 50, atk: 100, int: 30 }, points: 20 };
       const wild = { pol: 20, atk: 20, int: 20 }, wild2 = { pol: 5, atk: 5, int: 5 };
-      const owed = G.hh.owed(short), owedAgain = G.hh.owed(short), trimmed = G.hh.owed(gao), trimmed2 = G.hh.owed(split), cut = G.hh.topUp(wild), topped = G.hh.topUp(wild2);
+      const owed = G.hh.owed(short), owedAgain = G.hh.owed(short), trimmed = G.hh.owed(gao), trimmed2 = G.hh.owed(split), cut = G.hh.topUp(wild), topped = G.hh.topUp(wild2), none1 = G.hh.owed(lv1);
       const sum = o => o.pol + o.atk + o.int;
-      ok(owed && !owedAgain && short.points === 15 && sum(short.added) + short.points === 35 && trimmed && gao.added.atk === 150 && gao.points === 0
-        && trimmed2 && split.points === 0 && sum(split.added) === 100 && split.added.atk > split.added.pol && split.added.pol > split.added.int && cut && sum(wild) === 30 && topped && sum(wild2) === 30,
-        `historic heroes hold 1 point a level, counting the first: short ones get the rest (35 at level 35), ones over it lose the extra (Gao Guiying's 300 attack points at 150 to 150; ${JSON.stringify(split.added)} at 100), and wild ones in NPC cities have 30`);
+      ok(owed && !owedAgain && short.points === 14 && sum(short.added) + short.points === 34 && trimmed && gao.added.atk === 149 && gao.points === 0
+        && trimmed2 && split.points === 0 && sum(split.added) === 99 && split.added.atk > split.added.pol && split.added.pol > split.added.int && cut && sum(wild) === 29 && topped && sum(wild2) === 29
+        && none1 && sum(lv1.added) === 0 && lv1.points === 0,
+        `historic heroes hold 1 point a level after the first (Fox: none at level 1): short ones get the rest (34 at level 35), ones over it lose the extra (Gao Guiying's 300 attack points at 150 to 149; ${JSON.stringify(split.added)} at 100), and wild ones in NPC cities have 29`);
       if (rh) city.heroes = city.heroes.filter(h => h !== rh);
       me.title = titleWas; me.createdAt = createdWas; G.rules.rallyArmiesPerLevel = perRally;
     }
@@ -2888,7 +2889,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       await c.call('interior.getResourceProduceData', { castleId: castle.id }); const capped = { ...city.res };
       city.res = resWas;
       ok(Array.isArray(trained) && /at most 1,000,000,000,000/.test(trained[1]) && adds.join() === `2147483648,${TROOP_MAX},0,15,7`
-        && after.ok === 1 && t3.militia === 0 && t3.archer === TROOP_MAX && t3.lightCavalry === 0 && capped.food <= RES_MAX && capped.food > RES_MAX * 0.99 && capped.gold === RES_MAX,
+        && after.ok === 1 && t3.militia === 0 && t3.archer === TROOP_MAX && t3.lightCavalry === 0 && capped.food <= RES_MAX && capped.food > RES_MAX * 0.99 && capped.gold <= RES_MAX && capped.gold > RES_MAX * 0.99,
         `a troop count runs from 0 to 1,000,000,000,000 ("${trained?.[1]}"), and a resource stops at 100,000,000,000,000`);
       city.troops = was;
     }

@@ -143,9 +143,9 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   (attack, scout, transport) but never to reinforce or found another city, be dismissed or be captured; another lord
   taking the city takes him as he is, and a city given up has him rule it again. The website's Heroes page shows where.
 - **Be an Evonian**: the quest window has its Add to favorites button.
-- **Historic heroes taken from NPC cities start at level 1**, with their sheet's stats, and must be levelled up
+- **Historic heroes taken from NPC cities start at level 1**, with their sheet's stats and no points, and must be levelled up
   (`historicHeroes.capturedLevel`); a hero taken from another lord keeps his level and stats.
-- **Historic heroes get 1 point a level** (counting the first: 150 at level 150; wild ones at 30 come with 30), as
+- **Historic heroes get 1 point a level after the first** (none at level 1, 149 at 150; wild ones at 30 have 29), as
   live: Gao Guiying at 150 in the live ranking is her sheet + 150 + her gear. Ring heroes keep 2 a level. Heroes saved
   with more lose the extra at startup, unspent points first, then in proportion to where they went.
 - **My Items**: the Angel and Devil items (Fleet Feet ... Broken Gates, used on another lord or his city) are under
