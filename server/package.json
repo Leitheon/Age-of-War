@@ -1,6 +1,6 @@
 {
   "name": "age-of-war-server",
-  "version": "0.1.21",
+  "version": "0.1.22",
   "private": true,
   "description": "Age of War: a self-hosted server for the community web client",
   "main": "src/server.js",

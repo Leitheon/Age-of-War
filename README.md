@@ -99,6 +99,9 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   an Evony original shows as soon as the server has it. For a hero with no portrait at all, put `<ID>.png` in
   `art/heroes/`. `server/get-doa-portraits.bat` downloads DoA's portraits, from DoA's site, for every hero that has
   none here (the heroes DoA added are at `/flash/images/icon/hero/<ID>.png` there, Poseidon at `poseidon.png`).
+- **The shop** leaves out the items in `rules.webShop.hidden` (76 of them: Speakers, Rituals of Pact, Truce
+  Agreements, Publicity Ambassadors, keys and lockboxes, holiday chests...) and won't sell them; they still work
+  wherever else they turn up.
 - **Prisoners** take no Feasting Hall seat (`rules.prisonersNeedNoSeat`): a city with a Feasting Hall captures a hero
   however full it is, and persuading one waits for a free seat.
 - **Reports**: this client has no Other tab, so the Other reports (a city founded, what a box gave...) are with the

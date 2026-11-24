@@ -3225,6 +3225,10 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const buy = await call2('shop.buyPooled', { itemId: 'consume.2.a', amount: 2 }), poor = await call2('shop.buyPooled', { itemId: 'consume.2.a', amount: 1 });
       ok(cat.data.tabs.length >= 5 && cat.data.tabs[0].name === 'Items' && !cat.data.tabs.some(t => t.id === 'hot' || t.name === 'Treasure') && ware.price > 0 && buy.data.ok === 1 && pw.items['consume.2.a'] >= 2 && pw.boundGold === 0 && Math.floor(home.res.gold) === 8 && poor.data.ok < 0,
         'the shop (no Hot tab; Items first) sells for gold from the lord\'s cities, bound gold first');
+      const listed = cat.data.tabs.flatMap(x => x.items).map(x => x.id), off = srv.game.rules.webShop.hidden, speaker = await call2('shop.buyPooled', { itemId: 'consume.1.a', amount: 1 });
+      ok(off.length === 76 && !listed.some(id => off.includes(id)) && listed.length > 50 && ['consume.1.a', 'player.box.present.money.43', 'hero.item.Lugui_Wine', 'player.item.stoneoffinding'].every(id => off.includes(id))
+        && speaker.data.ok < 0 && !pw.items['consume.1.a'],
+        `the shop leaves out the ${off.length} items Fox hid (Speakers, Rituals of Pact, Truce Agreements, holiday chests...) and won't sell them; ${listed.length} are listed`);
       const order = await call2('common.setCityOrder', { order: String(home.id) }), wrong = await call2('common.setCityOrder', { order: '1,2' });
       ok(order.data.ok === 1 && order.data.cityOrder === String(home.id) && wrong.data.ok < 0, 'the city order takes only the lord\'s own cities');
       ws2.close();

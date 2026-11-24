@@ -444,7 +444,85 @@ const DEFAULTS = {
   valleyCycle: true,
   // The web client's shop (handlers/webshop.js): gold per coin of an item's price in the client's item table.
   // goldFinish: the speed-up window's Pay with Gold, finishing work for its price in Guidelines at that rate (webspeed.js).
-  webShop: { goldPerCoin: 10000, goldFinish: true },
+  // hidden: items the shop doesn't list or sell (Fox, Nov 2026); they still work wherever else they turn up.
+  webShop: { goldPerCoin: 10000, goldFinish: true, hidden: [
+      'alliance.ritual_of_pact.advanced',                           // Ritual of Pact (Advanced)
+      'alliance.ritual_of_pact.premium',                            // Ritual of Pact (Premium)
+      'alliance.ritual_of_pact.ultimate',                           // Ritual of Pact (Ultimate)
+      'consume.1.a',                                                // Speaker
+      'consume.1.b',                                                // Speaker (10 pieces package)
+      'consume.1.c',                                                // Speaker (100 pieces package)
+      'consume.hegemony.1',                                         // Ritual of Pact
+      'enhanced.gemstone.book.1',                                   // Primary Advanced Blacksmithing Tutorial
+      'enhanced.gemstone.book.2',                                   // Senior Advanced Blacksmithing Tutorial
+      'hero.gen.npc2',                                              // Legendary Ring
+      'hero.item.Essential_Oil',                                    // Essential Oil
+      'hero.item.Lugui_Wine',                                       // Lugui Wine
+      'hero.item.Panax_ginseng',                                    // Panax ginseng
+      'hero.item.Tea',                                              // Tea
+      'hero.reset.1.a',                                             // Holy Water (5 pieces package)
+      'player.emcard.1',                                            // EM(Evony Member) Card
+      'player.gen.castle.1',                                        // Bronze Amulet
+      'player.gen.castle.2',                                        // Silver Amulet
+      'player.gen.castle.3',                                        // Gold Amulet
+      'player.halloween.castle',                                    // Haunted Castle
+      'player.halloween.castle.adv',                                // Haunted Castle Adv
+      'player.haunted.castle',                                      // Christmas Castle
+      'player.haunted.castle.adv',                                  // Christmas Castle Adv
+      'player.item.stoneoffinding',                                 // Stone of Finding
+      'player.speak.bronze_publicity_ambassador.permanent',         // Bronze Publicity Ambassador (Permanent)
+      'player.speak.bronze_publicity_ambassador.permanent.15',      // Bronze Publicity Ambassador (15-day)
+      'player.speak.gold_publicity_ambassador.15',                  // Gold Publicity Ambassador (15-day)
+      'player.speak.gold_publicity_ambassador.permanent',           // Gold Publicity Ambassador (Permanent)
+      'player.speak.silver_publicity_ambassador.15',                // Silver Publicity Ambassador (15-day)
+      'player.speak.silver_publicity_ambassador.permanent',         // Silver Publicity Ambassador (Permanent)
+      'primary.truce.agreement.12',                                 // Primary 12-Hour Truce Agreement
+      'primary.truce.agreement.16',                                 // Primary 16-Hour Truce Agreement
+      'primary.truce.agreement.8',                                  // Primary 8-Hour Truce Agreement
+      'senior.truce.agreement.12',                                  // Senior 12-Hour Truce Agreement
+      'senior.truce.agreement.16',                                  // Senior 16-Hour Truce Agreement
+      'senior.truce.agreement.8',                                   // Senior 8-Hour Truce Agreement
+      'instant.handover',                                           // Instant Handover
+      'player.gold.1.a',                                            // Tax Policy
+      'player.gold.1.b',                                            // Adv Tax Policy
+      'consume.key.1',                                              // Bronze Key
+      'consume.key.2',                                              // Silver Key
+      'consume.key.3',                                              // Golden Key
+      'player.box.1',                                               // Bronze Lockbox
+      'player.box.2',                                               // Silver Lockbox
+      'player.box.3',                                               // Golden Lockbox
+      'player.box.currently.1',                                     // Hero Package
+      'player.box.equipment.tech.1',                                // Iron Ore Box
+      'player.box.equipment.tech.2',                                // Wood Box
+      'player.box.equipment.tech.3',                                // Crude Gemstone Box
+      'player.box.equipment.tech.4',                                // Fabric Box
+      'player.box.equipment.tech.5',                                // Riding Reing
+      'player.box.gambling.1',                                      // Aquarius Amulet
+      'player.box.gambling.10',                                     // Scorpius Amulet
+      'player.box.gambling.11',                                     // Sagittarius Amulet
+      'player.box.gambling.12',                                     // Capricorn Amulet
+      'player.box.gambling.2',                                      // Pisces Amulet
+      'player.box.gambling.4',                                      // Taurus Amulet
+      'player.box.gambling.5',                                      // Gemini Amulet
+      'player.box.gambling.6',                                      // Cancer Amulet
+      'player.box.gambling.7',                                      // Leo Amulet
+      'player.box.gambling.8',                                      // Virgo Amulet
+      'player.box.gambling.9',                                      // Libra Amulet
+      'player.box.gambling.medal.300',                              // Closed Beta Awards
+      'player.box.present.money.23',                                // Special Christmas Chest
+      'player.box.present.money.25',                                // Special New Year Chest
+      'player.box.present.money.29',                                // Special Easter Chest
+      'player.box.present.money.43',                                // Special Easter Chest
+      'player.box.present.money.31',                                // Special Evony Happiness Chest
+      'player.box.present.money.33',                                // Halloween Chest O'Treats
+      'player.box.present.money.35',                                // Special Thanksgiving Package
+      'player.box.present.money.37',                                // Secret Santa Chest
+      'player.box.present.money.39',                                // Valentine's Day Chest
+      'player.box.present.money.41',                                // St Patrick's Day Chest
+      'player.box.present.money.45',                                // Hollow Wooden Bull
+      'player.box.present.money.47',                                // Locked Halloween Chest
+      'player.box.present.money.93',                                // Purchase Package
+  ] },
   // No cents (nocents.js): every amount of cents a lord would get (quests, chests, the Amulet wheel) or pay (Enquire
   // Details, a Bernini's Hammer bought to queue) is gold at webShop.goldPerCoin, and texts say so. false keeps cents.
   noCents: true,
