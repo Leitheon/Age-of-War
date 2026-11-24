@@ -89,8 +89,10 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
 - **Historic Cities** show their introductions from the client's own city list.
 - **Historic heroes** need no quest (`rules.historicHeroes.questFree`): Enquire Details at the Inn gives the hero's
   place and portrait, and taking that NPC city with the portrait in hand captures the hero, using the portrait up.
-- **The hero list is DoA's**: 698 historic heroes, the client's 639 and the 59 DoA added (700 to 758, from Adolf
-  Hitler to Amanirenas), with DoA's stats, in `server/src/data/historic-heroes.csv`.
+- **The hero list is DoA's, up to the American Civil War**: 689 historic heroes, the client's 639 and 50 of the 59
+  DoA added (700 to 758), with DoA's stats, in `server/src/data/historic-heroes.csv`. Heroes from the Civil War on
+  are left out (Lincoln, Macdonald, Griffin, Yaa Asantewaa, Churchill, Hitler, Stalin, Escobar, Napoleon Dynamite).
+  A hero taken off the sheet leaves the barbarian cities and the Inn's hearsay, and his portrait is taken back.
 - **Hero portraits** are Evony's originals wherever there is one (`server/cache/images/icon/hero/`, or fetched
   from the Evony art server, `assetCdn`, and kept there); otherwise DoA's (`art/flash/images/icon/hero/`, then
   `art/heroes/`); otherwise a "portrait unknown" picture. DoA's and the unknown one are never kept by browsers, so

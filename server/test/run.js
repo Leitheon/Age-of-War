@@ -777,14 +777,24 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
 
     // ---------- historic heroes ----------
     const hhLogic = srv.game.hh, me = srv.store.db.players[castle.playerId] || Object.values(srv.store.db.players)[0];
-    ok(hhLogic.roster.size === 698 && Object.values(srv.store.db.hh).filter(s => s.status === 'free' && s.fieldId != null).length === 698, 'all 698 historic heroes (the client\'s 639 and the 59 DoA added) wait in NPC cities');
-    { const R = hhLogic.roster, h700 = R.get(700), h720 = R.get(720), h715 = R.get(715), added = [...R.values()].filter(h => h.added);
-      ok(added.length === 59 && added.every(h => h.id >= 700 && h.id <= 758 && h.bio.length > 40 && !h.estimated && h.item === `hero.taskitem.${h.id}`)
-        && h700.name === 'Adolf Hitler' && h700.pol === 94 && h700.atk === 99 && h700.int === 83 && h700.ldr === 141 && !h700.female
+    ok(hhLogic.roster.size === 689 && Object.values(srv.store.db.hh).filter(s => s.status === 'free' && s.fieldId != null).length === 689, 'all 689 historic heroes (the client\'s 639 and 50 of those DoA added) wait in NPC cities');
+    { const R = hhLogic.roster, h704 = R.get(704), h720 = R.get(720), h715 = R.get(715), added = [...R.values()].filter(h => h.added);
+      ok(added.length === 50 && added.every(h => h.id >= 700 && h.id <= 758 && h.bio.length > 40 && !h.estimated && h.item === `hero.taskitem.${h.id}`)
+        && h704.name === 'Baldwin IV of Jerusalem' && h704.pol === 99 && h704.atk === 99 && h704.int === 99 && h704.ldr === 150 && !h704.female
+        && [700, 701, 703, 705, 707, 711, 717, 718, 746].every(id => !R.has(id)) && R.has(702) && R.has(742) && R.has(755)
         && h720.name === 'Poseidon' && h720.atk === 150 && h720.ldr === 250 && h715.name === 'Maria Theresa' && h715.female && R.get(758).female && /^Quasimodo was/.test(R.get(702).bio),
-        'the 59 heroes DoA added (700 to 758) are on the hero sheet with their stats, biographies and sex (Adolf Hitler 94/99/83/141, Poseidon 150 attack and 250 leadership, Maria Theresa a woman)');
-      ok(hhLogic.item(1) === 'hero.taskitem.01' && hhLogic.item(9) === 'hero.taskitem.09' && hhLogic.item(10) === 'hero.taskitem.10' && hhLogic.item(700) === 'hero.taskitem.700',
-        'a hero\'s portrait item is named as the client names it (hero.taskitem.01 for hero 1, hero.taskitem.700 for hero 700)');
+        'DoA\'s heroes up to the American Civil War (50 of the 59 it added) are on the hero sheet with their stats, biographies and sex (Baldwin IV 99/99/99/150, Poseidon 150 attack and 250 leadership, Maria Theresa a woman); Lincoln, Hitler, Stalin and the rest after it are not');
+      ok(hhLogic.item(1) === 'hero.taskitem.01' && hhLogic.item(9) === 'hero.taskitem.09' && hhLogic.item(10) === 'hero.taskitem.10' && hhLogic.item(704) === 'hero.taskitem.704',
+        'a hero\'s portrait item is named as the client names it (hero.taskitem.01 for hero 1, hero.taskitem.704 for hero 704)');
+      // A hero taken off the sheet leaves the map, the hearsay, quests and Enquire Details, and his portrait goes.
+      { const pl = Object.values(srv.store.db.players)[0], was = { items: { ...pl.items }, hearsay: pl.hearsay, q: pl.hhQuests, k: pl.hhKnown }, field = srv.store.db.hh[704].fieldId;
+        srv.store.db.hh[700] = { status: 'free', fieldId: field + 1 }; pl.items['hero.taskitem.700'] = 1; pl.items['hero.taskitem.704'] = 1;
+        pl.hearsay = { ids: [700, 704], until: Date.now() + 1e6 }; pl.hhQuests = { 700: { done: false } }; pl.hhKnown = { 700: true, 704: true };
+        const n = hhLogic.dropRemoved();
+        ok(n >= 5 && !srv.store.db.hh[700] && !pl.items['hero.taskitem.700'] && pl.items['hero.taskitem.704'] === 1 && pl.hearsay.ids.join() === '704' && !pl.hhQuests[700] && !pl.hhKnown[700] && pl.hhKnown[704]
+          && hhLogic.hearsay(pl, Date.now()).every(b => b && b.name),
+          'a hero taken off the hero sheet leaves the barbarian cities, the hearsay, quests and Enquire Details, and his portrait is taken back');
+        Object.assign(pl, { items: was.items, hearsay: was.hearsay, hhQuests: was.q, hhKnown: was.k }); }
       const pl = Object.values(srv.store.db.players)[0], had = { ...pl.items }; pl.items['hero.taskitem.3'] = 1;
       hhLogic.seed();
       ok(!pl.items['hero.taskitem.3'] && pl.items['hero.taskitem.03'] === (had['hero.taskitem.03'] || 0) + 1, 'a portrait given before 0.1.17 as hero.taskitem.3 becomes the client\'s hero.taskitem.03');
@@ -926,8 +936,8 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       // m3.128: the faithful sheet changes nothing the client knows, so the client is told of no items.
       const defs = await c.call('common.getItemDefXml', {});
       const told = [...String(defs.itemXml).matchAll(/<itemEum id="([^"]+)"/g)].map(m => m[1]);
-      ok(srv.game.hh.items.length === 59 && told.length === 59 && told.every(id => /^hero\.taskitem\.7[0-5]\d$/.test(id)),
-        'with the sheet the client is told only of the heroes it doesn\'t have, the 59 DoA added (common.getItemDefXml)');
+      ok(srv.game.hh.items.length === 50 && told.length === 50 && told.every(id => /^hero\.taskitem\.7[0-5]\d$/.test(id)),
+        'with the sheet the client is told only of the heroes it doesn\'t have, the 50 DoA added (common.getItemDefXml)');
     }
     {
       // m3.128 (the mod): a sheet can add heroes the client doesn't have (an ID of its own, a Bio, a Sex), replace a
@@ -1553,7 +1563,8 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       // 45% of the Traps, 63% of the Rolling Logs and 72% of the Trebuchets it lost at once, and everything grows back
       // at full strength an hour; a Historic City rebuilds nothing at once and grows back about 10% an hour (Fox).
       {
-        const W = require('../src/game/world'), now = Date.now(), npc8 = { id: W.idOf(611, 287), type: W.T.NPC, level: 8 }, hc = W.tileAt(srv.store, W.idOf(33, 165));
+        // (not across the daily reset, which fills NPC cities up again: in the hour after it, an hour later)
+        const W = require('../src/game/world'), now = Date.now() + (G.npc.day(Date.now() - 3600000) !== G.npc.day(Date.now()) ? 3600000 : 0), npc8 = { id: W.idOf(611, 287), type: W.T.NPC, level: 8 }, hc = W.tileAt(srv.store, W.idOf(33, 165));
         const all = { arrowTower: 100, trap: 100, rollingLogs: 100, rockfall: 100 }, none = { arrowTower: 0, trap: 0, rollingLogs: 0, rockfall: 0 };
         const r8 = G.npc.repair(npc8, all, none), rh = G.npc.repair(hc, all, none);
         const sp = G.npc.speed; G.npc.speed = 1;
@@ -3452,20 +3463,20 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         `the Heroes page (${heroes.length} heroes, ${states.filter(k => k === 'barb').length} in barbarian cities, none placed), the NPCs page and the Drop Table from this server's data`);
       // Portraits: DoA's own (art/heroes/N.png) for the heroes Evony's art doesn't have; "portrait unknown" for one nobody has.
       const unknown = fs.readFileSync(path.join(__dirname, '..', 'public', 'images', 'hero-unknown.png'));
-      const [f709, f700, f1] = await Promise.all(['/flash/images/icon/hero/709.png', '/flash/images/icon/hero/700.png', '/flash/images/icon/hero/1.png'].map(get));
-      const art = f => path.join(__dirname, '..', 'art', ...f.split('/')), doa = fs.existsSync(art('heroes/700.png')), evony = fs.existsSync(art('flash/images/icon/hero/1.png'));
+      const [f709, f704, f1] = await Promise.all(['/flash/images/icon/hero/709.png', '/flash/images/icon/hero/704.png', '/flash/images/icon/hero/1.png'].map(get));
+      const art = f => path.join(__dirname, '..', 'art', ...f.split('/')), doa = fs.existsSync(art('heroes/704.png')), evony = fs.existsSync(art('flash/images/icon/hero/1.png'));
       ok(heroes.some(h => h.id === 758 && h.name === 'Amanirenas') && f709.status === 200 && /png/.test(f709.type) && f709.body.equals(unknown)
-        && (!doa || f700.status === 200 && f700.body.equals(fs.readFileSync(art('heroes/700.png')))) && (!evony || f1.status === 200 && !f1.body.equals(unknown)),
-        `the Heroes page lists DoA's heroes; a portrait nobody has is "portrait unknown" (709)${doa ? ', and DoA\'s own come from art/heroes (700)' : ''}`);
+        && (!doa || f704.status === 200 && f704.body.equals(fs.readFileSync(art('heroes/704.png')))) && (!evony || f1.status === 200 && !f1.body.equals(unknown)),
+        `the Heroes page lists DoA's heroes; a portrait nobody has is "portrait unknown" (709)${doa ? ', and DoA\'s own come from art/heroes (704)' : ''}`);
       // Evony's own portrait comes first (here one in the cache, as fetched from the Evony art server); a blank
       // stand-in doesn't count; DoA's and "portrait unknown" are only lent (no-store), so Evony's shows once there.
       const evonyDir = path.join(dataDir, 'cache', 'images', 'icon', 'hero'); fs.mkdirSync(evonyDir, { recursive: true });
       const fake = Buffer.concat([Buffer.from('\x89PNG evony portrait '), Buffer.alloc(200, 7)]);
-      fs.writeFileSync(path.join(evonyDir, '700.png'), fake); fs.writeFileSync(path.join(evonyDir, '709.png'), Buffer.alloc(70, 1));
-      const [e700, e709] = await Promise.all(['/flash/images/icon/hero/700.png', '/flash/images/icon/hero/709.png'].map(get));
-      ok(e700.status === 200 && e700.body.equals(fake) && e709.body.equals(unknown) && /no-store/.test(e709.headers['cache-control']) && /no-store/.test(f709.headers['cache-control']) && !/no-store/.test(e700.headers['cache-control'] || ''),
+      fs.writeFileSync(path.join(evonyDir, '704.png'), fake); fs.writeFileSync(path.join(evonyDir, '709.png'), Buffer.alloc(70, 1));
+      const [e704, e709] = await Promise.all(['/flash/images/icon/hero/704.png', '/flash/images/icon/hero/709.png'].map(get));
+      ok(e704.status === 200 && e704.body.equals(fake) && e709.body.equals(unknown) && /no-store/.test(e709.headers['cache-control']) && /no-store/.test(f709.headers['cache-control']) && !/no-store/.test(e704.headers['cache-control'] || ''),
         'a hero\'s portrait is Evony\'s own when there is one (the cache before DoA\'s art/heroes), a blank stand-in counts as none, and DoA\'s or "portrait unknown" is sent no-store');
-      fs.rmSync(path.join(evonyDir, '700.png')); fs.rmSync(path.join(evonyDir, '709.png'));
+      fs.rmSync(path.join(evonyDir, '704.png')); fs.rmSync(path.join(evonyDir, '709.png'));
     }
     {
       // Age of War: Troop Goals and Coordinated Attacks, through the handlers with a stand-in connection.

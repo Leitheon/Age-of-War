@@ -172,6 +172,7 @@ class HistoricHeroLogic {
       const m = /^hero\.taskitem\.(\d+)$/.exec(k), to = m && this.item(Number(m[1]));
       if (to && to !== k){ p.items[to] = (p.items[to] || 0) + p.items[k]; delete p.items[k]; this.g.store.touch?.(); }
     }
+    this.dropRemoved();
     let placed = 0;
     for (const h of this.roster.values()){
       const s = this.db.hh[h.id];
@@ -181,6 +182,24 @@ class HistoricHeroLogic {
     }
     if (placed) this.g.store.touch?.();
     return placed;
+  }
+  // Heroes taken off the hero sheet (Fox, Nov 2026: none from the American Civil War on) leave the map: no longer
+  // in a barbarian city, in a lord's hearsay, quests or Enquire Details, and their portraits are taken back. One a
+  // lord already hired or holds stays his (logged).
+  dropRemoved(){
+    const gone = id => !this.roster.has(Number(id));
+    let n = 0;
+    for (const [id, st] of Object.entries(this.db.hh)) if (gone(id) && (st.status === 'free' || st.status == null)){ delete this.db.hh[id]; n++; }
+    for (const p of Object.values(this.db.players || {})){
+      if (p.hearsay?.ids?.some(gone)){ p.hearsay.ids = p.hearsay.ids.filter(id => !gone(id)); n++; }
+      for (const id of Object.keys(p.hhQuests || {})) if (gone(id)){ delete p.hhQuests[id]; n++; }
+      for (const id of Object.keys(p.hhKnown || {})) if (gone(id)){ delete p.hhKnown[id]; n++; }
+      for (const k of Object.keys(p.items || {})){ const m = /^hero\.taskitem\.(\d+)$/.exec(k); if (m && gone(m[1])){ delete p.items[k]; n++; } }
+    }
+    if (n) this.g.store.touch?.();
+    const kept = Object.values(this.db.castles || {}).flatMap(c => (c.heroes || []).filter(h => h.historic != null && gone(h.historic)).map(h => h.name));
+    if (kept.length) this.g.log?.info?.(`Historic heroes no longer on the hero sheet, still with the lords who have them: ${kept.join(', ')}`);
+    return n;
   }
   isNpcCity(fieldId){
     const t = world.tileAt(this.g.store, fieldId);
@@ -247,7 +266,7 @@ class HistoricHeroLogic {
   }
   free(){ return [...this.roster.values()].filter(h => this.state(h.id)?.status === 'free' && this.state(h.id).fieldId != null); }
   hearsay(p, now, fresh = false){
-    const r = this.rules, keep = (p.hearsay?.ids || []).filter(id => this.state(id)?.status === 'free');
+    const r = this.rules, keep = (p.hearsay?.ids || []).filter(id => this.roster.has(id) && this.state(id)?.status === 'free');
     if (fresh || !p.hearsay || now >= p.hearsay.until || keep.length < Math.min(r.hearsayCount, this.free().length)){
       const pool = this.free(), ids = [];
       while (ids.length < Math.min(r.hearsayCount, pool.length)){ const h = pool[Math.floor(Math.random() * pool.length)]; if (!ids.includes(h.id)) ids.push(h.id); }
