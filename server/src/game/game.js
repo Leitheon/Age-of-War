@@ -184,6 +184,11 @@ class Game {
       // Before 0.3.13 hiring a historic hero left the finished quest behind, keeping the Quests button lit.
       for (const id of Object.keys(p.hhQuests || {})) if (this.db.hh?.[id]?.status === 'hired') delete p.hhQuests[id];
     }
+    // 0.1.33: the Acquire Historic City quests count the Historic Cities a lord already holds.
+    for (const c of Object.values(this.db.castles)){
+      const h = world.historicAt(c.fieldId), p = this.db.players[c.playerId];
+      if (h && p && (c.powerLevel ?? 4) < 4 && this.quests.flag(p, `captureHC${h.level}`)) this.store.touch?.();
+    }
     // 0.1.28: the whole level 12 grid (Olathe at 99,99 ...) and the last two level 14s are on the map now. A lord's
     // city already on one of those spots stays; the Historic City shows there once that city moves away.
     for (const c of Object.values(this.db.castles)){

@@ -918,6 +918,7 @@ class ArmyLogic {
     g.store.touch();
     g.pushCastle(nc, 0); g.pushPlayerInfo(p); g.pushTroops(c);
     g.quests.record(p, 'npcCity', hc ? 10 : tile.level || 0);
+    if (hc) g.quests.flag(p, `captureHC${hc.level}`);
     g.effort.note(p, 'seize'); if (!hc && tile.level >= 10) g.effort.note(p, 'barbarian10'); if (held) g.effort.note(p, 'captive');
     g.log.info(`${p.name} conquered ${this.placeName(tile.id)}${held ? `, capturing ${held.hero.name}` : ''}`);
     return { castle: nc, captive: held?.hero || null, heldIn: held?.castle || null, hh, npcHero };

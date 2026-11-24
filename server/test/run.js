@@ -1130,7 +1130,13 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         let hcT = null; for (let id = 0; id < 640000 && !hcT; id++){ const t = world.tileAt(srv.store, id); if (t.historic?.level === 14) hcT = t; }
         me.title = me.castles.length + 3;
         const why = A.cantConquer(me, hcT), army = { troops: { archer: 777 }, loot: { gold: 100 } };
+        const flag14 = !!G.quests.state(me).flags.captureHC14;
         const won = A.conquer(army, me, city, null, hcT, G.npc.state(db, hcT, Date.now()), {}, null, Date.now()), h = won.castle;
+        // Fox (Nov 24 2026): Acquire Historic City, one quest a level (12, 14, 16, 18), a Legendary Ring each.
+        const ringQ = [690, 691, 692, 693].map(id => G.quests.defs.get(id));
+        ok(!flag14 && G.quests.state(me).flags.captureHC14 === true && ringQ.every((d, i) => d && d.reward.items['hero.gen.npc2'] === 1 && d.targets[0].key === `captureHC${[12, 14, 16, 18][i]}`)
+          && ringQ.every(d => d.typeId === ringQ[0].typeId),
+          'capturing a level 14 Historic City completes its Acquire Historic City quest; one for each of 12, 14, 16 and 18, a Legendary Ring each');
         const bean = G.mapBean({ player: me }, world.tileAt(srv.store, hcT.id)), inside = Object.keys(h.buildings).filter(k => +k >= 0 && +k < 1000);
         h.buildings[5] = { ...h.buildings['-1'], typeId: 29, level: 10 };   // the Rally Spot its lord builds
         const NC = G.rules.npcConquest; NC.historicRallySpot = true;
@@ -2328,6 +2334,16 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         && rolls[2].randomherobean.resetcount === 0 && paid.ok === 1 && me.coins === coins0 - 40 && paid.randomherobean.power === rolls[2].randomherobean.power && three.ok < 0
         && made.ok === 1 && rh && rh.base.pol === pend.management && rh.base.atk === pend.power && rh.base.int === pend.stratagem && rh.face === 'images/icon/player/faceA3.jpg' && !me.items['hero.gen.npc2'] && !me.ringHero,
         'Recruit Hero needs a Legendary Ring; locked attributes keep their values, three re-rolls a day are free and then cost coins and gold (40 with two locks); recruiting uses the ring');
+      { // Without cents (rules.noCents) a paid re-roll is all gold: the coins at the shop's rate, and the gold.
+        G.rules.noCents = true; me.items['hero.gen.npc2'] = 1;
+        const g0 = await c.call('hero.GetRandomHero', {}); me.ringHero.resets = 3; const coinsWas = me.coins;
+        for (const x of G.castlesOf(me)) x.res.gold = 0; city.res.gold = 300000;
+        const one = await c.call('hero.RetSetHeroAttri', { lockmanagement: true, lockpower: false, lockstratagem: false });
+        const left = Math.floor(city.res.gold), poor = await c.call('hero.RetSetHeroAttri', { lockmanagement: true, lockpower: false, lockstratagem: false });
+        G.rules.noCents = false; me.items['hero.gen.npc2'] = 0; delete me.ringHero;
+        ok(g0.ok === 1 && JSON.stringify(g0.randomherobean.resetPrice) === '[[0,110000],[0,220000],[0,440000]]' && one.ok === 1 && me.coins === coinsWas && left >= 80000 && left < 80000 + 1000
+          && poor.ok < 0 && /costs 220,000 gold/.test(poor.errorMsg),
+          `with no cents a paid re-roll costs gold only (one lock: 220,000), and the window gets the prices (${JSON.stringify(g0.randomherobean.resetPrice)})`); }
       // Fox's live capture of a Ring hero (Jessica): an On War book, then level-ups to 13 with 2,500 left over.
       me.items['player.experience.1.c'] = 1;
       const book = await c.call('hero.useItem', { castleId: castle.id, itemId: 'player.experience.1.c', heroId: rh.id });

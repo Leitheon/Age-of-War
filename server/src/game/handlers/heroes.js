@@ -131,9 +131,14 @@ module.exports = (game, H) => {
     if (s.day !== day){ s.day = day; s.resets = 0; }
     return s;
   };
+  // A paid reset (after the free ones): [coins, gold] with 0, 1 or 2 attributes locked; with rules.noCents the coins
+  // are paid in gold too, at the shop's rate (no coins: [0, gold]).
+  const resetPrice = n => { const coins = n === 2 ? 40 : n === 1 ? 20 : 10, gold = coins * 1000, rate = centsRate(game.rules); return rate ? [0, gold + coins * rate] : [coins, gold]; };
   const ringBean = (p, s, locks = []) => ({ id: p.id, player_id: p.id, management: s.management, power: s.power, stratagem: s.stratagem,
-    resetcount: Math.max(0, (ring().freeResets ?? 3) - s.resets), resettime: s.resetAt || 0, lockmanagement: !!locks[0], lockpower: !!locks[1], lockstratagem: !!locks[2] });
-  const noRing = 'Recruit Hero takes a Legendary Ring (an Ancient Ring: the merged servers gave one for each historic hero lost in the merge).';
+    resetcount: Math.max(0, (ring().freeResets ?? 3) - s.resets), resettime: s.resetAt || 0, lockmanagement: !!locks[0], lockpower: !!locks[1], lockstratagem: !!locks[2],
+    resetPrice: [0, 1, 2].map(resetPrice) });
+  const noRing = game.rules.ringQuests === false ? 'Recruit Hero takes a Legendary Ring (an Ancient Ring: the merged servers gave one for each historic hero lost in the merge).'
+    : 'Recruit Hero takes a Legendary Ring. Capturing a level 12, 14, 16 and 18 Historic City gives one each (the Acquire Historic City quests, City Expansion).';
   H['hero.GetRandomHero'] = (conn, d, cmd) => {
     const p = conn.player; if (!game.items.has(p, RING)) return game.fail(conn, cmd, -44, noRing);
     // (live: the roll waits, with its locks, until the hero is made)
@@ -145,11 +150,11 @@ module.exports = (game, H) => {
     if (n > 2) return game.fail(conn, cmd, -1, 'Lock at most two attributes.');
     const s = pending(p), free = s.resets < (ring().freeResets ?? 3);
     if (!free){
-      const coins = n === 2 ? 40 : n === 1 ? 20 : 10, gold = coins * 1000;
+      const [coins, gold] = resetPrice(n);
       const cs = game.castlesOf(p); for (const c of cs) game.catchUp(c);
       const c = cs.reduce((a, b) => (b.res.gold > a.res.gold ? b : a), cs[0]);
-      if ((p.coins || 0) < coins || !c || c.res.gold < gold) return game.fail(conn, cmd, -28, `This reset costs ${coins} coins and ${gold.toLocaleString('en-US')} gold.`);
-      p.coins -= coins; c.res.gold -= gold; game.pushPlayerInfo(p); game.pushResources(c);
+      if ((p.coins || 0) < coins || !c || c.res.gold < gold) return game.fail(conn, cmd, -28, `This reset costs ${coins ? `${coins} coins and ` : ''}${gold.toLocaleString('en-US')} gold.`);
+      p.coins = (p.coins || 0) - coins; c.res.gold -= gold; game.pushPlayerInfo(p); game.pushResources(c);
     }
     s.resets++; s.locks = locks; s.resetAt = game.now();
     if (!locks[0]) s.management = roll(); if (!locks[1]) s.power = roll(); if (!locks[2]) s.stratagem = roll();

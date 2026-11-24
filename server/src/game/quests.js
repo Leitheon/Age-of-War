@@ -205,6 +205,9 @@ function catalog(){
       // Live (Fox's capture, Oct 26 2026): "Conquer one capital city", its award as the live quest window shows it.
       [q(547, 'Acquire Capital City', [kind('npcCity', { level: 1, text: 'Conquer one city.' })], 'Intermediate Guidelines*5, Senior Guidelines*5, Aries Amulet*5, Prestige*100000')],
       [q(625, 'Scout the capital city', [flag('scoutCapital', 'Scout the capital at 0,0')], 'Prestige*50')],
+      // Fox (Nov 24 2026): capture one Historic City of each level, a Legendary Ring each (Recruit Hero, beside the
+      // lord's portrait), so four in all.
+      ...[12, 14, 16, 18].map((L, i) => [q(690 + i, 'Acquire Historic City', [flag(`captureHC${L}`, `Capture a level ${L} Historic City`)], '#hero.gen.npc2*1')]),
     ] },
     { typeId: 82, name: 'Rich Store', description: 'Raise lumber production and build a Warehouse.', chains: [
       [q(138, 'Sawmill Upgrade', [bld(B.SAWMILL, 2)], res4(1000, 1000, 1000, 1000))], [q(139, 'Warehouse', [bld(B.WAREHOUSE)], res4(500, 2000, 1500, 500))],
