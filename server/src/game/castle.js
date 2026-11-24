@@ -11,13 +11,15 @@ const MAX_LEVEL_MSG = 'The building has already reached maximum level.';   // th
 
 // A number as a Java int: the low 32 bits, signed (2^31 becomes -2^31).
 function int32(n){ const m = ((Math.trunc(n) % 4294967296) + 4294967296) % 4294967296; return m >= 2147483648 ? m - 4294967296 : m; }
-// The most of one troop type a city can hold: a Java int's largest (Fox: past it the original's count turned negative
-// and broke the city; here it stops there).
-const TROOP_MAX = 2147483647;
-// A city's count of one troop type with n more added. As on live (Fox, Nov 2026), the count is a 32-bit integer:
-// past 2,147,483,647 it wraps round to -2,147,483,648, however the troops arrive (training, Draft, armies coming
-// home, reinforcements, items), and a city with any count below zero is bricked (Game.bricked).
-const addTroops = (have, n) => int32((have || 0) + n);
+// The most of one troop type a city holds, and of one resource (Fox, Nov 24 2026: "cap each troop type count at 2^40
+// and clamp it to 1trillion", "Troop counts should never be allowed to go negative", "allow resource numbers to be
+// clamped at 100trillion"). Live's count was a 32-bit integer that wrapped to -2,147,483,648 past 2,147,483,647 and
+// bricked the city; not here. (Numbers are doubles here either way, exact to 2^53, so the size costs nothing.)
+const TROOP_MAX = 1e12, RES_MAX = 1e14;
+const clampTroops = n => Math.max(0, Math.min(TROOP_MAX, Math.floor(Number(n) || 0)));
+// A city's count of one troop type with n more added, however the troops arrive (training, Draft, armies coming
+// home, reinforcements, items): from 0 to TROOP_MAX.
+const addTroops = (have, n) => clampTroops((have || 0) + n);
 
 class CastleLogic {
   constructor(data, rules, speed){
@@ -59,12 +61,13 @@ class CastleLogic {
     const step = this.rules.stockpileStep;
     return Math.round(s * (!p ? 1 : step ? Math.pow(step, this.techLevel(p, TECH_STOCKPILE)) : 1 + this.techEffect(p, TECH_STOCKPILE) / 100));
   }
-  // Food the city's troops eat an hour. As on the original server, each troop type's upkeep (how many there are, with
-  // the allied troops of that type the city feeds, x the type's upkeep) is a 32-bit integer (Fox): past 2^31 it wraps
-  // to negative, so that type feeds the city instead, and back again at each 2^32, a type at a time.
+  // Food the city's troops eat an hour at the live game's rates: each type's count, with the allied troops of that
+  // type the city feeds, x its upkeep (rates() scales it by rules.troopUpkeep). On the original server each type's
+  // upkeep was a 32-bit integer, so past 2^31 it flipped and that type fed the city (Fox, Nov 24 2026: a tester's
+  // 88 million Catapults and 50 million Rams ate nothing; "Let's remove that bug").
   upkeep(c, guests = null){
     let f = 0;
-    for (const t of Object.values(this.data.troops)) f += int32(((c.troops?.[t.field] || 0) + (guests?.[t.field] || 0)) * t.upkeep);
+    for (const t of Object.values(this.data.troops)) f += ((c.troops?.[t.field] || 0) + (guests?.[t.field] || 0)) * t.upkeep;
     return f;
   }
   buffActive(p, id, now = Date.now()){ return (p.buffs?.[id] || 0) > now; }
@@ -106,14 +109,16 @@ class CastleLogic {
     // positive received).
     r.tribute = !raw && this.hooks.tribute ? this.hooks.tribute(c, r, now) : null;
     if (r.tribute) for (const k of ['food', 'wood', 'stone', 'iron', 'gold']) r[k] += r.tribute[k];
-    r.foodUpkeep = (this.upkeep(c, this.hooks.guestTroops?.(c)) + (this.hooks.guestUpkeep?.(c) || 0)) * this.hooks.upkeepRate(p, now);   // (and allied troops it feeds)
+    // (and allied troops it feeds; rules.troopUpkeep: Age of War's troops eat a tenth of live's, Fox, Nov 24 2026)
+    r.foodUpkeep = (this.upkeep(c, this.hooks.guestTroops?.(c)) + (this.hooks.guestUpkeep?.(c) || 0)) * this.hooks.upkeepRate(p, now) * (this.rules.troopUpkeep ?? 1);
     r.efficiency = staffed; r.workNeeded = Math.round(demand); r.detail = detail;
     return r;
   }
   // Bring resources and population up to `now`.
   settle(c, p, now){
-    // (a count outside a 32-bit integer, from an old save, wraps as live's would)
-    for (const k in c.troops || {}) if (c.troops[k] > TROOP_MAX || c.troops[k] < -TROOP_MAX - 1) c.troops[k] = int32(c.troops[k]);
+    // (every troop count from 0 to TROOP_MAX, every resource up to RES_MAX, however it got there)
+    for (const k in c.troops || {}) if (!(c.troops[k] >= 0 && c.troops[k] <= TROOP_MAX)) c.troops[k] = clampTroops(c.troops[k]);
+    this.capRes(c);
     const dt = (now - c.resAt) / 3600000;
     if (dt <= 0) return;
     const r = this.rates(c, p, c.resAt);
@@ -134,7 +139,10 @@ class CastleLogic {
     c.pop = settle - (settle - c.pop) * Math.exp(-k * dt);
     if (Math.abs(settle - c.pop) < 0.5) c.pop = settle;
     c.resAt = now;
+    this.capRes(c);
   }
+  // A city's resources up to RES_MAX (100 trillion) each.
+  capRes(c){ for (const k of ['food', 'wood', 'stone', 'iron', 'gold']) if (c.res?.[k] > RES_MAX) c.res[k] = RES_MAX; }
 
   // ---------- construction ----------
   // Live (Fox's captures, 14 readings over three accounts, Oct 26 2026): each Construction level takes 10% off what
@@ -319,4 +327,4 @@ class CastleLogic {
   removeEmpty(c, pos){ const b = c.buildings[pos]; if (b && b.level === 0 && b.status === STATUS.NORMAL) delete c.buildings[pos]; }
 }
 
-module.exports = { int32, TROOP_MAX, addTroops, CastleLogic, TYPE, STATUS, POS_TOWN_HALL, POS_WALLS, ERR, FIELD_RES };
+module.exports = { int32, TROOP_MAX, RES_MAX, clampTroops, addTroops, CastleLogic, TYPE, STATUS, POS_TOWN_HALL, POS_WALLS, ERR, FIELD_RES };

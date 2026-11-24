@@ -90,8 +90,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'evony-test-'));
   // The tests were written for a richer first city than the live game's (which has only a Town Hall): a Cottage, four
   // fields and plenty of resources. The live start is checked on its own further down. (Age of War's level 1 Walls in
-  // every city, startWalls, and its gold in place of cents, noCents, are off for the live checks and tested on their own.)
-  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, heroAutoLevel: false, innRestock: false, prisonersNeedNoSeat: false, reports: { heroCapture: true, itemOpened: true, reinforcements: true, outcomeInTitle: false }, historicHeroes: { questFree: false }, npcConquest: { layout: { keepCottages: null } }, dynamiteFullDemolish: false, mayorExp: 0, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
+  // every city, startWalls, and its gold in place of cents, noCents, are off for the live checks and tested on their own;
+  // so is troops eating a tenth of live's upkeep, troopUpkeep.)
+  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, troopUpkeep: 1, heroAutoLevel: false, innRestock: false, prisonersNeedNoSeat: false, reports: { heroCapture: true, itemOpened: true, reinforcements: true, outcomeInTitle: false }, historicHeroes: { questFree: false }, npcConquest: { layout: { keepCottages: null } }, dynamiteFullDemolish: false, mayorExp: 0, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
     population: 100, taxRate: 20, productionRate: 100, buildings: { '0': [1, 1], '1001': [7, 1], '1002': [4, 1], '1003': [5, 1], '1004': [6, 1] } } }));
   const srv = main({ ...PORTS, dataDir, cacheDir: path.join(dataDir, 'cache'), speed: 600, logLevel: 'warn', embedded: true, assetCdn: '', flashClient: true, legacyLogin: true, adminPassword: ADMIN.pw });
   ADMIN.token = srv.game.adminToken;
@@ -220,12 +221,13 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       cs.forEach((x, i) => { x.res = was[i]; });
       const city = srv.store.db.castles[castle.id], tw = { ...city.troops }, a0 = city.troops.archer || 0;
       const t1 = (await get(`/coins?from=game&user=Tester&city=${castle.id}&troop=archer&tn=2145000000`)).body.toString(), a1 = city.troops.archer;
+      city.troops.archer = 1e12 - 5000000;
       const t2 = (await get(`/coins?from=game&user=Tester&city=${castle.id}&troop=archer&tn=10000000`)).body.toString(), a2 = city.troops.archer;
       const t3 = (await get(`/coins?from=game&user=Tester&city=${castle.id}&troop=archer&tn=2145000001`)).body.toString();
       city.troops = tw;
       ok(big.includes('Added 2,145,000,000 food') && w1 >= w0 + 2145000000 - 1 && !over.includes('Added') && w2 === w1 && /max="2145000000"/.test(big)
-        && /Added 2,145,000,000 Archers? to/.test(t1) && a1 === a0 + 2145000000 && /stopped at 2,147,483,647/.test(t2) && a2 === 2147483647 && /from 1 to 2,145,000,000/.test(t3),
-        `the debug menu gives up to 2,145,000,000 of each resource and of troops at a time, and a troop count stops at 2,147,483,647 rather than turning negative (archers ${a0} -> ${a1} -> ${a2})`);
+        && /Added 2,145,000,000 Archers? to/.test(t1) && a1 === a0 + 2145000000 && /stopped at 1,000,000,000,000/.test(t2) && a2 === 1e12 && /from 1 to 2,145,000,000/.test(t3),
+        `the debug menu gives up to 2,145,000,000 of each resource and of troops at a time, and a troop count stops at 1,000,000,000,000 (archers ${a0} -> ${a1} -> ${a2})`);
     }
     const givePage = await get(`/coins?from=game&user=Tester&give=${encodeURIComponent('Saxon Beer Chest A')}&n=2`);
     const gotItem = (await c.wait('server.ItemUpdate', 3000, d => d.items.some(i => i.id === 'player.box.present.money.96'))).data;
@@ -2773,33 +2775,35 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         'the march window saves troop settings');
     }
     {
-      // Fox (Oct 29 2026), as on the original server: each troop type's upkeep is a 32-bit integer, so past 2^31 it
-      // flips and that type feeds the city, flipping back at each 2^32; and so is a troop count (below).
-      const G = srv.game, L = G.logic, city = G.db.castles[castle.id], was = { ...city.troops };
+      // Fox (Nov 24 2026): live's upkeep flip is gone ("Let's remove that bug": a tester's 88 million Catapults and 50
+      // million Rams ate nothing), troops eat a tenth of live's upkeep (rules.troopUpkeep), a troop count runs from 0 to
+      // 1,000,000,000,000 and never below zero, and a resource stops at 100,000,000,000,000.
+      const G = srv.game, L = G.logic, city = G.db.castles[castle.id], was = { ...city.troops }, resWas = { ...city.res };
+      const CL = require('../src/game/castle'), { addTroops, TROOP_MAX, RES_MAX } = CL;
       const mil = Object.values(G.data.troops).find(t => t.field === 'militia'), arch = Object.values(G.data.troops).find(t => t.field === 'archer');
+      const cat = Object.values(G.data.troops).find(t => t.field === 'catapult'), ram = Object.values(G.data.troops).find(t => t.field === 'batteringRam');
       const upk = troops => { city.troops = troops; return L.upkeep(city); };
-      const below = upk({ militia: Math.floor(2147483647 / mil.upkeep) }), over = upk({ militia: Math.floor(2147483648 / mil.upkeep) + 1 });
-      const back = upk({ militia: Math.floor(4294967296 / mil.upkeep) + 1 }), mixed = upk({ militia: Math.floor(2147483648 / mil.upkeep) + 1, archer: 1000 });
-      ok(below > 0 && over < 0 && back > 0 && back < 10 * mil.upkeep && mixed === over + 1000 * arch.upkeep,
-        `troop upkeep wraps a type at a time as a 32-bit integer: ${below.toLocaleString('en-US')}, then ${over.toLocaleString('en-US')} (feeding the city), then ${back} again`);
-      const r = (city.troops = { militia: Math.floor(2147483648 / mil.upkeep) + 1 }, L.rates(city, me, Date.now()));
-      ok(r.foodUpkeep < 0, 'a city whose upkeep has flipped gains food from its troops');
-      // The overflow (Fox, live, Nov 21 2026): a troop count is a 32-bit integer however the troops arrive, so past
-      // 2,147,483,647 it wraps to -2,147,483,648; training past it isn't refused; and a city with any count below zero
-      // can do nothing until every count is back to zero or more.
-      city.troops = { militia: 2147483000 };
-      const { addTroops } = require('../src/game/castle');
+      const tester = upk({ catapult: 88000000, batteringRam: 50000000 }), huge = upk({ militia: TROOP_MAX, archer: TROOP_MAX });
+      const rate = G.rules.troopUpkeep; G.rules.troopUpkeep = 0.1;
+      const r = (city.troops = { catapult: 88000000, batteringRam: 50000000 }, L.rates(city, me, Date.now())), full = (city.troops = { catapult: 88000000, batteringRam: 50000000 }, G.rules.troopUpkeep = 1, L.rates(city, me, Date.now()));
+      G.rules.troopUpkeep = rate;
+      ok(tester === 88000000 * cat.upkeep + 50000000 * ram.upkeep && tester > 2 ** 31 && huge === TROOP_MAX * (mil.upkeep + arch.upkeep)
+        && full.foodUpkeep > 0 && Math.abs(r.foodUpkeep * 10 - full.foodUpkeep) < 1e-3 && full.foodUpkeep === tester * L.hooks.upkeepRate(me, Date.now()),
+        `troop upkeep never flips: 88 million Catapults and 50 million Rams eat ${tester.toLocaleString('en-US')} food an hour at live's rates, a tenth of it here (${Math.round(full.foodUpkeep).toLocaleString('en-US')} -> ${Math.round(r.foodUpkeep).toLocaleString('en-US')} with this lord's buffs)`);
+      // Training past the most a city holds is refused; troops arriving stop there; no count goes below zero.
+      city.troops = { militia: TROOP_MAX - 500 };
       const q0 = JSON.stringify(city.trainQ || {}), res0 = { ...city.res };
-      const trained = G.troops.produce(city, me, null, mil.typeId ?? Object.keys(G.data.troops).find(k => G.data.troops[k] === mil), 1000, Date.now());
+      const trained = G.troops.produce(city, me, null, Object.keys(G.data.troops).find(k => G.data.troops[k] === mil), 1000, Date.now());
       city.trainQ = JSON.parse(q0); city.res = res0;
-      const wraps = [addTroops(2147483647, 1), addTroops(2147483000, 1000), addTroops(-2147483648, 2147483648), addTroops(5, 10), addTroops(undefined, 7)];
-      city.troops = { militia: addTroops(2147483647, 5), archer: 100 };
-      const bricked = await c.call('interior.getResourceProduceData', { castleId: castle.id });
-      city.troops = { militia: addTroops(city.troops.militia, 2147483648), archer: 100 };
-      const free = await c.call('interior.getResourceProduceData', { castleId: castle.id });
-      ok(!(Array.isArray(trained) && /at most/.test(trained[1])) && wraps.join() === '-2147483648,-2147483296,0,15,7'
-        && bricked.ok < 0 && /below zero/.test(bricked.errorMsg) && city.troops.militia === 4 && free.ok === 1,
-        `a troop count wraps past 2,147,483,647 however the troops arrive, and a city with a count below zero is bricked until it's back up (${bricked.errorMsg})`);
+      const adds = [addTroops(2147483647, 1), addTroops(TROOP_MAX - 5, 1000), addTroops(5, -10), addTroops(5, 10), addTroops(undefined, 7)];
+      city.troops = { militia: -2147483000, archer: 2 * TROOP_MAX, lightCavalry: NaN };
+      const after = await c.call('interior.getResourceProduceData', { castleId: castle.id }), t3 = { ...city.troops };
+      city.res = { ...city.res, food: RES_MAX * 3, gold: RES_MAX + 5 };
+      await c.call('interior.getResourceProduceData', { castleId: castle.id }); const capped = { ...city.res };
+      city.res = resWas;
+      ok(Array.isArray(trained) && /at most 1,000,000,000,000/.test(trained[1]) && adds.join() === `2147483648,${TROOP_MAX},0,15,7`
+        && after.ok === 1 && t3.militia === 0 && t3.archer === TROOP_MAX && t3.lightCavalry === 0 && capped.food <= RES_MAX && capped.food > RES_MAX * 0.99 && capped.gold === RES_MAX,
+        `a troop count runs from 0 to 1,000,000,000,000 ("${trained?.[1]}"), and a resource stops at 100,000,000,000,000`);
       city.troops = was;
     }
     {

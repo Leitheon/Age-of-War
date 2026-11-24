@@ -96,6 +96,10 @@ const DEFAULTS = {
   coinsPage: true,
   debugCoins: false,            // the debug menu's Coins section (Fox, Nov 24 2026: hidden for this version)
 
+  // Troops eat this share of the live game's upkeep, at home, on the march and in camp (Fox, Nov 24 2026: "cut troop
+  // upkeep to 1/10 of what retail is").
+  troopUpkeep: 0.1,
+
   // Troops. typeId -> [[ 'b', buildingTypeId, level ] | [ 't', techId, level ], ...]
   // UNVERIFIED: best guesses; compare with the live game's barracks requirements.
   troopUnlock: {

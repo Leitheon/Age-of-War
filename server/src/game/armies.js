@@ -60,7 +60,7 @@ class ArmyLogic {
     // (whole seconds: live, 37 reinforcements over 1.41 tiles took 28 s, where the formula gives 28.3)
     return Math.max(1000, Math.floor(distance(from, to) * 60000 / s) * 1000 / this.g.logic.speed);
   }
-  foodFor(troops, ms){ let f = 0; for (const t of Object.values(this.g.data.troops)) f += (troops[t.field] || 0) * t.upkeep * 2; return Math.ceil(f * ms / 3600000); }
+  foodFor(troops, ms){ let f = 0; for (const t of Object.values(this.g.data.troops)) f += (troops[t.field] || 0) * t.upkeep * 2; return Math.ceil(f * (this.g.rules.troopUpkeep ?? 1) * ms / 3600000); }
   load(troops, p){ let l = 0; for (const t of Object.values(this.g.data.troops)) l += (troops[t.field] || 0) * t.load; return Math.floor(l * (1 + this.g.logic.techEffect(p, TECH.LOGISTICS) / 100)); }
   rallyLevel(c){ return this.g.logic.level(c, 29); }
   // Relief Station: marches between your own cities go this many times faster (army.getTroopParam).
@@ -172,7 +172,7 @@ class ArmyLogic {
     // before it marches, eating the city's food meanwhile, so the window adds an hour's upkeep for each hour of it to
     // the food the march needs.
     const campS = Math.min(24 * 3600, Math.max(0, Math.floor(Number(bean.restTime) || 0)));
-    const campFood = Math.ceil(this.upkeepOf(troops) * campS / 3600);
+    const campFood = Math.ceil(this.upkeepOf(troops) * (g.rules.troopUpkeep ?? 1) * campS / 3600);
     const food = this.foodFor(troops, ms) + campFood;
     if (c.res.food - (carry.food || 0) < food) return [-1, `This march needs ${food.toLocaleString('en-US')} food for the road.`];
     // All good: take the troops, food, cargo and hero out of the city.

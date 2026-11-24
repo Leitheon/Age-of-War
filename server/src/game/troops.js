@@ -82,8 +82,8 @@ class TroopLogic {
       if (queued({ pos }) >= limit) return [-51, `This Barracks can queue ${limit} batch${limit > 1 ? 'es' : ''}. Upgrade it to queue more.`];
       targets = [{ pos }];
     }
-    // (No cap: as on live, training past 2,147,483,647 of a type is allowed, and the count wraps negative when the
-    // troops are done: castle.addTroops.)
+    // (A city holds at most TROOP_MAX of a type: 1,000,000,000,000. Live let a count wrap negative; not here.)
+    if ((c.troops[t.field] || 0) + num > TROOP_MAX) return [-1, `A city can hold at most ${TROOP_MAX.toLocaleString('en-US')} of each troop type.`];
     const cond = this.condition(c, p, typeId, num);
     const missB = cond.buildings.find(x => !x.successFlag), missT = cond.techs.find(x => !x.successFlag);
     if (missB) return [-8, `Requires ${this.castle.typeName(missB.typeId)} level ${missB.level}.`];

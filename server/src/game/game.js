@@ -197,6 +197,12 @@ class Game {
     }
     for (const c of Object.values(this.db.castles)){
       c.troops = c.troops || {}; c.forts = c.forts || {}; c.trainQ = c.trainQ || {}; c.heroes = c.heroes || []; c.valleys = c.valleys || []; c.fortQ = c.fortQ || [];
+      // 0.1.38: troop counts never go below zero now (before, one wrapped to -2,147,483,648 past 2,147,483,647, as on
+      // live, and bricked the city). A wrapped count gets back what it had (+2^32); any other below zero is 0.
+      for (const [k, v] of Object.entries(c.troops)) if (v < 0){
+        const now = v < -(2 ** 30) ? Math.min(TROOP_MAX, v + 2 ** 32) : 0;
+        c.troops[k] = now; this.store.touch?.(); this.log.info(`${c.name}: ${k} was ${v.toLocaleString('en-US')} (wrapped past 2,147,483,647), now ${now.toLocaleString('en-US')}`);
+      }
       if (this.heroes.migrate(c, this.db.players[c.playerId])) this.store.touch?.();
       // Heroes holding the experience for more levels (before rules.heroAutoLevel) go up now.
       for (const h of c.heroes){ const n = this.heroes.autoLevel(h); if (n){ this.store.touch?.(); this.log.info(`${c.name}: ${h.name} went up ${n} level${n > 1 ? 's' : ''} to ${h.level}`); } }
@@ -240,13 +246,8 @@ class Game {
     const c = this.castleFor(conn, id);
     if (!c){ this.fail(conn, cmd, -30, 'That city is not yours.'); return null; }
     this.catchUp(c);
-    if (this.bricked(c)){ this.fail(conn, cmd, -1, `${c.name} can't do anything while one of its troop counts is below zero.`); return null; }
     return c;
   }
-  // A city with any troop count below zero (a count wrapped past 2,147,483,647: castle.addTroops) can do nothing
-  // until every count is back to zero or more, which only troops arriving can do (Fox, live, Nov 2026; the message is
-  // ours: live's UNVERIFIED). rules.troopOverflow.brick: false turns it off.
-  bricked(c){ return this.rules.troopOverflow?.brick !== false && Object.values(c.troops || {}).some(n => n < 0); }
   catchUp(c){ this.completeDue(c, true); this.logic.settle(c, this.playerOf(c), this.now()); }
   reply(conn, cmd, data){ this.flushChanges(conn, cmd); this.observe(conn, cmd); conn.send(cmd, { ok: OK, ...data, packageId: this.packageFor(conn, cmd) }); }
   // The client numbers each request (data.packageId) and matches the reply by that number. Replies to one command
@@ -369,7 +370,7 @@ class Game {
   }
   // The Coordinates List (handlers/signs.js), with the cities' names as they are now.
   signs(p){ return (p.signs || []).map(s => ({ id: s.id, name: this.db.castles[s.castleId]?.name || s.name, x: s.x, y: s.y })); }
-  pushResources(c){ this.push(c.playerId, 'server.ResourceUpdate', { castleId: c.id, resource: this.beans.resource(c, this.playerOf(c)) }); }
+  pushResources(c){ this.logic.capRes(c); this.push(c.playerId, 'server.ResourceUpdate', { castleId: c.id, resource: this.beans.resource(c, this.playerOf(c)) }); }
   pushTroops(c){ this.push(c.playerId, 'server.TroopUpdate', { caslteId: c.id, troop: this.beans.troop(c) }); }
   // The Hospital window (Rally Spot): the wounded resting in a city and what curing them costs.
   pushInjured(c){ const w = this.armies.woundedWhole(c, this.now()); this.push(c.playerId, 'server.InjuredTroopUpdate', { castleId: c.id, goldNeed: this.armies.cureCost(w), troop: this.beans.troop({ troops: w }) }); }

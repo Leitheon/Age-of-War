@@ -50,8 +50,7 @@ Game rules (speeds, prices, limits) are in `server/src/rules.js`; put the ones y
 - **Reset link**: a one-day link that lets the player choose a new password (a local server sends no e-mail, so
   pass it on yourself). A player who uses "Forgot password?" gets one written in the server window too;
 - **Close** / **Reopen** an account;
-- **Debug tools** for a lord: resources and troops (up to 2,145,000,000 at a time; a city's troop count stops at
-  2,147,483,647), items, research, gear, gift packages, the news ticker. The coins section is hidden for now
+- **Debug tools** for a lord: resources and troops (up to 2,145,000,000 at a time), items, research, gear, gift packages, the news ticker. The coins section is hidden for now
   (`debugCoins` in `data/rules.json` brings it back).
 
 ## Letting other people in
@@ -137,6 +136,10 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   every hero he has, sortable by any column, with a Select box for up to 3 champions. Any lord can see them from
   the Champions button on that lord's cities (Hero Attributes: portraits, stats and gear). It has the live game's
   frame, its title on the red banner. Every window's X sits on its frame's silver tab, whatever the window's size.
+- **Troops and resources**: a city holds 0 to 1,000,000,000,000 of each troop type (training past it is refused;
+  troops arriving stop there) and up to 100,000,000,000,000 of each resource. Troops eat a tenth of the live game's
+  upkeep (`troopUpkeep`), at home, on the march and in camp, and live's 32-bit overflows are gone: no troop count wraps
+  negative and bricks a city, and no troop type's upkeep flips to feed the city.
 - **Prestige for lost troops**: the loser of a battle pays the prestige his troops earned when trained, only for those
   gone for good: not those Penicillin saves or the wounded (who come back healed), nor allied troops in his city.
 - **Prisoners** take no Feasting Hall seat (`rules.prisonersNeedNoSeat`): a city with a Feasting Hall captures a hero
