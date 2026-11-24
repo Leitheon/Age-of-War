@@ -66,9 +66,15 @@ function main(overrides = {}){
   const perf = new Perf(log);
   const store = new Store(dataDir, log, perf);
   const rules = loadRules(dataDir, log);
+  // Which version is running, and any data/rules.json setting that brings back live's prestige losses (Fox, Nov 24
+  // 2026: "You shouldn't be able to lose prestige at all").
+  const version = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
+  log.info(`Age of War ${version}`);
+  if (rules.battlePrestige?.losses) log.warn('data/rules.json has battlePrestige.losses on: lords lose prestige for troops lost in battle. Remove it to turn that off.');
+  if (rules.alliances?.quitPrestigeRate) log.warn(`data/rules.json has alliances.quitPrestigeRate ${rules.alliances.quitPrestigeRate}: leaving an alliance costs prestige. Remove it to turn that off.`);
   const faces = createFacePool(path.resolve(ROOT, cfg.cacheDir || 'cache'));
   const art = createArtLog(path.resolve(ROOT, cfg.cacheDir || 'cache'), log);
-  const game = new Game({ store, data, rules, speed: cfg.speed, protocol, log, logDir: dataDir, faces, art, perf, site: cfg.publicUrl || `http://${cfg.host}:${cfg.httpPort}` });
+  const game = new Game({ store, data, rules, version, speed: cfg.speed, protocol, log, logDir: dataDir, faces, art, perf, site: cfg.publicUrl || `http://${cfg.host}:${cfg.httpPort}` });
   log.info(`Placed ${game.historicCount.toLocaleString('en-US')} Historic Cities on the map`);
   game.legacyLogin = !!cfg.legacyLogin;
 

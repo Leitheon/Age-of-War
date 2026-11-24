@@ -2362,6 +2362,17 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         ok(h.att < -100 && afterBattle[0] === 0 && afterBattle[1] > 100 && migrated.join() === '0,0' && noLoss === 0 && DEFAULTS.alliances.quitPrestigeRate === 0
           && big[0] === 5e12 + h2.att && bean.prestige === 3e12 && bean.honor === big[0] && big[1] === 0,
           `honor can be lost but stops at 0 (a battle worth ${h.att} honor leaves 100 at ${afterBattle[0]}), prestige is never lost (lost troops, quitting an alliance), a lord saved below 0 starts at 0, and neither is capped (3,000,000,000,000 prestige shows as it is)`);
+        // Fox (Nov 24 2026), hitting a tester's city: "At some point I lost prestige and my prestige is now at 0." With
+        // Age of War's rules, lost and won attacks on a lord's city leave both lords' prestige as it was.
+        G.rules.battlePrestige.losses = DEFAULTS.battlePrestige.losses;
+        const fcWas = { ...fc.troops }, fcRes = { ...fc.res }, fcLoy = fc.loyalty, pv = [me.prestige, foe.prestige, me.honor, foe.honor]; me.prestige = 1000; foe.prestige = 1000;
+        fc.troops = { archer: 30000 }; const lostA = army(0, { lightCavalry: 2000 }, fc.fieldId); A.arrive(lostA, Date.now()); delete db.armies[lostA.id];
+        const afterLost = [me.prestige, foe.prestige, !!lostA.lost];
+        fc.troops = { archer: 50 }; const wonA = army(0, { lightCavalry: 2000 }, fc.fieldId); A.arrive(wonA, Date.now()); delete db.armies[wonA.id];
+        const afterWon = [me.prestige, foe.prestige];
+        fc.troops = fcWas; fc.res = fcRes; fc.loyalty = fcLoy; [me.prestige, foe.prestige, me.honor, foe.honor] = pv; G.rules.battlePrestige.losses = bpWas;
+        ok(afterLost.join() === '1000,1000,true' && afterWon[0] >= 1000 && afterWon[1] >= 1000,
+          `attacking a lord's city costs neither lord prestige, lost or won (${afterLost.slice(0, 2).join(', ')}; ${afterWon.join(', ')})`);
       }
       const last = A.cantTakeCity(me, foe);
       ok(last && /last city/.test(last), 'a lord\'s last city can\'t be taken');

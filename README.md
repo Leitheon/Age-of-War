@@ -146,7 +146,8 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   negative and bricks a city, and no troop type's upkeep flips to feed the city.
 - **Prestige and honor**: prestige is never lost (live took it for lost troops and for leaving an alliance:
   `battlePrestige.losses` and `alliances.quitPrestigeRate`, off here). Honor can be lost in battle but stops at 0.
-  Neither has a cap. (With losses on, the loser pays only for his own troops gone for good: not those Penicillin
+  Neither has a cap. The server's first log line says which version is running (so does the admin page), and it
+  warns if `data/rules.json` turns either prestige loss back on. (With losses on, the loser pays only for his own troops gone for good: not those Penicillin
   saves or the wounded, who come back healed.)
 - **Prisoners** take no Feasting Hall seat (`rules.prisonersNeedNoSeat`): a city with a Feasting Hall captures a hero
   however full it is, and persuading one waits for a free seat.

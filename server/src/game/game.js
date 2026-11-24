@@ -52,7 +52,8 @@ const HANDLER_FILES = ['account', 'castle', 'map', 'troops', 'shop', 'research',
   'auth', 'webmap', 'webstate', 'webshop', 'webreports', 'webauto', 'webmarket', 'webcalc', 'webmisc', 'webspeed'];
 
 class Game {
-  constructor({ store, data, rules, speed, protocol, log, logDir, faces, art, perf, site = '' }){
+  constructor({ store, data, rules, speed, protocol, log, logDir, faces, art, perf, site = '', version = '' }){
+    this.version = version;
     this.site = String(site || '').replace(/\/$/, '');
     this.adminToken = require('crypto').randomBytes(12).toString('hex');   // the admin pages' links carry it (t=)
     this.perf = perf || null; this.store = store; this.data = data; this.rules = rules; this.protocol = protocol; this.log = log; this.clientVersion = CLIENT_VERSION;
@@ -692,7 +693,7 @@ class Game {
       h1{margin-top:0}input{padding:7px;border-radius:4px;border:1px solid #666;background:#2b2722;color:#eee}.ok{color:#9be29b}
       .btn{display:inline-block;background:#b8860b;color:#111;padding:4px 9px;border-radius:4px;text-decoration:none;font-weight:bold;margin:2px 4px 2px 0;font-size:13px}
       table{border-collapse:collapse;font-size:14px}th,td{padding:6px 12px 6px 0;text-align:left;vertical-align:middle;border-bottom:1px solid #3a342c}th{color:#e6c27a}</style></head>
-      <body><h1>Server admin</h1>${note}<p>${Object.keys(this.db.accounts).length} accounts, ${this.online.size} online (●).</p>
+      <body><h1>Server admin</h1><p>Age of War ${esc(this.version || '?')}${this.rules.battlePrestige?.losses ? ' <span style="color:#f29b9b">(data/rules.json turns prestige losses on)</span>' : ''}</p>${note}<p>${Object.keys(this.db.accounts).length} accounts, ${this.online.size} online (●).</p>
       <table><tr><th>User name</th><th>Lord</th><th>E-mail</th><th>Made (UTC)</th><th>Last in (UTC)</th><th></th></tr>${rows}</table></body></html>`;
   }
   coinsPage(query){
