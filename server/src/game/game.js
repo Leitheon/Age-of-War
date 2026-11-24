@@ -199,6 +199,11 @@ class Game {
       // 0.1.25: an amulet city (an ordinary city with a Rally Spot above 10) lets its fields go up to that level too.
       const rally = Object.values(c.buildings || {}).find(b => b.typeId === 29)?.level || 0;
       if (!c.fieldMax && (c.powerLevel ?? 4) >= 4 && rally > 10 && rally <= 14){ c.fieldMax = rally; this.store.touch?.(); this.log.info(`${c.name}: its fields can go up to level ${rally}, as its amulet's`); }
+      // 0.1.31: an ordinary hero's base is his level-1 stats; the points his level brought move to added (his
+      // totals stay). The level he was rolled for is worked out from his base (heroes.rolledLevel).
+      let split = 0;
+      for (const h of [...c.heroes, ...(c.inn?.offers || [])]) if (!h.historic && !h.ringHero && !h.lv1){ this.heroes.splitLevelPoints(h, this.heroes.rolledLevel(h)); split++; }
+      if (split){ this.store.touch?.(); this.log.info(`${c.name}: ${split} hero${split > 1 ? 'es' : ''} given level-1 stats`); }
       // 0.3.28: the historic hero sheet had attack and intelligence swapped; hired heroes take the corrected stats.
       let fixed = 0;
       for (const h of [...c.heroes, ...(c.innHistoric || [])]) if (this.hh.sync(h)) fixed++;

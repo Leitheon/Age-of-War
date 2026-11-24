@@ -3472,6 +3472,21 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         G.rules.heroAutoLevel = false;
         ok(lv === 5 && h.level === 39 && h.points === 5 && h.exp === 1101375 - 973500 && h2.level === 35 && h2.exp === 200000 - 173400 && h2.points === 1,
           `a hero goes up as soon as he has the experience: level 34 with 1,101,375 becomes ${h.level} with ${h.points} points and ${h.exp.toLocaleString('en-US')} left over`); }
+      // Fox (Nov 24 2026): the Inn and the Feasting Hall show each stat's level-1 value beside it. An ordinary hero's
+      // base is his level-1 stats; the points his level brought are in added (his totals as before).
+      { const HL = G.heroes, sum = o => o.pol + o.atk + o.int;
+        const offers = Array.from({ length: 40 }, () => HL.makeHero(10, null, new Set()));
+        const okSplit = offers.every(o => o.lv1 && sum(o.added) === Math.min(o.level - 1, sum(o.base) + sum(o.added) - 15) && ['pol', 'atk', 'int'].every(k => o.base[k] >= 5));
+        const old = { name: 'Old', level: 35, base: { pol: 30, atk: 50, int: 25 }, added: { pol: 4, atk: 0, int: 0 }, points: 0 }, before = ['pol', 'atk', 'int'].map(k => HL.total(old, k));
+        HL.splitLevelPoints(old, HL.rolledLevel(old));
+        const b = HL.bean({ ...offers[0], id: 1, status: 0, loyalty: 70 });
+        const hist = { name: 'H', historic: 1, level: 20, base: { pol: 90, atk: 50, int: 60 }, added: { pol: 19, atk: 0, int: 0 }, points: 0 };
+        const one = HL.makeHero(1, null, new Set());
+        const js = fs.readFileSync(path.join(__dirname, '..', 'public', 'assets', fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8').match(/index-aow[0-9a-f]+\.js/)[0]), 'utf8');
+        ok(okSplit && HL.rolledLevel({ level: 35, base: { pol: 30, atk: 50, int: 25 } }) === 30 && sum(old.base) === 105 - 29 && ['pol', 'atk', 'int'].map(k => HL.total(old, k)).join() === before.join()
+          && b.management - b.managementAdded === offers[0].base.pol && b.power - b.powerAdded === offers[0].base.atk && HL.splitLevelPoints(hist) === hist && hist.base.pol === 90
+          && sum(one.added) === one.level - 1 && (js.match(/aowLv1\(/g) || []).length === 7,
+          `an ordinary hero's base is his level-1 stats, his level's points in added (a level 35 hero rolled for 30: 29 points moved, totals the same); historic heroes as they were; the Inn and the Feasting Hall show the level-1 values`); }
       // The Inn restocks a hired hero's place at once (rules.innRestock).
       { G.rules.innRestock = true;
         city.buildings[22] = { typeId: 21, level: 5, status: 0, startTime: 0, endTime: 0 };   // Inn 5

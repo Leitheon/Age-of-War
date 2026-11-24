@@ -337,6 +337,7 @@ class ItemUse {
       h.base.int = Math.max(5, total - h.base.pol - h.base.atk);
       if (special){ const k = ['pol', 'atk', 'int'][Math.floor(rnd() * 3)]; h.base[k] = rint(special[0], special[1], rnd); }
     }
+    delete h.lv1; h.added = { pol: 0, atk: 0, int: 0 }; H.splitLevelPoints(h, level);   // (base: the level-1 stats)
     // (either royal helm: a lord gets a Queen and a lady a King, with the royal portrait; heroes.makeRoyal)
     if (royal){ h.name = ''; H.makeRoyal(h, p); }
     const hero = { id: this.g.store.id(), ...h, status: HERO_STATUS.FREE, hiredAt: Date.now() };

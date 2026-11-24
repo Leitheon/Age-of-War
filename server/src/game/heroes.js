@@ -87,9 +87,28 @@ class HeroLogic {
     const maxL = Math.max(1, innLevel * this.rules.innMaxLevelPerInnLevel);
     const level = Math.max(1, Math.round(1 + Math.pow(Math.random(), 1.8) * (maxL - 1)));
     const sex = Math.random() < (this.rules.heroFemaleChance ?? 0.25);
-    return { name: this.freshName(sex, taken), level, exp: 0, base: this.baseStats(level), added: { pol: 0, atk: 0, int: 0 }, points: 0,
-      loyalty: this.rules.heroStartLoyalty, face: this.face(sex), sex };
+    return this.splitLevelPoints({ name: this.freshName(sex, taken), level, exp: 0, base: this.baseStats(level), added: { pol: 0, atk: 0, int: 0 }, points: 0,
+      loyalty: this.rules.heroStartLoyalty, face: this.face(sex), sex });
   }
+  // Level-1 stats (Fox, Nov 24 2026: the Inn and the Feasting Hall show each stat's level-1 value beside it). An
+  // ordinary hero's stats are rolled for the level he turns up at; the points that level brought ((level - 1) x
+  // pointsPerLevel, 1 an ordinary hero) are moved out of base into added, so base is the hero's level-1 stats, as a
+  // historic hero's (the sheet) and a Ring hero's already are. The totals don't change; Holy Water now gives those
+  // points back to spend again. (Each stat keeps at least 5; the points come off in proportion to what's above 5.)
+  splitLevelPoints(h, level = h.level){
+    if (!h || h.historic || h.ringHero || h.lv1) return h;
+    h.added = h.added || { pol: 0, atk: 0, int: 0 }; h.lv1 = 1;
+    const ks = ['pol', 'atk', 'int'], room = ks.map(k => Math.max(0, (h.base[k] || 0) - 5)), sum = room.reduce((a, b) => a + b, 0);
+    const n = Math.min(sum, Math.max(0, Math.round((Math.max(1, level || 1) - 1) * this.pointsPerLevel(h))));
+    if (!n) return h;
+    const share = room.map(r => n * r / sum), take = share.map(Math.floor);
+    let left = n - take.reduce((a, b) => a + b, 0);
+    for (const i of [0, 1, 2].sort((a, b) => (share[b] - take[b]) - (share[a] - take[a]))){ if (left <= 0) break; if (take[i] < room[i]){ take[i]++; left--; } }
+    ks.forEach((k, i) => { h.base[k] -= take[i]; h.added[k] = (h.added[k] || 0) + take[i]; });
+    return h;
+  }
+  // The level an older ordinary hero was rolled for (his base was about 60 + 1.5 x that level), for splitting it.
+  rolledLevel(h){ const t = (h.base?.pol || 0) + (h.base?.atk || 0) + (h.base?.int || 0); return Math.max(1, Math.min(h.level || 1, Math.round((t - 60) / 1.5))); }
   // A total of roughly 60 + 1.5 x level points, spread unevenly so most heroes have a speciality.
   baseStats(level){
     const total = Math.round(60 + level * 1.5 + (Math.random() - 0.5) * 20);
@@ -112,6 +131,7 @@ class HeroLogic {
     // Live, a captive's loyalty is 0 (Fox's screenshot of William Cecil, Captive).
     const h = { exp: 0, base: this.baseStats(tmpl.level), added: { pol: 0, atk: 0, int: 0 }, points: 0, face: this.face(false), sex: false,
       ...tmpl, loyaltyAfter: tmpl.loyalty ?? this.rules.heroStartLoyalty, loyalty: 0, id: nextId(), name, status: STATUS.SEIZED, seizedAt: Date.now() };
+    if (!tmpl.base) this.splitLevelPoints(h, tmpl.level);
     this.list(c).push(h);
     return h;
   }

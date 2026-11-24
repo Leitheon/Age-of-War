@@ -124,6 +124,9 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   report viewer for anyone it's given to (while the report is kept); `/report` on its own asks for a link to be pasted.
 - **Pay with Gold** in the speed-up window costs the shop price of the most efficient (cheapest) Guidelines that would
   finish the work, whatever the lord owns; Instant Complete uses only the lord's own items.
+- **Level-1 stats**: the Inn and the Feasting Hall show each hero's level-1 politics, attack and intelligence in
+  brackets, without points or gear ("140 (90)"). An ordinary hero's base is his level-1 stats and the points his
+  level brought are his to spend again with Holy Water, as a historic hero's.
 - **Prisoners** take no Feasting Hall seat (`rules.prisonersNeedNoSeat`): a city with a Feasting Hall captures a hero
   however full it is, and persuading one waits for a free seat.
 - **Reports**: the last tab is Other (it was Automation), with the Other reports (a city founded, the innkeeper's
