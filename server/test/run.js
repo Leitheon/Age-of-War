@@ -3229,6 +3229,22 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const heard = (await ally.x.wait('server.AllianceChatMsg', 4000)).data;
       const lone = await rival.x.call('common.allianceChat', { msg: 'hi', languageType: 0 });
       G.reports.add(me, { type: 1, startPos: 'Home(1,1)', targetPos: 'Nest(2,2)', title: 'Battle', content: `<reportData><battleReport isAttack="true"><attackTroop king="${me.name}"/><defendTroop king="Rivalor"/></battleReport></reportData>` });
+      // A member's battle at an NPC Historic City (no lord on its side) is listed too; one at a barbarian city isn't.
+      { const [hid, hc] = [...world.historicEntries()][0], { x: hx, y: hy } = world.xy(hid), npcRep = (pos, t) => G.reports.add(ally.q, { type: 1, startPos: 'Den(3,3)', targetPos: pos, title: 'Attack Reports',
+          content: `<reportData><battleReport isAttack="true" isAttackSuccess="${t}"><attackTroop king="Allyson"/><defendTroop king=""/></battleReport></reportData>` });
+        let bx = 0, by = 0; for (; bx < 800 && world.historicAt(world.idOf(bx, by)); bx++);
+        npcRep(`Barbarian's city(${bx},${by})`, false); npcRep(`${hc.name}(${hx},${hy})`, true);
+        const npcSit = await c.call('alliance.getMilitarySituationList', { pageNo: 1, pageSize: 10 }), rows = npcSit.situations;
+        const hcRow = rows.find(b => b.eventName === `Allyson Attack ${hc.name}(${hx},${hy})`);
+        ok(hcRow && hcRow.otherAllianceName === '' && /isAttackSuccess="true"/.test(hcRow.xml_data)
+          && !rows.some(b => /Barbarian/.test(b.eventName)) && new Set(rows.map(b => b.id)).size === rows.length,
+          `the Military Situation lists a member's attack on an NPC Historic City (${hc.name}), not one on a barbarian city`);
+        // The web client gets each report as its Reports window does, every value a child element too.
+        const wr = []; G.handle({ id: 'al-web', web: true, player: me, ip: 'test', closed: false, send: (cmd, data) => wr.push({ cmd, data }), close(){} }, 'alliance.getMilitarySituationList', { pageNo: 1, pageSize: 10 });
+        const webRow = wr.find(r => r.cmd === 'alliance.getMilitarySituationList')?.data?.situations?.find(b => b.eventName === hcRow?.eventName);
+        ok(webRow && /<isAttackSuccess>true<\/isAttackSuccess>/.test(webRow.xml_data) && /<attackTroop king="Allyson"><king>Allyson<\/king>/.test(webRow.xml_data),
+          'the web client gets the Military Situation\'s reports in its own form (values as child elements), so a won battle shows as won');
+        G.reports.list(ally.q).splice(0, 2); }
       const sit = await c.call('alliance.getMilitarySituationList', { pageNo: 1, pageSize: 10 });
       const mailed = await c.call('alliance.messagesForAllianceMember', { title: 'Orders', message: 'Hold the line', type: 11 });
       const s0 = sit.situations[0];

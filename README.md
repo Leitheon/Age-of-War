@@ -148,6 +148,8 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
 - **No undraftable numbers**: Draft and Disarmament, from a Historic City or on a colony, always take the biggest branch
   (`draft.undraftable`; true brings back live's 32-bit wrap and its "There are no troops in the city").
 - **The city panel's troop counts fit their cells**: a long count gets a smaller font and is narrowed slightly.
+- **Alliance Military Situation**: lists the members' attacks on NPC Historic Cities too (not barbarian cities or valleys),
+  and a report opened there shows its outcome and troops (it showed every battle as a defeat with none).
 - **Historic heroes taken from NPC cities start at level 1**, with their sheet's stats and no points, and must be levelled up
   (`historicHeroes.capturedLevel`); a hero taken from another lord keeps his level and stats.
 - **Historic heroes get 1 point a level after the first** (none at level 1, 149 at 150; wild ones at 30 have 29), as

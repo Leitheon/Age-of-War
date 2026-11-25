@@ -43,7 +43,10 @@ module.exports = (game, H) => {
   H['alliance.getMilitarySituationList'] = (conn, d, cmd) => {
     const a = mine(conn); if (!a) return game.fail(conn, cmd, -1, 'You are not in an alliance.');
     const pg = page(A.situations(a), d.pageNo, d.pageSize);
-    game.reply(conn, cmd, { situations: pg.items, pageNo: pg.pageNo, totalPage: pg.totalPage });
+    // The web client reads a report's values from child elements, as in its Reports window (webreports.js): without
+    // this every battle opened here showed as a defeat with no troops.
+    const web = conn.web && game.webReportContent;
+    game.reply(conn, cmd, { situations: web ? pg.items.map(b => ({ ...b, xml_data: web(b.xml_data) })) : pg.items, pageNo: pg.pageNo, totalPage: pg.totalPage });
   };
   H['alliance.getAllianceArmyReport'] = (conn, d, cmd) => game.fail(conn, cmd, -1, 'That report is no longer available.');
   H['alliance.getPowerFromAlliance'] = (conn, d, cmd) => game.reply(conn, cmd, { level: A.rank(conn.player) });

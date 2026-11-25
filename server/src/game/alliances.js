@@ -1,4 +1,5 @@
 'use strict';
+const world = require('./world');
 // Alliances, as the client has them (AllianceConstants, the alliance windows and their texts) and as Fox's live
 // capture of his alliance's tabs shows them (Oct 26 2026):
 //   - The Embassy: "At level 1, you can join alliances created by other players. At level 2, you can establish an
@@ -341,21 +342,29 @@ class Alliances {
     return this.members(a).sort((x, y) => this.rank(x) - this.rank(y) || (y.prestige || 0) - (x.prestige || 0))
       .map(q => ({ ...this.g.beans.playerInfo(q, this.g.castlesOf(q)), accountName: q.id === viewer?.id ? q.account : '' }));
   }
-  // The members' battles with other lords (Military Situation), newest first.
+  // The members' battles with other lords and with NPC Historic Cities (Military Situation), newest first. A battle
+  // at an NPC city has no lord on the defending side; a Historic City's is told by its spot (Fox, Nov 25 2026: alliance
+  // reports didn't show hitting an NPC Historic City). Barbarian cities and valleys stay out.
   situations(a){
     const seen = new Set(), out = [];
     for (const q of this.members(a)){
       for (const r of this.g.reports.list(q)){
         if (r.type !== 1 || !/<battleReport/.test(r.content || '')) continue;
-        const atk = /<attackTroop[^>]*\bking="([^"]*)"/.exec(r.content)?.[1], def = /<defendTroop[^>]*\bking="([^"]*)"/.exec(r.content)?.[1];
-        if (!atk || !def) continue;   // (lords' battles only)
+        const atk = /<attackTroop[^>]*\bking="([^"]*)"/.exec(r.content)?.[1], def = /<defendTroop[^>]*\bking="([^"]*)"/.exec(r.content)?.[1] || '';
+        if (!atk || (!def && !this.historicSpot(r.targetPos))) continue;
         const key = `${r.at}|${atk}|${def}|${r.targetPos}`; if (seen.has(key)) continue; seen.add(key);
-        const other = this.lord(r.attack ? def : atk), ob = this.of(other);
+        const other = def ? this.lord(r.attack ? def : atk) : null, ob = other && this.of(other);
         out.push({ at: r.at, bean: { id: 0, type: 1, attack: !!r.attack, eventName: `${atk} Attack ${r.targetPos}`, startPos: r.startPos, targetPos: r.targetPos,
           otherAllianceName: ob ? ob.name : '', time: r.eventTime, xml_data: r.content } });
       }
     }
-    return out.sort((x, y) => y.at - x.at).map(x => x.bean);
+    // (each row its own id: the client keys the table's rows by it)
+    return out.sort((x, y) => y.at - x.at).map((x, i) => ({ ...x.bean, id: i + 1 }));
+  }
+  // Whether a report's place, "Name(x,y)", is a Historic City's spot.
+  historicSpot(pos){
+    const m = /\((\d+),(\d+)\)\s*$/.exec(String(pos || ''));
+    return !!m && !!world.historicAt(world.idOf(+m[1], +m[2]));
   }
 }
 
