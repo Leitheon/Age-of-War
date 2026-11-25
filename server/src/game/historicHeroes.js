@@ -259,9 +259,9 @@ class HistoricHeroLogic {
     return h ? { ...base, name: h.name, face: h.portrait, historic: h.id } : base;
   }
   // A ruler's base stats: rules.historic.rulerStats, or his own line in rulerStatsByHero.
-  rulerStats(h){ return { pol: 99, atk: 99, int: 99, ldr: 150, ...(this.g.rules.historic?.rulerStats || {}), ...(h && this.g.rules.historic?.rulerStatsByHero?.[h.name] || {}) }; }
+  rulerStats(h){ return { pol: 125, atk: 125, int: 125, ldr: 175, ...(this.g.rules.historic?.rulerStats || {}), ...(h && this.g.rules.historic?.rulerStatsByHero?.[h.name] || {}) }; }
   isRuler(id){ return this.rulers()[id] != null; }
-  // A hero's base stats: a ruler's are rules.historic.rulerStats (Fox, Nov 24 2026: 99 each, leadership 150; Poseidon
+  // A hero's base stats: a ruler's are rules.historic.rulerStats (Fox, Nov 25 2026: 125 each, leadership 175; Poseidon
   // 150 each, leadership 200), any other's his sheet's.
   baseOf(h){ const r = this.isRuler(h.id) ? this.rulerStats(h) : h; return { pol: r.pol, atk: r.atk, int: r.int, ldr: r.ldr }; }
   // The lord who holds the city gets its ruler, there (Fox, Nov 24 2026: "lock them to their city. They cannot be

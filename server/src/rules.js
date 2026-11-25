@@ -611,10 +611,11 @@ const DEFAULTS = {
   // numbers (historicGarrison.hero) under his name and portrait, and is out of the barbarian cities and the Inn's
   // rumours. He is bound to his city and serves whoever holds it (Fox: "lock them to their city"; hh.joinRuler):
   // taken from NPC hands he starts at rulerLevel with his points to place; a lord taking the city from another gets
-  // him as he is; a city given up has him rule it again. rulerStats: his base stats and leadership (Fox: 99, 150);
-  // rulerStatsByHero: a ruler's own (Fox, Nov 25 2026: Poseidon 150, leadership 200).
+  // him as he is; a city given up has him rule it again. rulerStats: his base stats and leadership (Fox, Nov 25 2026:
+  // 125 each, leadership 175; first 99 and 150); rulerStatsByHero: a ruler's own (Fox: Poseidon 150, leadership 200).
   historic: { level12Enabled: true, level12: { x0: 9, y0: 9, step: 18 }, level12Clearance: 0, flatRing: 1,
     rulerLevel: 1,
+    rulerStats: { pol: 125, atk: 125, int: 125, ldr: 175 },
     rulerStatsByHero: { 'Poseidon': { pol: 150, atk: 150, int: 150, ldr: 200 } },
     rulers: { 'Atlantis': 'Poseidon', 'Washington, D.C.': 'George Washington', 'Beijing': 'Kublai Khan', 'Loyang': 'Wu Zetian',
       'Moscow': 'Ivan IV of Russia', 'Prague': 'Jan Hus', 'Berlin': 'Frederick the Great', 'Vienna': 'Maria Theresa',

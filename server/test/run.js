@@ -1193,8 +1193,8 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           const lord = G.createPlayer({ name: 'Ruletaker' }, { userName: 'Ruletaker' }), home = G.castlesOf(lord)[0];
           const won = A.conquer({ troops: { archer: 50 }, loot: {} }, lord, home, null, pT, G.npc.state(db, pT, Date.now()), {}, null, Date.now());
           const P = won.castle, him = G.heroes.list(P).find(h => h.historic === nap.id);
-          const joined = him && him.status === 0 && him.bound === paris && him.level === 1 && him.points === 0 && him.base.pol === 99 && him.base.atk === 99 && him.base.int === 99
-            && G.heroes.leadership(him) === 150 && him.loyalty === 100 && HH.state(nap.id).status === 'bound' && won.captive === null && G.heroes.vacancies(P) === G.heroes.hallSize(P);
+          const joined = him && him.status === 0 && him.bound === paris && him.level === 1 && him.points === 0 && him.base.pol === 125 && him.base.atk === 125 && him.base.int === 125
+            && G.heroes.leadership(him) === 175 && him.loyalty === 100 && HH.state(nap.id).status === 'bound' && won.captive === null && G.heroes.vacancies(P) === G.heroes.hallSize(P);
           // He marches out (attack) but can't be sent to stay in another city, or dismissed.
           P.troops = { archer: 100 }; P.buildings[5] = { typeId: 29, level: 10 };   // (a Rally Spot to send from)
           const send = A.send(P, lord, { missionType: 2, heroId: him.id, targetPoint: home.fieldId, troops: { archer: 10 }, resource: {}, restTime: 0 }, Date.now());
@@ -1213,8 +1213,8 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           ok(rulers === 17 && pos === 'Poseidon' && napRules && led.name === 'Napoleon Bonaparte' && led.attack === base.attack && led.intelligence === base.intelligence && led.face === nap.portrait
             && notWild && joined && Array.isArray(send) && /bound to Paris/.test(send[1]) && Array.isArray(fire) && /can't be dismissed/.test(fire[1]) && stays && back && again?.level === 1
             && poseidon.attack === 150 && poseidon.politics === 150 && poseidon.intelligence === 150 && poseidon.leadership === 200
-            && JSON.parse(json).find(h => h.name === 'Caesar').attack === 99,
-            `Historic City rulers: Poseidon in Atlantis and 16 capitals (Napoleon in Paris), leading with the city's own hero numbers (${base.attack} attack) under their names, out of the barbarian cities; whoever takes Paris from the NPCs gets Napoleon there at level 1 (99 in each stat, leadership 150), bound to it: no reinforcing ("${send?.[1]}"), no dismissing, never a prisoner; Poseidon 150 in each stat, leadership 200; another lord taking Paris gets him as he is (level 50); given up, he rules Paris again, and the next taker gets him at level 1`);
+            && JSON.parse(json).find(h => h.name === 'Caesar').attack === 125 && JSON.parse(json).find(h => h.name === 'Caesar').leadership === 175,
+            `Historic City rulers: Poseidon in Atlantis and 16 capitals (Napoleon in Paris), leading with the city's own hero numbers (${base.attack} attack) under their names, out of the barbarian cities; whoever takes Paris from the NPCs gets Napoleon there at level 1 (125 in each stat, leadership 175), bound to it: no reinforcing ("${send?.[1]}"), no dismissing, never a prisoner; Poseidon 150 in each stat, leadership 200; another lord taking Paris gets him as he is (level 50); given up, he rules Paris again, and the next taker gets him at level 1`);
         }
         // Fox (Oct 29 2026): taking a level 8 NPC city didn't finish the Queen's "Conquer a level 8 NPC city".
         const qs = G.quests.state(me), rec = qs.max.npcCity, q8 = G.quests.check(me, city, { kind: 'npcCity', level: 8 }, Date.now());

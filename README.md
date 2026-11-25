@@ -139,7 +139,7 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
 - **Historic City rulers**: Poseidon rules Atlantis and a famous hero each capital (`historic.rulers`: Napoleon in
   Paris, Caesar in Rome, Saladin in Jerusalem ...). He leads its defence with the city's own hero numbers under his
   name and portrait, and is out of the barbarian cities and the Inn's rumours. He is bound to his city: whoever
-  takes it from the NPCs gets him there at level 1 (99 in each stat, leadership 150; Poseidon 150 and 200), to lead its armies out
+  takes it from the NPCs gets him there at level 1 (125 in each stat, leadership 175; Poseidon 150 and 200), to lead its armies out
   (attack, scout, transport) but never to reinforce or found another city, be dismissed or be captured; another lord
   taking the city takes him as he is, and a city given up has him rule it again. The website's Heroes page shows where.
 - **Be an Evonian**: the quest window has its Add to favorites button.
