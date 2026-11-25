@@ -149,6 +149,12 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   (`draft.undraftable`; true brings back live's 32-bit wrap and its "There are no troops in the city").
 - **The city panel's troop counts fit their cells**: a long count gets a smaller font and is narrowed slightly. A troop's
   icon there opens the Disband window for that troop.
+- **Attack any lord's city without a war** (`war.required` false; the web client has no Declare War): not your alliance's
+  or a friendly alliance's, not in Truce or on vacation, and Beginner's Protection holds both ways.
+- **Alliance Diplomacy**: the Manage pages show their messages (a refusal such as the 24-hour wait between relation changes
+  showed nothing), Diplomacy says what it set and lists Neutral alliances too.
+- **Reports glows red under attack**: while an enemy army marches on a city whose Beacon Tower sees it, the main menu's
+  Reports button pulses red with its "!".
 - **King and Queen**: 101 in each base stat and leadership 26, growing 1 a level (`royalHero`); ones hired before are
   brought to it, their points kept. The royal helms' texts say so.
 - **Historic heroes defend NPC cities at level 150**: a wild one in a barbarian city with his sheet's stats and 149

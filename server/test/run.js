@@ -93,7 +93,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
   // every city, startWalls, and its gold in place of cents, noCents, are off for the live checks and tested on their own;
   // so are troops eating a tenth of live's upkeep, troopUpkeep, and prestige never lost, battlePrestige.losses and
   // alliances.quitPrestigeRate.)
-  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, troopUpkeep: 1, battlePrestige: { losses: true }, alliances: { quitPrestigeRate: 0.1 }, heroAutoLevel: false, innRestock: false, prisonersNeedNoSeat: false, reports: { heroCapture: true, itemOpened: true, reinforcements: true, outcomeInTitle: false }, historicHeroes: { questFree: false }, draft: { undraftable: true }, npcConquest: { layout: { keepCottages: null } }, dynamiteFullDemolish: false, mayorExp: 0, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
+  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, troopUpkeep: 1, battlePrestige: { losses: true }, alliances: { quitPrestigeRate: 0.1 }, heroAutoLevel: false, innRestock: false, prisonersNeedNoSeat: false, reports: { heroCapture: true, itemOpened: true, reinforcements: true, outcomeInTitle: false }, historicHeroes: { questFree: false }, draft: { undraftable: true }, war: { required: true }, npcConquest: { layout: { keepCottages: null } }, dynamiteFullDemolish: false, mayorExp: 0, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
     population: 100, taxRate: 20, productionRate: 100, buildings: { '0': [1, 1], '1001': [7, 1], '1002': [4, 1], '1003': [5, 1], '1004': [6, 1] } } }));
   const srv = main({ ...PORTS, dataDir, cacheDir: path.join(dataDir, 'cache'), speed: 600, logLevel: 'warn', embedded: true, assetCdn: '', flashClient: true, legacyLogin: true, adminPassword: ADMIN.pw });
   ADMIN.token = srv.game.adminToken;
@@ -2506,8 +2506,10 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         const pub = path.join(__dirname, '..', 'public'), html = fs.readFileSync(path.join(pub, 'index.html'), 'utf8');
         const js = fs.readFileSync(path.join(pub, 'assets', html.match(/index-aow[0-9a-f]+\.js/)[0]), 'utf8');
         ok(js.includes('t.jsx(I2,{troop:i.troop||{},castleId:n})') && js.includes('onClick:()=>aowCid&&aowDisband(aowOpen,aowCid,i,e[a])') && js.includes('open(t.jsx(gb,{castleId,u,have:Number(have)||0}),"bkdlg")')
-          && js.includes('style:aowTroopFit(_e(e[a]))') && js.includes('["military","War Reports"]'),
-          'the city panel\'s troop icons open the Barracks\' Disband window for their troop, and its troop counts are fitted to their cells; the alliance window\'s Military tab is War Reports'); }
+          && js.includes('style:aowTroopFit(_e(e[a]))') && js.includes('["military","War Reports"]')
+          && js.includes('t.jsx(c,{title:"Neutral",list:e.middle||[]})') && js.includes('v&&o&&t.jsx("div",{className:"al-bottom"+(C?"":" aow-subnote")')
+          && /\.mm-btn:has\(>\.mm-alarm\)::after\{[^}]*animation:aow-alarm-glow/.test(fs.readFileSync(path.join(pub, 'assets', html.match(/index-aow[0-9a-f]+\.css/)[0]), 'utf8')),
+          'the city panel\'s troop icons open the Barracks\' Disband window for their troop, and its troop counts are fitted to their cells; the alliance window\'s Military tab is War Reports, its Manage pages show their messages and Diplomacy lists Neutral alliances; Reports glows red under attack'); }
       // Fox's live capture of a Ring hero (Jessica): an On War book, then level-ups to 13 with 2,500 left over.
       me.items['player.experience.1.c'] = 1;
       const book = await c.call('hero.useItem', { castleId: castle.id, itemId: 'player.experience.1.c', heroId: rh.id });
@@ -3272,6 +3274,18 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       ok(Array.isArray(declAlly) && /your alliance and friendly/.test(declAlly[1]) && Array.isArray(atkAlly) && atkRival === null && Array.isArray(atkBack) && /not at war/.test(atkBack[1])
         && hostileState === 4 && allyState === 1 && beanAlly.canSend === true && beanAlly.canTrans === true && beanRival.canSend === false,
         'war can\'t be declared on an ally, and a hostile alliance\'s cities can be attacked without a war (but not the other way round until they set it too); their cities show Wartime');
+      { // Age of War (Fox, Nov 25 2026): war.required off: any lord's city can be attacked without a war (the web client has no
+        // Declare War), but not an ally's or a friendly alliance's, and Beginner's Protection holds both ways.
+        const req = G.rules.war.required; G.rules.war.required = false;
+        const nq = G.createPlayer({ name: 'Neutralo' }), nc = G.castlesOf(nq)[0], meWas = me.createdAt, rivalWas = rival.q.createdAt, allyWas = ally.q.createdAt;
+        nq.createdAt = 0; me.createdAt = 0; rival.q.createdAt = 0; ally.q.createdAt = 0;
+        const free = W.cantAttack(me, nc), freeBean = G.mapBean({ player: me }, world.tileAt(srv.store, nc.fieldId)).canOccupy, allyStill = W.cantAttack(me, ally.qc), back = W.cantAttack(rival.q, city);
+        nq.createdAt = Date.now(); const newbie = W.cantAttack(me, nc), newbieBean = G.mapBean({ player: me }, world.tileAt(srv.store, nc.fieldId)).canOccupy;
+        const asNewbie = W.cantAttack(nq, city);   // (a new lord, his Town Hall below 5, attacking)
+        me.createdAt = meWas; rival.q.createdAt = rivalWas; ally.q.createdAt = allyWas; G.rules.war.required = req;
+        ok(free === null && freeBean === true && Array.isArray(allyStill) && /in your alliance/.test(allyStill[1]) && back === null && Array.isArray(newbie) && /Beginner's Protection and can't be attacked/.test(newbie[1]) && newbieBean === false
+          && Array.isArray(asNewbie) && /You are under Beginner's Protection/.test(asNewbie[1]),
+          `with war.required off any lord's city can be attacked without a war (Attack shows), not an ally's; Beginner's Protection holds both ways (${newbie[1]})`); }
       // Alliance chat, mail and the members' battles.
       c.send('common.allianceChat', { msg: 'Hello, pack', languageType: 0 });
       const heard = (await ally.x.wait('server.AllianceChatMsg', 4000)).data;

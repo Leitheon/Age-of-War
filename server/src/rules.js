@@ -713,7 +713,10 @@ const DEFAULTS = {
   // War (war.js; the client's texts): a lord's ordinary city can be attacked or colonized only in wartime, which
   // begins prepMinutes after Declare War and lasts warHours. Real time, as the client counts it. required: false
   // lets lords attack each other without a war (Historic Cities they hold are open either way).
-  war: { enabled: true, required: true, prepMinutes: 30, warHours: 48 },
+  // required false (Age of War, Fox, Nov 25 2026: "Attack anytime"; the web client has no Declare War): any lord's city
+  // can be attacked without a war, but not your alliance's or a friendly one's, nor in Truce or on vacation, nor by
+  // or against a lord under Beginner's Protection. true: live's, only at war or against a hostile alliance.
+  war: { enabled: true, required: false, prepMinutes: 30, warHours: 48 },
   // Alliances (alliances.js; AllianceConstants and the client's texts): createEmbassy and joinEmbassy the Embassy
   // levels to found and to join one, createGold what founding costs, nameMax its name's length, quitPrestigeRate
   // what quitting takes off the lord's prestige (live 0.1; Age of War 0: prestige is never lost, Fox, Nov 24

@@ -126,6 +126,9 @@ class War {
     if ((dc.powerLevel ?? 4) !== 4) return null;
     if (this.truce(q, now)) return [-13, `${q.name} is under a Truce Agreement and can't be attacked. Cannot attack players in Truce or Vacation status.`];
     if (this.vacation(q, now)) return [-13, `${q.name} is on vacation and can't be attacked. Cannot attack players in Truce or Vacation status.`];
+    // Beginner's Protection, both ways (Fox, Nov 25 2026: "protected both ways"; live had it through Declare War)
+    if (this.beginner(q, now)) return [-13, `${q.name} is under Beginner's Protection and can't be attacked.`];
+    if (this.beginner(p, now)) return [-13, "You are under Beginner's Protection: you can't attack other lords' cities until it ends (7 days, or a level 5 Town Hall)."];
     const rel = this.g.alliances?.relation(p, q);
     if (rel === 0) return [-13, `${q.name} is in your alliance.`];
     if (rel === 1) return [-13, `${q.name}'s alliance is friendly to yours.`];
