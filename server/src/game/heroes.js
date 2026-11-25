@@ -61,9 +61,10 @@ class HeroLogic {
   // An ordinary hero's leadership is his level, 1 to 100 (Fox). A historic hero's is his own base (the historic
   // heroes sheet) plus 1 for every level after the first (Fox). He leads (leadership x 10 + level) x leadership
   // troops in full (rules.leadership); see Combat.ledShare.
+  // A King's or Queen's is rules.royalHero.leadership plus 1 a level after the first, as a historic hero's.
   leadership(h){
     const lv = Math.max(1, Math.min(this.maxLevel(h), h.level || 1));
-    return h.leadership != null ? h.leadership + (h.historic ? lv - 1 : 0) : lv;
+    return h.leadership != null ? h.leadership + (h.historic || h.king ? lv - 1 : 0) : lv;
   }
   // Bonuses, in %, that a city's mayor gives.
   mayorBonus(c, kind){
@@ -165,12 +166,24 @@ class HeroLogic {
     const r = this.royalOf(p), wasDefault = !h.name || h.name === 'King' || h.name === 'Queen';
     h.king = r; h.sex = r === 'queen'; h.face = `images/icon/player/${r}.png`;
     if (wasDefault) h.name = r === 'queen' ? 'Queen' : 'King';
+    this.royalStats(h);
     return h;
+  }
+  // A royal hero's base stats and leadership (rules.royalHero); his spent and unspent points stay. True if changed.
+  royalStats(h){
+    const r = this.rules.royalHero || {}, b = r.base, L = r.leadership;
+    let changed = false;
+    if (b != null && (h.base?.pol !== b || h.base?.atk !== b || h.base?.int !== b)){ h.base = { pol: b, atk: b, int: b }; changed = true; }
+    if (L != null && h.leadership !== L){ h.leadership = L; changed = true; }
+    return changed;
   }
   migrate(c, p = null){
     let changed = false;
     // 0.3.98: royal heroes from before became a Queen for a lord and a King for a lady, with the royal portraits.
-    for (const h of this.list(c)) if (h.king && p){
+    // (and, Nov 25 2026, every royal hero to rules.royalHero's stats, wherever he is)
+    for (const h of this.list(c)) if (h.king){
+      if (this.royalStats(h)) changed = true;
+      if (!p) continue;
       const before = `${h.king}|${h.face}|${h.name}`;
       this.makeRoyal(h, p);
       if (`${h.king}|${h.face}|${h.name}` !== before) changed = true;

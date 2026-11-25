@@ -149,6 +149,8 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   (`draft.undraftable`; true brings back live's 32-bit wrap and its "There are no troops in the city").
 - **The city panel's troop counts fit their cells**: a long count gets a smaller font and is narrowed slightly. A troop's
   icon there opens the Disband window for that troop.
+- **King and Queen**: 101 in each base stat and leadership 26, growing 1 a level (`royalHero`); ones hired before are
+  brought to it, their points kept. The royal helms' texts say so.
 - **Historic heroes defend NPC cities at level 150**: a wild one in a barbarian city with his sheet's stats and 149
   points spread at random, a Historic City's ruler with the city's own numbers; a Historic Hero item still gives one at
   level 30 (`historicHeroes.level`, `historicHeroes.itemLevel`). One in a barbarian city has 9999 leadership

@@ -224,6 +224,10 @@ const DEFAULTS = {
   // troop and wall defence the city finishes; 0 gives none (the live game's mayors gain nothing from them).
   mayorExp: 0.1622,
   heroExpBase: 150,                // experience to reach the next level = heroExpBase x level^2 (live: all 137 heroes in Fox's captures, 150 at 1 to 2,160,000 at 120)
+  // A King or Queen (the royal helms): 101 in each base stat and a leadership of 26 that grows 1 a level, as a historic
+  // hero's does (Fox, Nov 25 2026, for Age of War: "the King/Queen should have base stats of 101 and leadership of
+  // 26"; was 85 each, and leadership his level as any hero's). Royal heroes already hired are brought to it.
+  royalHero: { base: 101, leadership: 26 },
   heroMaxLevel: 100,               // the highest level a hero reaches (Fox; a Legendary Ring's hero: ringHero.maxLevel)
   heroAwardGoldPerLevel: 100,      // UNVERIFIED: gold for "Reward" = this x hero level, +heroAwardLoyalty
   heroAwardLoyalty: 5,

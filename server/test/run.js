@@ -1401,6 +1401,21 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         // Fox (Oct 29 2026): a lord (a man's portrait) gets a Queen whichever helm, with the royal portrait.
         ok(k && (me.sex ? k.king === 'king' && k.name === 'King' : k.king === 'queen' && k.name === 'Queen') && k.face === `images/icon/player/${k.king}.png`,
           `the royal helm gives ${me.sex ? 'a lady a King' : 'a lord a Queen'} with the live portrait (${k?.name}, ${k?.face})`);
+        // Fox (Nov 25 2026): a King or Queen has 101 in each base stat and leadership 26, growing 1 a level; one hired
+        // before (85 each, leadership his level) is brought to it when the server starts, his points kept.
+        if (k){
+          const kb = G.heroes.bean(k), lv1 = G.heroes.leadership(k), kl = k.level; k.level = 50; const lv50 = G.heroes.leadership(k); k.level = kl;
+          const old = { id: 0, name: 'Queen', king: 'queen', level: 40, base: { pol: 85, atk: 85, int: 85 }, added: { pol: 10, atk: 20, int: 9 }, points: 3, face: 'images/icon/player/queen.png', sex: true };
+          const oc = { heroes: [old] }, mig = G.heroes.migrate(oc, null), again = G.heroes.migrate(oc, null);
+          ok(k.base.pol === 101 && k.base.atk === 101 && k.base.int === 101 && kb.management === 101 + kb.managementAdded && lv1 === 26 && kb.leadership === 26 + k.level - 1 && lv50 === 75
+            && mig && !again && old.base.atk === 101 && old.leadership === 26 && old.added.atk === 20 && old.points === 3 && G.heroes.leadership(old) === 65,
+            `a King or Queen has 101 in each base stat and leadership 26 (75 at level 50); an old one (85 each) is brought to it with his points kept`);
+          const pub = path.join(__dirname, '..', 'public'), html = fs.readFileSync(path.join(pub, 'index.html'), 'utf8');
+          const js = fs.readFileSync(path.join(pub, 'assets', html.match(/index-aow[0-9a-f]+\.js/)[0]), 'utf8'), defs = fs.readFileSync(path.join(pub, 'assets', js.match(/itemDefs-aow[0-9a-f]+\.js/)[0]), 'utf8');
+          ok(/101 in each attribute and leadership 26/.test(G.data.items['player.box.hero.king'].desc) && /101 in each attribute and leadership 26/.test(G.data.items['player.box.hero.queen'].desc)
+            && (defs.match(/101 in each attribute and leadership 26/g) || []).length === 2 && !/atribute value is (85|100)/.test(defs),
+            'the royal helms\' texts (the shop\'s and the client\'s item table) say 101 in each attribute and leadership 26');
+        }
         // A King a lord already had (given before 0.3.98) becomes his Queen when the server starts.
         if (k){ Object.assign(k, { king: 'king', name: 'King', sex: false, face: 'images/icon/player/faceA3.jpg' }); }
         const moved = k && G.heroes.migrate(city, me);

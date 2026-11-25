@@ -60,6 +60,10 @@ class ItemUse {
   constructor(game){
     this.g = game;
     const items = game.data.items;
+    // The royal helms say what they give (rules.royalHero; the game's text said 85 in each attribute).
+    const rh = game.rules?.royalHero;
+    if (rh?.base != null) for (const id of ['player.box.hero.king', 'player.box.hero.queen']) if (items[id])
+      items[id].desc = `It offers a King or Queen (a Queen for a lord, a King for a lady) at level 1, with ${rh.base} in each attribute and leadership ${rh.leadership ?? 1}.`;
     this.chests = new ChestReader(items);
     this.prizes = {};
     for (const [tier, list] of Object.entries(PRIZES)) this.prizes[tier] = list.filter(([id]) => items[id]);
@@ -342,7 +346,7 @@ class ItemUse {
     }
     delete h.lv1; h.added = { pol: 0, atk: 0, int: 0 }; H.splitLevelPoints(h, level);   // (base: the level-1 stats)
     // (either royal helm: a lord gets a Queen and a lady a King, with the royal portrait; heroes.makeRoyal)
-    if (royal){ h.name = ''; H.makeRoyal(h, p); }
+    if (royal){ h.name = ''; H.makeRoyal(h, p); }   // (101 in each base stat, leadership 26: rules.royalHero)
     const hero = { id: this.g.store.id(), ...h, status: HERO_STATUS.FREE, hiredAt: Date.now() };
     H.list(c).push(hero);
     this.items.take(p, itemId); out.items.add(itemId); out.heroes.push(hero);
