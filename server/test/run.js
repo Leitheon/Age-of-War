@@ -1448,6 +1448,19 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const gems0 = me.items['enhanced.star.2'];
       const star = await c.call('equipment.EnhancedStarByGemStone', { gemstoneid: 'enhanced.star.2', count: 4, pos: 1 });
       ok(star.ok === 1 && star.enhancedstarlv === 1 && G.equipment.star(me, 1) === 1 && me.items['enhanced.star.2'] === gems0 - 4, 'four Flawless gems give Weaponry its first star (55% + 60%)');
+      { // Fox (Nov 25 2026): a lord raising gear to 11 stars or more is announced to everyone online (a [System] line) and on the Newsboard.
+        const savedGear = me.gear, sent = [], push = G.push, rnd = Math.random;
+        me.gear = { ...me.gear, 1: { lv: 10, star: 10 } }; give('enhanced.star.2', 8);
+        G.push = (to, cmd, data) => { if (cmd === 'server.SystemInfoMsg') sent.push({ to, data }); return push.call(G, to, cmd, data); };
+        Math.random = () => 0;
+        const s11 = await c.call('equipment.EnhancedStarByGemStone', { gemstoneid: 'enhanced.star.2', count: 4, pos: 1 });
+        const at11 = sent.length; me.gear[1].star = 5;
+        await c.call('equipment.EnhancedStarByGemStone', { gemstoneid: 'enhanced.star.2', count: 4, pos: 1 });   // (to 6: nothing said)
+        Math.random = rnd; G.push = push; me.gear = savedGear;
+        const online = [...G.online.keys()], news = (G.db.newsboard || []).slice(-1)[0];
+        ok(s11.ok === 1 && s11.enhancedstarlv === 11 && at11 === online.length && online.every(id => sent.some(x => x.to === id)) && sent.length === at11
+          && /has raised level 10 Weaponry to 11 stars/.test(sent[0]?.data.msg) && /11 stars/.test(news?.msg),
+          `raising gear to 11 stars tells everyone online (${at11} lords) and the Newsboard: "${sent[0]?.data.msg}"; 6 stars says nothing`); }
       {
         // Gear limited by the hero's level, as Fox checked live: a level 5 hero wears nothing, level 10 wears level 1
         // gear with 7 stars (+4.03 a piece), level 20 level 2 with 8, level 30 level 3 with 9, level 100 level 10
@@ -2508,8 +2521,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         ok(js.includes('t.jsx(I2,{troop:i.troop||{},castleId:n})') && js.includes('onClick:()=>aowCid&&aowDisband(aowOpen,aowCid,i,e[a])') && js.includes('open(t.jsx(gb,{castleId,u,have:Number(have)||0}),"bkdlg")')
           && js.includes('style:aowTroopFit(_e(e[a]))') && js.includes('["military","War Reports"]')
           && js.includes('t.jsx(c,{title:"Neutral",list:e.middle||[]})') && js.includes('v&&o&&t.jsx("div",{className:"al-bottom"+(C?"":" aow-subnote")')
-          && /\.mm-btn:has\(>\.mm-alarm\)::after\{[^}]*animation:aow-alarm-glow/.test(fs.readFileSync(path.join(pub, 'assets', html.match(/index-aow[0-9a-f]+\.css/)[0]), 'utf8')),
-          'the city panel\'s troop icons open the Barracks\' Disband window for their troop, and its troop counts are fitted to their cells; the alliance window\'s Military tab is War Reports, its Manage pages show their messages and Diplomacy lists Neutral alliances; Reports glows red under attack'); }
+          && js.includes('function aowRedReports(') && js.includes('aowRedReports()},[])')
+          && /\.mm-btn:has\(>\.mm-alarm\)::after\{[^}]*var\(--aow-report-red[^}]*animation:aow-report-flash/.test(fs.readFileSync(path.join(pub, 'assets', html.match(/index-aow[0-9a-f]+\.css/)[0]), 'utf8')),
+          'the city panel\'s troop icons open the Barracks\' Disband window for their troop, and its troop counts are fitted to their cells; the alliance window\'s Military tab is War Reports, its Manage pages show their messages and Diplomacy lists Neutral alliances; the Reports scroll flashes red under attack'); }
       // Fox's live capture of a Ring hero (Jessica): an On War book, then level-ups to 13 with 2,500 left over.
       me.items['player.experience.1.c'] = 1;
       const book = await c.call('hero.useItem', { castleId: castle.id, itemId: 'player.experience.1.c', heroId: rh.id });

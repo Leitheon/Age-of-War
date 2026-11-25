@@ -72,6 +72,10 @@ module.exports = (game, H) => {
     // Worn pieces of this gear changed strength.
     for (const c of game.castlesOf(p)) for (const h of game.heroes.list(c)) if (h.gear && Object.keys(h.gear).length) game.pushHero(c, h, 2);
     game.log.info(`${p.name} ${r.ok ? 'raised' : 'failed to raise'} ${game.data.equipTechs[type]?.name} stars (${r.from} -> ${r.star}, ${r.rate}%)`);
+    // 11 stars or more: a system message to everyone online (and the Newsboard), not only the lord's own window.
+    const at = game.rules.gear?.announceStar ?? 11;
+    if (r.ok && at > 0 && r.star >= at)
+      game.chat.system(null, `Congratulations! ${game.fame.chatName(p)} has raised level ${eq.level(p, type)} ${game.data.equipTechs[type]?.name || 'gear'} to ${r.star} stars!`);
   };
   // Socketing gems into gear and smelting them: commands this client has, but no window that sends them (its gems only
   // add gear stars, above), so there is nothing to show what they would do.

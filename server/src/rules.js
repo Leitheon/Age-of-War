@@ -784,7 +784,10 @@ const DEFAULTS = {
   // heroLevelsPerLevel: a hero wears gear up to one level per this many hero levels (Evony Advanced Guide, "Hero
   // Gear"; checked live by Fox), so a level 35 hero wears level 3 gear even when the Workshop has level 10, with
   // at most 9 stars (a level's stars: level + 6). 0 turns the limit off.
-  gear: { researchMinutes: [5, 15, 30, 60, 120, 240, 480, 720, 1080, 1440], heroLevelsPerLevel: 10 },
+  // announceStar: a lord raising gear to this many stars or more is announced to everyone online and on the Newsboard
+  // (Fox, Nov 25 2026: "a system message viewable to everyone logged in whenever a player gets a star level to level 11
+  // or higher on gear"); 0 announces nothing.
+  gear: { researchMinutes: [5, 15, 30, 60, 120, 240, 480, 720, 1080, 1440], heroLevelsPerLevel: 10, announceStar: 11 },
   // Wheel of Fortune (Amulets). The board has 24 prizes, as on the live game; one is the grand prize (kind 1).
   // Like the live boards (Fox's screenshots), it mixes items with 1,000,000 of a resource (`resources`),
   // 10, 30 or 100 cents (`cents`) and gear materials by 5 (`materials`). Which prizes and how often each

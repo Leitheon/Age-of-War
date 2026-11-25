@@ -153,8 +153,10 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   or a friendly alliance's, not in Truce or on vacation, and Beginner's Protection holds both ways.
 - **Alliance Diplomacy**: the Manage pages show their messages (a refusal such as the 24-hour wait between relation changes
   showed nothing), Diplomacy says what it set and lists Neutral alliances too.
-- **Reports glows red under attack**: while an enemy army marches on a city whose Beacon Tower sees it, the main menu's
-  Reports button pulses red with its "!".
+- **The Reports scroll flashes red under attack**: while an enemy army marches on a city whose Beacon Tower sees it, the
+  main menu's Reports scroll flashes red (a red copy made in the browser from the menu's own icon), beside its "!".
+- **11-star gear is announced**: raising gear to 11 stars or more puts a [System] line in everyone's chat and on the
+  Newsboard (`gear.announceStar`).
 - **King and Queen**: 101 in each base stat and leadership 26, growing 1 a level (`royalHero`); ones hired before are
   brought to it, their points kept. The royal helms' texts say so.
 - **Historic heroes defend NPC cities at level 150**: a wild one in a barbarian city with his sheet's stats and 149
