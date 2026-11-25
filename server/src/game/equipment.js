@@ -38,7 +38,9 @@ class EquipmentLogic {
   starPoints(p, type, s = this.star(p, type)){ return s ? STAR_POINTS[s - 1] : 0; }
 
   // ---------- research in the Workshop ----------
+  instant(){ return !!this.g.rules.gear?.instantResearch; }
   seconds(L){
+    if (this.instant()) return 0;
     const t = this.g.rules.gear?.researchMinutes || [];
     return Math.max(1, Math.round((t[L - 1] ?? 60 * L) * 60 / this.g.logic.speed));
   }
@@ -68,6 +70,7 @@ class EquipmentLogic {
     if (i) return [-44, `${tech.name} level ${L} needs ${i.num} ${this.g.data.items[i.id]?.name || i.id} (you have ${i.curNum}).`];
     for (const x of cond.items) p.items[x.id] -= x.num;
     p.gearResearch = { type, level: L, castleId: c.id, startTime: now, endTime: now + cond.time * 1000, items: cond.items.map(x => ({ id: x.id, num: x.num })) };
+    // (instant research, rules.gear.instantResearch: the handler finishes it at once, game.completeDue)
     return { items: cond.items.map(x => x.id) };
   }
   // Cancelling gives the materials back.

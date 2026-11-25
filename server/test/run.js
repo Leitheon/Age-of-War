@@ -1434,7 +1434,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const ore0 = me.items['equipment.tech.upgrade.1'];
       const gr = await c.call('equipmenttech.research', { castleId: castle.id, techId: 1 });
       const gdone = (await c.wait('server.EquipmentResearchCompleteUpdate', 8000)).data;
-      ok(gr.ok === 1 && gdone.typeId === 1 && gdone.level === 1 && me.items['equipment.tech.upgrade.1'] === ore0 - 1 && G.equipment.level(me, 1) === 1, 'Weaponry 1 is researched with its Wood and Iron Ore');
+      ok(gr.ok === 1 && gdone.typeId === 1 && gdone.level === 1 && me.items['equipment.tech.upgrade.1'] === ore0 - 1 && G.equipment.level(me, 1) === 1
+        && gr.tech.level === 1 && !gr.tech.upgradeing && !me.gearResearch && gl.acailableResearchBeans[0].conditionBean.time === 0,
+        'Weaponry 1 is researched with its Wood and Iron Ore, at once (Age of War: gear research is instant, and the Workshop shows no time)');
       const h0level = h0.level; h0.level = 9;
       const low = await c.call('equipment.WearEquipmenttech', { heroid: h0.id, Equipmenttechid: '0', AddAttributeType: 2, pos: 3 });
       ok(low.ok < 0 && /from level 10/.test(low.errorMsg) && !h0.gear?.[3], 'a hero below level 10 can\'t wear gear (one gear level per 10 hero levels)');

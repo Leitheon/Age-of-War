@@ -11,6 +11,7 @@ module.exports = (game, H) => {
     const p = conn.player, r = eq.start(c, p, Number(d.techId), game.now());
     if (Array.isArray(r)) return game.fail(conn, cmd, r[0], r[1]);
     game.store.touch();
+    if (eq.instant()) game.completeDue(c, true);   // done at once (rules.gear.instantResearch): its update and the heroes' gear
     game.reply(conn, cmd, { tech: eq.bean(c, p, Number(d.techId)) });
     game.pushItems(p, r.items);
   };

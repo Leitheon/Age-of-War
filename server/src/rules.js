@@ -791,7 +791,9 @@ const DEFAULTS = {
   // announceStar: a lord raising gear to this many stars or more is announced to everyone online and on the Newsboard
   // (Fox, Nov 25 2026: "a system message viewable to everyone logged in whenever a player gets a star level to level 11
   // or higher on gear"); 0 announces nothing.
-  gear: { researchMinutes: [5, 15, 30, 60, 120, 240, 480, 720, 1080, 1440], heroLevelsPerLevel: 10, announceStar: 11 },
+  // instantResearch (Age of War, Fox, Nov 25 2026: "gear should research instantly"): a gear level is done the moment
+  // its research starts (materials and buildings still needed); false: researchMinutes, live-like.
+  gear: { instantResearch: true, researchMinutes: [5, 15, 30, 60, 120, 240, 480, 720, 1080, 1440], heroLevelsPerLevel: 10, announceStar: 11 },
   // Wheel of Fortune (Amulets). The board has 24 prizes, as on the live game; one is the grand prize (kind 1).
   // Like the live boards (Fox's screenshots), it mixes items with 1,000,000 of a resource (`resources`),
   // 10, 30 or 100 cents (`cents`) and gear materials by 5 (`materials`). Which prizes and how often each

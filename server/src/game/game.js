@@ -181,6 +181,8 @@ class Game {
       if (p.coins == null) p.coins = this.rules.startCoins;
       if (this.floorStanding(p)) this.store.touch?.();
       if (this.equipment?.dropMountStars(p)){ this.log.info(`${p.name}'s mount had stars: removed (the mount holds none)`); this.store.touch?.(); }
+      // (gear research is instant: one started under timed research finishes on the first tick)
+      if (p.gearResearch && this.equipment?.instant() && p.gearResearch.endTime > this.now()){ p.gearResearch.endTime = this.now(); this.store.touch?.(); }
       p.items = p.items || {}; p.buffs = p.buffs || {}; p.techs = p.techs || {};
       if (p.research === undefined) p.research = null;
     }
