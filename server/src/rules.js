@@ -269,7 +269,11 @@ const DEFAULTS = {
   heroExp: { winFactor: 0.5, loseFactor: 0.25, expDivisor: 50, troopExpPerResource: 0.027 },
   // Honor, from battles between lords (combat.honor): (worth of what you killed - worth of what you lost) / 8 for
   // the winner, / 2 for the loser. Fits all twelve of Fox's live reports to within a point.
-  honor: { enabled: true, winDivisor: 8, loseDivisor: 2 },
+  // loserGains false (live, Fox's CC2 reports of Nov 25 2026, all lost attacks: 160,000 Pikemen lost for 74,699 Cavalry
+  // killed is "Honor: 0", not +688,921): a battle never raises the loser's honor (Nap had 8 billion from attacks he
+  // lost). And the report shows what the battle took, honor stopping at 0 (a lost attack worth -26,347,080 on a lord
+  // with none left: "Honor: 0").
+  honor: { enabled: true, winDivisor: 8, loseDivisor: 2, loserGains: false },
 
   // ---------- Marches and battle ----------
   rallyArmiesPerLevel: 1,          // Rally Spot description: level N sends N armies of up to N x 10,000 troops

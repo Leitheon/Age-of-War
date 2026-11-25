@@ -31,7 +31,10 @@ class EquipmentLogic {
   state(p, type){ p.gear = p.gear || {}; return p.gear[type] || (p.gear[type] = { lv: 0, star: 0 }); }
   level(p, type){ return p.gear?.[type]?.lv || 0; }
   star(p, type){ return p.gear?.[type]?.star || 0; }
-  maxStar(p, type){ const L = this.level(p, type); return L ? Math.min(MAX_STAR, L + 6) : 0; }
+  // The mount (Mount Training) holds no stars (Fox's tester Nap, Nov 25 2026: "mount has stars, that's not normal").
+  maxStar(p, type){ const L = this.level(p, type); return L && type !== MOUNT_TECH ? Math.min(MAX_STAR, L + 6) : 0; }
+  // A save with stars on the mount (the owner page's "all gear: N stars" gave them, before 0.1.60) loses them. True if changed.
+  dropMountStars(p){ const s = p.gear?.[MOUNT_TECH]; if (!s?.star) return false; s.star = 0; return true; }
   starPoints(p, type, s = this.star(p, type)){ return s ? STAR_POINTS[s - 1] : 0; }
 
   // ---------- research in the Workshop ----------
@@ -87,6 +90,7 @@ class EquipmentLogic {
   // Up to four gems of one kind; success = base rate for the current star + 10% (Delicate) or 15% (Flawless) a gem.
   enhanceStar(p, type, gemId, count, rnd = Math.random){
     const tech = this.techs[type]; if (!tech) return [-1, 'Unknown gear technology.'];
+    if (type === MOUNT_TECH) return [-1, `${tech.name} (the mount) has no star levels.`];
     const L = this.level(p, type); if (!L) return [-1, `Research ${tech.name} before adding stars to it.`];
     const s = this.state(p, type);
     if (s.star >= this.maxStar(p, type)) return [-1, s.star >= MAX_STAR ? `${tech.name} already has 15 stars.` : `${tech.name} level ${L} can hold at most ${this.maxStar(p, type)} stars; research the next level for more.`];
@@ -127,7 +131,7 @@ class EquipmentLogic {
     for (const pos of Object.keys(SLOT_TECH).map(Number)){ const b = this.slotBonus(p, h, pos); if (b.attr) out[b.attr] += b.value; }
     return out;
   }
-  // The star set: the fewest stars on any of the lord's 14 gear technologies (0 until all are researched).
+  // The star set: the fewest stars on any of the lord's gear technologies but the mount (0 until all 14 are researched).
   // It belongs to the lord, not to what the leading hero wears: live, a level 30 hero with no gear on lost about
   // as few troops at an NPC 5 as one in full gear (Fox, Oct 2026). rules.starSetLife.perHero: true counts
   // only the 16 pieces the hero wears instead, at the stars his level allows.
@@ -139,11 +143,12 @@ class EquipmentLogic {
       for (const pos of Object.keys(SLOT_TECH).map(Number)){
         const type = SLOT_TECH[pos];
         if (!this.worn(h)[pos] || !this.wornLevel(p, h, type)) return 0;
-        min = Math.min(min, this.wornStar(p, h, type));
+        if (type !== MOUNT_TECH) min = Math.min(min, this.wornStar(p, h, type));
       }
       return min;
     }
-    for (const type of this.types()){ if (!this.level(p, type)) return 0; min = Math.min(min, this.star(p, type)); }
+    // (the mount holds no stars, so it counts once researched)
+    for (const type of this.types()){ if (!this.level(p, type)) return 0; if (type !== MOUNT_TECH) min = Math.min(min, this.star(p, type)); }
     return min;
   }
   // Extra life (%) the star set gives the lord's troops (rules.starSetLife).

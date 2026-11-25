@@ -780,7 +780,10 @@ class ArmyLogic {
     const C = this.g.combat, h = { att: C.honor(defRows, attRows, attackerWon), def: C.honor(attRows, defRows, !attackerWon) };
     // (a battle can cost honor, but a lord's honor stops at 0: Fox, Nov 24 2026, "Honor/prestige should not be able
     // to go negative")
-    p.honor = Math.max(0, ((p.honor || 0) + h.att) || 0); dp.honor = Math.max(0, ((dp.honor || 0) + h.def) || 0);
+    // The report shows what the battle took or gave (live: "Honor: 0" for a lord with none left).
+    const pw = p.honor || 0, dw = dp.honor || 0;
+    p.honor = Math.max(0, (pw + h.att) || 0); dp.honor = Math.max(0, (dw + h.def) || 0);
+    h.att = p.honor - pw; h.def = dp.honor - dw;
     if (h.att) this.g.pushPlayerInfo(p);
     if (h.def) this.g.pushPlayerInfo(dp);
     return h;

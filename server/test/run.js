@@ -245,9 +245,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const G = srv.game, eq = G.equipment, me = srv.store.db.players[p.playerInfo.id], had = new Set(c.inbox);
       const saved = { techs: { ...(me.techs || {}) }, gear: me.gear ? JSON.parse(JSON.stringify(me.gear)) : undefined, research: me.research, gearResearch: me.gearResearch };
       const maxed = (await get(`/coins?from=game&user=Tester&tech=all&tl=10&gear=all&gl=10&star=all&sl=15`)).body.toString();
-      ok(Object.keys(G.data.techs).every(id => me.techs[id] === 10) && eq.types().length === 14 && eq.types().every(t => eq.level(me, t) === 10 && eq.star(me, t) === 15)
+      ok(Object.keys(G.data.techs).every(id => me.techs[id] === 10) && eq.types().length === 14 && eq.types().every(t => eq.level(me, t) === 10 && eq.star(me, t) === (t === 3 ? 0 : 15))
         && eq.setStars(me) === 15 && /Star set: <b>15<\/b>/.test(maxed) && /Max everything/.test(maxed),
-        'the debug menu maxes everything in one click: all 19 research topics and all 14 gear technologies at 10, with 15 stars (star set 15)');
+        'the debug menu maxes everything in one click: all 19 research topics and all 14 gear technologies at 10, with 15 stars but on the mount, which holds none (star set 15)');
       const some = (await get(`/coins?from=game&user=Tester&tech=14&tl=3&gear=1&gl=2&star=1&sl=15`)).body.toString();
       const zero = (await get(`/coins?from=game&user=Tester&gear=2&gl=0&star=2&sl=5`)).body.toString();
       ok(me.techs[14] === 3 && me.techs[13] === 10 && eq.level(me, 1) === 2 && eq.star(me, 1) === 8 && /at most 8/.test(some) && eq.level(me, 3) === 10
@@ -1461,6 +1461,15 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         ok(s11.ok === 1 && s11.enhancedstarlv === 11 && at11 === online.length && online.every(id => sent.some(x => x.to === id)) && sent.length === at11
           && /has raised level 10 Weaponry to 11 stars/.test(sent[0]?.data.msg) && /11 stars/.test(news?.msg),
           `raising gear to 11 stars tells everyone online (${at11} lords) and the Newsboard: "${sent[0]?.data.msg}"; 6 stars says nothing`); }
+      { // Fox's tester Nap (Nov 25 2026): "mount has stars, that's not normal": the mount holds none, a save's are dropped, the star set skips it.
+        const E = G.equipment, savedGear = me.gear; give('enhanced.star.2', 4);
+        me.gear = {}; for (const t of E.types()) me.gear[t] = { lv: 10, star: 12 }; me.gear[3].star = 9;
+        const setBefore = E.setStars(me), dropped = E.dropMountStars(me), again = E.dropMountStars(me), setAfter = E.setStars(me);
+        const r = await c.call('equipment.EnhancedStarByGemStone', { gemstoneid: 'enhanced.star.2', count: 4, pos: 3 });
+        const bean3 = E.bean(city, me, 3), max3 = E.maxStar(me, 3);
+        me.gear = savedGear;
+        ok(setBefore === 12 && dropped && !again && me.gear !== undefined && setAfter === 12 && r.ok < 0 && /has no star levels/.test(r.errorMsg) && bean3.enhancedstarlv === 0 && max3 === 0,
+          `the mount holds no stars: Star on it is refused ("${r.errorMsg}"), a save's mount stars are dropped, and the star set counts the other 13 (12 stars, whatever the mount had)`); }
       {
         // Gear limited by the hero's level, as Fox checked live: a level 5 hero wears nothing, level 10 wears level 1
         // gear with 7 stars (+4.03 a piece), level 20 level 2 with 8, level 30 level 3 with 9, level 100 level 10
@@ -2451,9 +2460,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         me.honor = 5e12; foe.honor = 0; const h2 = A.honor(me, foe, rows({ 10: 100000 }), rows({ 8: 195512 }), true), big = [me.honor, foe.honor];
         me.prestige = 3e12; const bean = G.beans.playerInfo(me, G.castlesOf(me));
         [me.honor, foe.honor, me.prestige] = was;
-        ok(h.att < -100 && afterBattle[0] === 0 && afterBattle[1] > 100 && migrated.join() === '0,0' && noLoss === 0 && DEFAULTS.alliances.quitPrestigeRate === 0
+        ok(h.att === -100 && afterBattle[0] === 0 && afterBattle[1] > 100 && migrated.join() === '0,0' && noLoss === 0 && DEFAULTS.alliances.quitPrestigeRate === 0
           && big[0] === 5e12 + h2.att && bean.prestige === 3e12 && bean.honor === big[0] && big[1] === 0,
-          `honor can be lost but stops at 0 (a battle worth ${h.att} honor leaves 100 at ${afterBattle[0]}), prestige is never lost (lost troops, quitting an alliance), a lord saved below 0 starts at 0, and neither is capped (3,000,000,000,000 prestige shows as it is)`);
+          `honor can be lost but stops at 0 (a battle takes the 100 there was: ${h.att}, leaving ${afterBattle[0]}), prestige is never lost (lost troops, quitting an alliance), a lord saved below 0 starts at 0, and neither is capped (3,000,000,000,000 prestige shows as it is)`);
         // Fox (Nov 24 2026), hitting a tester's city: "At some point I lost prestige and my prestige is now at 0." With
         // Age of War's rules, lost and won attacks on a lord's city leave both lords' prestige as it was.
         G.rules.battlePrestige.losses = DEFAULTS.battlePrestige.losses;
@@ -2522,8 +2531,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           && js.includes('style:aowTroopFit(_e(e[a]))') && js.includes('["military","War Reports"]')
           && js.includes('t.jsx(c,{title:"Neutral",list:e.middle||[]})') && js.includes('v&&o&&t.jsx("div",{className:"al-bottom"+(C?"":" aow-subnote")')
           && js.includes('function aowRedReports(') && js.includes('aowRedReports()},[])')
+          && js.includes('!m&&t.jsx("div",{className:"ws-stars"') && js.includes('title:"Build time for one",children:["⏱ ",It(Number(ne.time))]') && js.includes('It(Number(k.conditionBean.time)*w)')
           && /\.mm-btn:has\(>\.mm-alarm\)::after\{[^}]*var\(--aow-report-red[^}]*animation:aow-report-flash/.test(fs.readFileSync(path.join(pub, 'assets', html.match(/index-aow[0-9a-f]+\.css/)[0]), 'utf8')),
-          'the city panel\'s troop icons open the Barracks\' Disband window for their troop, and its troop counts are fitted to their cells; the alliance window\'s Military tab is War Reports, its Manage pages show their messages and Diplomacy lists Neutral alliances; the Reports scroll flashes red under attack'); }
+          'the city panel\'s troop icons open the Barracks\' Disband window for their troop, and its troop counts are fitted to their cells; the alliance window\'s Military tab is War Reports, its Manage pages show their messages and Diplomacy lists Neutral alliances; the Reports scroll flashes red under attack; the Workshop shows no stars on the mount; the Walls window shows build times'); }
       // Fox's live capture of a Ring hero (Jessica): an On War book, then level-ups to 13 with 2,500 left over.
       me.items['player.experience.1.c'] = 1;
       const book = await c.call('hero.useItem', { castleId: castle.id, itemId: 'player.experience.1.c', heroId: rh.id });
@@ -3176,6 +3186,18 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const off = live.map(([k, l, w, want]) => Math.abs(C.honor(rows(k), rows(l), w) - want));
       ok(off.every(x => x <= 1),
         `honor matches Fox's live battle reports (a defender killing 100,000 Cataphracts for 195,512 Transporters: +733,379; losing 40 Archer Towers and 15 Traps for 39 Pikemen: -5,960), off by ${Math.max(...off)} at most`);
+      // Fox's CC2 reports (Nov 25 2026), all lost attacks on one city: the loser's honor goes down by (lost - killed) / 2,
+      // never up (Pikemen for more Cavalry: 0, not +688,921; Nap had 8 billion from lost attacks), and the report shows what
+      // was taken, honor stopping at 0 (Catapults for fewer Catapults on a lord with none left: 0).
+      const cc2 = [[{ 9: 43013 }, { 9: 160000 }, -3334130], [{ 9: 43324 }, { 9: 160000 }, -3325266], [{ 9: 42974 }, { 9: 160000 }, -3335242], [{ 9: 62933 }, { 9: 160000 }, -2766410],
+        [{ 9: 43674 }, { 9: 160000 }, -3315292], [{ 9: 74699 }, { 5: 160000 }, 0], [{ 9: 62825 }, { 5: 160000 }, 0], [{ 9: 50286 }, { 5: 160000 }, -6850]];
+      const offCc2 = cc2.map(([k, l, want]) => Math.abs(C.honor(rows(k), rows(l), false) - want));
+      const A = srv.game.armies, [att, def] = Object.values(srv.game.db.players).filter(q => srv.game.castlesOf(q).length).slice(0, 2), was = [att.honor, def.honor];
+      att.honor = 0; def.honor = 500; const none = A.honor(att, def, rows({ 13: 69148 }), rows({ 13: 160000 }), false), after = [att.honor, def.honor];
+      att.honor = 1000; const some = A.honor(att, def, rows({ 9: 43013 }), rows({ 9: 160000 }), false);
+      [att.honor, def.honor] = was;
+      ok(offCc2.every(x => x <= 1) && none.att === 0 && after[0] === 0 && none.def === after[1] - 500 && some.att === -1000,
+        `honor matches Fox's CC2 reports of lost attacks (off by ${Math.max(...offCc2)} at most): a loser never gains (Pikemen for more Cavalry: 0), and the report shows what was taken, honor stopping at 0 (a lost attack worth -26,347,080 on a lord with none: 0; with 1,000 left: -1,000)`);
     }
     // The march window's War Ensign (useFlag, +25%) and Stygandr's Banner of the Horde (useItem, x10), as the client sends them.
     {

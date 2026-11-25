@@ -180,6 +180,7 @@ class Game {
     for (const p of Object.values(this.db.players)){
       if (p.coins == null) p.coins = this.rules.startCoins;
       if (this.floorStanding(p)) this.store.touch?.();
+      if (this.equipment?.dropMountStars(p)){ this.log.info(`${p.name}'s mount had stars: removed (the mount holds none)`); this.store.touch?.(); }
       p.items = p.items || {}; p.buffs = p.buffs || {}; p.techs = p.techs || {};
       if (p.research === undefined) p.research = null;
     }
@@ -767,7 +768,7 @@ class Game {
         const L = Math.floor(Number(query.get('gl'))), types = pick(gearRaw, gearTypes);
         if (!types.length || !(L >= 0 && L <= 10)) said.push('<p class="bad">Pick a gear technology and a level from 0 to 10.</p>');
         else {
-          for (const t of types){ const st = eq.state(p, t); st.lv = L; st.star = L ? Math.min(st.star, L + 6) : 0; }
+          for (const t of types){ const st = eq.state(p, t); st.lv = L; st.star = Math.min(st.star, eq.maxStar(p, t)); }   // (none on the mount)
           if (p.gearResearch && types.includes(p.gearResearch.type) && p.gearResearch.level <= L) p.gearResearch = null;
           changed.gear = true;
           said.push(`<p class="ok">${types.length > 1 ? 'All gear technologies are' : esc(eq.techs[types[0]].name) + ' is'} now level ${L}. Reopen the Workshop to see it.</p>`);
@@ -783,6 +784,7 @@ class Game {
           for (const t of types){
             const L = eq.level(p, t);
             if (!L){ if (S) none.push(eq.techs[t].name); continue; }
+            if (!eq.maxStar(p, t)) continue;   // (the mount holds no stars)
             const st = eq.state(p, t); st.star = Math.min(S, eq.maxStar(p, t));
             if (st.star < S) capped.push(`${eq.techs[t].name} (level ${L}: at most ${st.star})`);
           }

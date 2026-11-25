@@ -155,6 +155,10 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   showed nothing), Diplomacy says what it set and lists Neutral alliances too.
 - **The Reports scroll flashes red under attack**: while an enemy army marches on a city whose Beacon Tower sees it, the
   main menu's Reports scroll flashes red (a red copy made in the browser from the menu's own icon), beside its "!".
+- **Honor as live**: (worth killed - worth lost) / 8 for the winner, / 2 for the loser, but the loser never gains
+  (`honor.loserGains`), and the report shows what was taken, honor stopping at 0 (Fox's CC2 reports).
+- **The mount holds no stars**: Star on it is refused, saved mount stars are dropped, and the star set counts the other 13.
+- **The Walls window shows build times**: each defense's time for one, and the time for the quantity typed.
 - **11-star gear is announced**: raising gear to 11 stars or more puts a [System] line in everyone's chat and on the
   Newsboard (`gear.announceStar`).
 - **King and Queen**: 101 in each base stat and leadership 26, growing 1 a level (`royalHero`); ones hired before are

@@ -221,9 +221,12 @@ class Combat {
   exp(rows, won){ const r = this.rules.heroExp; return r ? Math.floor(this.value(rows) * (won ? r.winFactor : r.loseFactor)) : 0; }
   // Honor from a battle between two lords (Fox's live reports, Oct 2026): what you killed is worth less what you
   // lost, divided by 8 for the winner and by 2 for the loser (rules.honor). Losing hurts four times as much.
+  // One side's honor from a battle (rules.honor): (worth of what it killed - worth of what it lost) / 8 if it won,
+  // / 2 if it lost; the loser never gains (loserGains false, live).
   honor(killed, lost, won){
     const h = this.rules.honor || {}; if (h.enabled === false) return 0;
-    return Math.round((this.value(killed) - this.value(lost)) / (won ? h.winDivisor ?? 8 : h.loseDivisor ?? 2));
+    const v = Math.round((this.value(killed) - this.value(lost)) / (won ? h.winDivisor ?? 8 : h.loseDivisor ?? 2));
+    return !won && h.loserGains === false ? Math.min(0, v) : v;
   }
 
   // Share of the leading hero's bonus his army gets, on average. He leads (leadership x perPoint + level) x
