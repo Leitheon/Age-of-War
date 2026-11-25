@@ -353,9 +353,10 @@ class Alliances {
         const atk = /<attackTroop[^>]*\bking="([^"]*)"/.exec(r.content)?.[1], def = /<defendTroop[^>]*\bking="([^"]*)"/.exec(r.content)?.[1] || '';
         if (!atk || (!def && !this.historicSpot(r.targetPos))) continue;
         const key = `${r.at}|${atk}|${def}|${r.targetPos}`; if (seen.has(key)) continue; seen.add(key);
+        // (Other alliance: the lord's alliance; an NPC Historic City's is "[HISTORIC CITY]", as RoboEvony shows live's, Fox, Nov 25 2026)
         const other = def ? this.lord(r.attack ? def : atk) : null, ob = other && this.of(other);
         out.push({ at: r.at, bean: { id: 0, type: 1, attack: !!r.attack, eventName: `${atk} Attack ${r.targetPos}`, startPos: r.startPos, targetPos: r.targetPos,
-          otherAllianceName: ob ? ob.name : '', time: r.eventTime, xml_data: r.content } });
+          otherAllianceName: ob ? ob.name : def ? '' : '[HISTORIC CITY]', time: r.eventTime, xml_data: r.content } });
       }
     }
     // (each row its own id: the client keys the table's rows by it)

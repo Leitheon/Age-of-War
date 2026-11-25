@@ -155,8 +155,8 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   (`historicHeroes.defenderLeadership`) and leads the whole garrison by it.
 - **No experience items at the highest level**: Anabasis, Epitome of Military Science and On War don't work on a hero at
   his highest level (100, a Ring hero 120, a historic hero 150), and the item is kept.
-- **Alliance Military Situation**: lists the members' attacks on NPC Historic Cities too (not barbarian cities or valleys),
-  and a report opened there shows its outcome and troops (it showed every battle as a defeat with none).
+- **Alliance War Reports** (the Military tab, renamed as RoboEvony has it): lists the members' attacks on NPC Historic
+  Cities too, their opponent "[HISTORIC CITY]" (not barbarian cities or valleys), and a report opened there shows its outcome and troops (it showed every battle as a defeat with none).
 - **Historic heroes taken from NPC cities start at level 1**, with their sheet's stats and no points, and must be levelled up
   (`historicHeroes.capturedLevel`); a hero taken from another lord keeps his level and stats.
 - **Historic heroes get 1 point a level after the first** (none at level 1, 149 at 150), as

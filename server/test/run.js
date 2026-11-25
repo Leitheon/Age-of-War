@@ -2491,8 +2491,8 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         const pub = path.join(__dirname, '..', 'public'), html = fs.readFileSync(path.join(pub, 'index.html'), 'utf8');
         const js = fs.readFileSync(path.join(pub, 'assets', html.match(/index-aow[0-9a-f]+\.js/)[0]), 'utf8');
         ok(js.includes('t.jsx(I2,{troop:i.troop||{},castleId:n})') && js.includes('onClick:()=>aowCid&&aowDisband(aowOpen,aowCid,i,e[a])') && js.includes('open(t.jsx(gb,{castleId,u,have:Number(have)||0}),"bkdlg")')
-          && js.includes('style:aowTroopFit(_e(e[a]))'),
-          'the city panel\'s troop icons open the Barracks\' Disband window for their troop, and its troop counts are fitted to their cells'); }
+          && js.includes('style:aowTroopFit(_e(e[a]))') && js.includes('["military","War Reports"]'),
+          'the city panel\'s troop icons open the Barracks\' Disband window for their troop, and its troop counts are fitted to their cells; the alliance window\'s Military tab is War Reports'); }
       // Fox's live capture of a Ring hero (Jessica): an On War book, then level-ups to 13 with 2,500 left over.
       me.items['player.experience.1.c'] = 1;
       const book = await c.call('hero.useItem', { castleId: castle.id, itemId: 'player.experience.1.c', heroId: rh.id });
@@ -3269,9 +3269,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         npcRep(`Barbarian's city(${bx},${by})`, false); npcRep(`${hc.name}(${hx},${hy})`, true);
         const npcSit = await c.call('alliance.getMilitarySituationList', { pageNo: 1, pageSize: 10 }), rows = npcSit.situations;
         const hcRow = rows.find(b => b.eventName === `Allyson Attack ${hc.name}(${hx},${hy})`);
-        ok(hcRow && hcRow.otherAllianceName === '' && /isAttackSuccess="true"/.test(hcRow.xml_data)
+        ok(hcRow && hcRow.otherAllianceName === '[HISTORIC CITY]' && /isAttackSuccess="true"/.test(hcRow.xml_data)
           && !rows.some(b => /Barbarian/.test(b.eventName)) && new Set(rows.map(b => b.id)).size === rows.length,
-          `the Military Situation lists a member's attack on an NPC Historic City (${hc.name}), not one on a barbarian city`);
+          `the Military Situation (War Reports) lists a member's attack on an NPC Historic City (${hc.name}), its opponent "[HISTORIC CITY]", not one on a barbarian city`);
         // The web client gets each report as its Reports window does, every value a child element too.
         const wr = []; G.handle({ id: 'al-web', web: true, player: me, ip: 'test', closed: false, send: (cmd, data) => wr.push({ cmd, data }), close(){} }, 'alliance.getMilitarySituationList', { pageNo: 1, pageSize: 10 });
         const webRow = wr.find(r => r.cmd === 'alliance.getMilitarySituationList')?.data?.situations?.find(b => b.eventName === hcRow?.eventName);
