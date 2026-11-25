@@ -34,11 +34,14 @@ module.exports = (game, H) => {
       // field window shows Colonize; live shows a lord you aren't at war with Declare War and no Colonize (Fox).
       // canSend / canTrans: Reinforce and Transport, only to your own and your alliance's cities (and a city your army
       // is colonizing, to reinforce it); live shows neither on a neutral lord's city (Fox).
+      // canPolicy: the field window shows Policies on a lord's city only with it (an NPC city needs none); the client
+      // then checks the viewer's Historic City reaches it and is above its level. Any other lord's city qualifies, as
+      // policies.use() allows (Fox's tester, Nov 25 2026: Policies worked on a barbarian city, not on a lord's).
       const helps = mine || (!!me && game.alliances.same(me, p)), backs = helps || (!!me && game.colonies.canReinforce(me, c));
       return base(t, { castleId: c.id, description: (c.powerLevel ?? 4) < 4 ? world.historicAt(t.id)?.intro || '' : '', name: c.name, userName: p.name, flag: p.flag, prestige: p.prestige || 0, relation: mine ? 1 : game.alliances.relation(me, p), ownerPlayerId: p.id,
         allianceName: game.alliances.of(p)?.name || null, honor: p.honor || 0, state: game.war.cityState(p, me),
         powerLevel: c.powerLevel ?? 4, castleIcon: c.icon || 0, playerLogoUrl: p.faceUrl || '', canScout: !mine, canLoot: !mine,
-        canOccupy: !mine && !!me && !game.war.cantAttack(me, c), canSend: backs, canTrans: helps,
+        canOccupy: !mine && !!me && !game.war.cantAttack(me, c), canSend: backs, canTrans: helps, canPolicy: !mine && !!me,
         ...game.colonies.mapFields(c, me), ...game.war.mapFields(me, p), furlough: game.war.vacation(p) });
     }
     if (t.ownerCastle){

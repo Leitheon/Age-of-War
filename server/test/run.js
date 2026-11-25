@@ -1981,6 +1981,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       city.powerLevel = 3; G.rules.policies.range[12] = 400;
       const penpal = G.db.players[Object.keys(G.db.players).find(id => G.db.players[id].name === 'Penpal')], pc = G.castlesOf(penpal)[0];
       pc.troops.archer = 1000;
+      // The field window shows Policies on a lord's city only when the bean says canPolicy (Fox's tester, Nov 25 2026).
+      { const me = G.db.players[city.playerId], their = G.mapBean({ player: me }, world.tileAt(srv.store, pc.fieldId)), own = G.mapBean({ player: me }, world.tileAt(srv.store, city.fieldId));
+        ok(their.canPolicy === true && own.canPolicy === false, "another lord's city on the map can take policies (canPolicy), your own can't"); }
       const disarm = await c.call('capital.reduceArmaments', { castleId: castle.id, targetFieldId: pc.fieldId });
       // Policies only go down (Fox, live, Nov 19 2026): not on a Historic City of the same level or higher.
       const pcPower = pc.powerLevel, r14 = G.rules.policies.range[14];
