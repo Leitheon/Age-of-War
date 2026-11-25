@@ -174,8 +174,11 @@ const DEFAULTS = {
     maxQuests: 10,                                // historic hero quests a lord can hold at once
     questFree: true,                              // no quest: the portrait (Enquire Details) alone captures the hero, and
                                                   // is used up then (false: accept the quest too, persuading takes it)
-    level: 30,                                    // wild historic heroes are always level 30 (Fox); the sheet's stats
-                                                  // are their level 1 base, plus 29 points spread at random
+    level: 150,                                   // historic heroes defending NPC cities are level 150 (Fox, Nov 25 2026;
+                                                  // was 30): a wild one in a barbarian city has his sheet's stats plus
+                                                  // 149 points spread at random; a Historic City's ruler shows 150
+    itemLevel: 30,                                // the hero a Historic Hero item (player.box.hero.npc) gives: level 30,
+                                                  // his waiting points cut to 29 in proportion
     capturedLevel: 1,                             // ...but one taken from an NPC city is level 1, no points, and
                                                   // must be levelled up (Fox, Nov 24 2026; hh.captive)
     maxLevel: 150, pointsPerLevel: 1,             // live: Gao Guiying at 150 has her sheet + her points + her gear

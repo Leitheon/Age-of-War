@@ -2535,13 +2535,20 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const short = { historic: 146, level: 35, added: { pol: 10, atk: 5, int: 5 }, points: 0 }, lv1 = { historic: 146, level: 1, added: { pol: 0, atk: 1, int: 0 }, points: 0 };
       const gao = { historic: 686, level: 150, added: { pol: 0, atk: 300, int: 0 }, points: 0 };
       const split = { historic: 146, level: 100, added: { pol: 50, atk: 100, int: 30 }, points: 20 };
-      const wild = { pol: 20, atk: 20, int: 20 }, wild2 = { pol: 5, atk: 5, int: 5 };
+      const wild = { pol: 100, atk: 60, int: 40 }, wild2 = { pol: 5, atk: 5, int: 5 };
       const owed = G.hh.owed(short), owedAgain = G.hh.owed(short), trimmed = G.hh.owed(gao), trimmed2 = G.hh.owed(split), cut = G.hh.topUp(wild), topped = G.hh.topUp(wild2), none1 = G.hh.owed(lv1);
       const sum = o => o.pol + o.atk + o.int;
       ok(owed && !owedAgain && short.points === 14 && sum(short.added) + short.points === 34 && trimmed && gao.added.atk === 149 && gao.points === 0
-        && trimmed2 && split.points === 0 && sum(split.added) === 99 && split.added.atk > split.added.pol && split.added.pol > split.added.int && cut && sum(wild) === 29 && topped && sum(wild2) === 29
+        && trimmed2 && split.points === 0 && sum(split.added) === 99 && split.added.atk > split.added.pol && split.added.pol > split.added.int && cut && sum(wild) === 149 && topped && sum(wild2) === 149
         && none1 && sum(lv1.added) === 0 && lv1.points === 0,
-        `historic heroes hold 1 point a level after the first (Fox: none at level 1): short ones get the rest (34 at level 35), ones over it lose the extra (Gao Guiying's 300 attack points at 150 to 149; ${JSON.stringify(split.added)} at 100), and wild ones in NPC cities have 29`);
+        `historic heroes hold 1 point a level after the first (Fox: none at level 1): short ones get the rest (34 at level 35), ones over it lose the extra (Gao Guiying's 300 attack points at 150 to 149; ${JSON.stringify(split.added)} at 100), and wild ones in NPC cities have 149`);
+      { // Fox (Nov 25 2026): historic heroes defending NPC cities are level 150; a Historic Hero item still gives one at 30.
+        const free = G.hh.free()[0], fid = G.hh.state(free.id).fieldId, d = G.hh.defender(fid, Date.now()), a = G.hh.alloc(free.id);
+        const o = G.hh.offer(free, { pol: 100, atk: 40, int: 9 });
+        const [rid, rfid] = Object.entries(G.hh.rulers()).find(([id, f]) => G.hh.rulerAt(f)) || [], rb = rfid != null && G.hh.asRuler(rfid, G.npc.ruler(world.tileAt(srv.store, rfid)));
+        ok(d && d.level === 150 && sum(a) === 149 && d.attack === free.atk + a.atk && o.level === 30 && sum(o.added) === 29 && o.added.pol > o.added.atk && o.added.atk > o.added.int
+          && rb && rb.level === 150 && rb.historic === Number(rid) && rb.attack === G.npc.ruler(world.tileAt(srv.store, rfid)).attack,
+          `historic heroes defend NPC cities at level 150: ${free.name} in a barbarian city with 149 points, ${rb && rb.name} ruling his Historic City (its own numbers); a Historic Hero item's hero is level 30 with 29`); }
       if (rh) city.heroes = city.heroes.filter(h => h !== rh);
       me.title = titleWas; me.createdAt = createdWas; G.rules.rallyArmiesPerLevel = perRally;
     }

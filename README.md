@@ -148,13 +148,16 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
 - **No undraftable numbers**: Draft and Disarmament, from a Historic City or on a colony, always take the biggest branch
   (`draft.undraftable`; true brings back live's 32-bit wrap and its "There are no troops in the city").
 - **The city panel's troop counts fit their cells**: a long count gets a smaller font and is narrowed slightly.
+- **Historic heroes defend NPC cities at level 150**: a wild one in a barbarian city with his sheet's stats and 149
+  points spread at random, a Historic City's ruler with the city's own numbers; a Historic Hero item still gives one at
+  level 30 (`historicHeroes.level`, `historicHeroes.itemLevel`).
 - **No experience items at the highest level**: Anabasis, Epitome of Military Science and On War don't work on a hero at
   his highest level (100, a Ring hero 120, a historic hero 150), and the item is kept.
 - **Alliance Military Situation**: lists the members' attacks on NPC Historic Cities too (not barbarian cities or valleys),
   and a report opened there shows its outcome and troops (it showed every battle as a defeat with none).
 - **Historic heroes taken from NPC cities start at level 1**, with their sheet's stats and no points, and must be levelled up
   (`historicHeroes.capturedLevel`); a hero taken from another lord keeps his level and stats.
-- **Historic heroes get 1 point a level after the first** (none at level 1, 149 at 150; wild ones at 30 have 29), as
+- **Historic heroes get 1 point a level after the first** (none at level 1, 149 at 150), as
   live: Gao Guiying at 150 in the live ranking is her sheet + 150 + her gear. Ring heroes keep 2 a level. Heroes saved
   with more lose the extra at startup, unspent points first, then in proportion to where they went.
 - **My Items**: the Angel and Devil items (Fleet Feet ... Broken Gates, used on another lord or his city) are under

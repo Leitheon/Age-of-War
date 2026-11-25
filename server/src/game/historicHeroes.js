@@ -256,7 +256,8 @@ class HistoricHeroLogic {
   // hero's name and portrait; base as it is if no hero rules there.
   asRuler(fieldId, base){
     const h = base && this.rulerAt(fieldId);
-    return h ? { ...base, name: h.name, face: h.portrait, historic: h.id } : base;
+    // (at the level historic heroes defend NPC cities at, rules.historicHeroes.level: 150)
+    return h ? { ...base, level: this.rules.level || base.level, name: h.name, face: h.portrait, historic: h.id } : base;
   }
   // A ruler's base stats: rules.historic.rulerStats, or his own line in rulerStatsByHero.
   rulerStats(h){ return { pol: 125, atk: 125, int: 125, ldr: 175, ...(this.g.rules.historic?.rulerStats || {}), ...(h && this.g.rules.historic?.rulerStatsByHero?.[h.name] || {}) }; }
@@ -314,8 +315,9 @@ class HistoricHeroLogic {
     this.db.hh[id] = { status: 'free', fieldId: null };
     return null;
   }
-  // A wild hero is level 30 (Fox), with 1 point for each level after the first spread at random (live). Holy Water
-  // resets them so the owner can place them.
+  // A wild hero is level 150 (Fox, Nov 25 2026: "Historic heroes defending NPC cities should be level 150"; was 30),
+  // with 1 point for each level after the first spread at random (live). Holy Water resets them so the owner can
+  // place them.
   // (Live, Fox, Nov 24 2026: Gao Guiying at level 150 in the live hero ranking has 815 attack, her sheet's 96 + her
   // level points + 569.7 from 15 pieces of level 10 gear at 15 stars, so 1 point a level, not 2 as 0.3.61 to 0.1.42
   // had it; and "at level 1, heroes shouldn't have a stat point to distribute": 149 at 150, as a Ring hero's 2 a
@@ -347,7 +349,7 @@ class HistoricHeroLogic {
     return h && s?.status === 'free' ? h : null;
   }
 
-  // The hero as the NPC city's defending commander: level 30, with his base stats plus his randomly spread points.
+  // The hero as the NPC city's defending commander: level 150, with his base stats plus his randomly spread points.
   defender(fieldId, now){
     const h = this.at(fieldId, now); if (!h) return null;
     const a = this.alloc(h.id);
@@ -466,9 +468,13 @@ class HistoricHeroLogic {
     const L = this.rules.capturedLevel ?? 1;
     return { ...this.offer(h), level: L, added: { pol: 0, atk: 0, int: 0 }, points: this.pointsAt(L) };
   }
+  // The hero as a lord gets him from a Historic Hero item: level rules.itemLevel (30), his waiting points cut to that
+  // level's in proportion (a wild hero waits at level 150 with 149).
   offer(h, alloc = this.randomAlloc()){
-    const level = this.rules.level || 1;
-    return { name: h.name, level, exp: 0, base: { pol: h.pol, atk: h.atk, int: h.int }, added: { ...alloc }, points: 0,
+    const level = this.rules.itemLevel ?? 30, added = { ...alloc }, keys = ['pol', 'atk', 'int'];
+    const over = keys.reduce((s, k) => s + (added[k] || 0), 0) - this.pointsAt(level);
+    if (over > 0) shrink(added, over);
+    return { name: h.name, level, exp: 0, base: { pol: h.pol, atk: h.atk, int: h.int }, added, points: 0,
       loyalty: this.rules.hiredLoyalty, face: h.portrait, sex: h.female, historic: h.id, leadership: h.ldr, infro: h.bio };
   }
   // A hired (or waiting) historic hero's base stats follow the sheet, so a corrected sheet reaches heroes already
