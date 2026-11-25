@@ -159,6 +159,8 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   (`honor.loserGains`), and the report shows what was taken, honor stopping at 0 (Fox's CC2 reports).
 - **The mount holds no stars**: Star on it is refused, saved mount stars are dropped, and the star set counts the other 13.
 - **The Walls window shows build times**: each defense's time for one, and the time for the quantity typed.
+- **The Workshop shows gear research under way**: "Researching Lv.N" with the time left, Speed Up and Cancel (the
+  materials back); the level goes up when it finishes.
 - **11-star gear is announced**: raising gear to 11 stars or more puts a [System] line in everyone's chat and on the
   Newsboard (`gear.announceStar`).
 - **King and Queen**: 101 in each base stat and leadership 26, growing 1 a level (`royalHero`); ones hired before are

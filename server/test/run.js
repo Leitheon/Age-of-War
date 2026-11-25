@@ -2531,9 +2531,10 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           && js.includes('style:aowTroopFit(_e(e[a]))') && js.includes('["military","War Reports"]')
           && js.includes('t.jsx(c,{title:"Neutral",list:e.middle||[]})') && js.includes('v&&o&&t.jsx("div",{className:"al-bottom"+(C?"":" aow-subnote")')
           && js.includes('function aowRedReports(') && js.includes('aowRedReports()},[])')
-          && js.includes('!m&&t.jsx("div",{className:"ws-stars"') && js.includes('title:"Build time for one",children:["⏱ ",It(Number(ne.time))]') && js.includes('It(Number(k.conditionBean.time)*w)')
+          && js.includes('!m&&t.jsx("div",{className:"ws-stars"') && js.includes('aowGearUp&&t.jsxs("span",{className:"ws-sub aow-ws-up",children:[" · Researching Lv.",i+1," ",It(aowLeft)]})')
+          && js.includes('aowCmd:"equipmenttech.speedUpResearch"') && (js.match(/H\(aowCmd\|\|ic\[e\],/g) || []).length === 3 && js.includes('H("equipmenttech.cancelResearch",{castleId:e.castleId})') && js.includes('title:"Build time for one",children:["⏱ ",It(Number(ne.time))]') && js.includes('It(Number(k.conditionBean.time)*w)')
           && /\.mm-btn:has\(>\.mm-alarm\)::after\{[^}]*var\(--aow-report-red[^}]*animation:aow-report-flash/.test(fs.readFileSync(path.join(pub, 'assets', html.match(/index-aow[0-9a-f]+\.css/)[0]), 'utf8')),
-          'the city panel\'s troop icons open the Barracks\' Disband window for their troop, and its troop counts are fitted to their cells; the alliance window\'s Military tab is War Reports, its Manage pages show their messages and Diplomacy lists Neutral alliances; the Reports scroll flashes red under attack; the Workshop shows no stars on the mount; the Walls window shows build times'); }
+          'the city panel\'s troop icons open the Barracks\' Disband window for their troop, and its troop counts are fitted to their cells; the alliance window\'s Military tab is War Reports, its Manage pages show their messages and Diplomacy lists Neutral alliances; the Reports scroll flashes red under attack; the Workshop shows no stars on the mount; the Walls window shows build times; a Workshop tile under research shows its time left, Speed Up and Cancel'); }
       // Fox's live capture of a Ring hero (Jessica): an On War book, then level-ups to 13 with 2,500 left over.
       me.items['player.experience.1.c'] = 1;
       const book = await c.call('hero.useItem', { castleId: castle.id, itemId: 'player.experience.1.c', heroId: rh.id });
