@@ -10,7 +10,8 @@ const { addTroops } = require('./castle');
 // Policies only go down: a Historic City can't use them on another of its level or higher. Draft and Disarmament
 // can't be used on a Historic City that nobody holds (the client offers only the first
 // three there). The client lets nobody pick the branch: the server picks it (taken(), below; the same for a
-// colony's Draft and Disarmament), and a city at an undraftable number has "There are no troops in the city". Draft area and uses a day: rules.policies (Evony Advanced Guide). Uses
+// colony's Draft and Disarmament), and with rules.draft.undraftable (off in Age of War) a city at an undraftable
+// number has "There are no troops in the city". Draft area and uses a day: rules.policies (Evony Advanced Guide). Uses
 // come back at the daily reset.
 const world = require('./world');
 const { REPORT_TYPE } = require('./reports');
@@ -56,10 +57,11 @@ class Policies {
   // branch at an undraftable number isn't simply skipped (RoboEvony's guess: it marks the branch worth most among the
   // draftable ones). Whether the branch is the most numerous or the most valuable, S1 can't tell (UNVERIFIED: 'count',
   // the old lore of covering with Warriors). rules.draft.anyBlocks: one undraftable branch anywhere shields the city
-  // (the guide's reading, UNVERIFIED).
+  // (the guide's reading, UNVERIFIED). Age of War has none of this (Fox, Nov 25 2026: "I don't want there to be any
+  // undraftable numbers"): with rules.draft.undraftable off, the biggest branch is always taken.
   taken(troops){
     const r = this.g.rules.draft || {}, exp = this.g.rules.troopExp || {};
-    const worth = (t, n) => Math.imul(Math.min(n, 2147483647), exp[t.id] ?? 1);   // as the live server's int
+    const worth = (t, n) => r.undraftable ? Math.imul(Math.min(n, 2147483647), exp[t.id] ?? 1) : 1;   // (as the live server's int)
     let best = null, top = 0, blocked = false;
     for (const t of Object.values(this.g.data.troops)){
       const n = Math.floor(Number(troops?.[t.field]) || 0); if (n <= 0) continue;

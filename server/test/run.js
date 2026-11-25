@@ -93,7 +93,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
   // every city, startWalls, and its gold in place of cents, noCents, are off for the live checks and tested on their own;
   // so are troops eating a tenth of live's upkeep, troopUpkeep, and prestige never lost, battlePrestige.losses and
   // alliances.quitPrestigeRate.)
-  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, troopUpkeep: 1, battlePrestige: { losses: true }, alliances: { quitPrestigeRate: 0.1 }, heroAutoLevel: false, innRestock: false, prisonersNeedNoSeat: false, reports: { heroCapture: true, itemOpened: true, reinforcements: true, outcomeInTitle: false }, historicHeroes: { questFree: false }, npcConquest: { layout: { keepCottages: null } }, dynamiteFullDemolish: false, mayorExp: 0, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
+  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, troopUpkeep: 1, battlePrestige: { losses: true }, alliances: { quitPrestigeRate: 0.1 }, heroAutoLevel: false, innRestock: false, prisonersNeedNoSeat: false, reports: { heroCapture: true, itemOpened: true, reinforcements: true, outcomeInTitle: false }, historicHeroes: { questFree: false }, draft: { undraftable: true }, npcConquest: { layout: { keepCottages: null } }, dynamiteFullDemolish: false, mayorExp: 0, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
     population: 100, taxRate: 20, productionRate: 100, buildings: { '0': [1, 1], '1001': [7, 1], '1002': [4, 1], '1003': [5, 1], '1004': [6, 1] } } }));
   const srv = main({ ...PORTS, dataDir, cacheDir: path.join(dataDir, 'cache'), speed: 600, logLevel: 'warn', embedded: true, assetCdn: '', flashClient: true, legacyLogin: true, adminPassword: ADMIN.pw });
   ADMIN.token = srv.game.adminToken;
@@ -220,15 +220,16 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const big = (await get(`/coins?from=game&user=Tester&fill=2145000000`)).body.toString(), w1 = cres.wood;
       const over = (await get(`/coins?from=game&user=Tester&fill=2145000001`)).body.toString(), w2 = cres.wood;
       cs.forEach((x, i) => { x.res = was[i]; });
+      const { TROOP_MAX } = require('../src/game/castle');
       const city = srv.store.db.castles[castle.id], tw = { ...city.troops }, a0 = city.troops.archer || 0;
       const t1 = (await get(`/coins?from=game&user=Tester&city=${castle.id}&troop=archer&tn=2145000000`)).body.toString(), a1 = city.troops.archer;
-      city.troops.archer = 1e12 - 5000000;
+      city.troops.archer = TROOP_MAX - 5000000;
       const t2 = (await get(`/coins?from=game&user=Tester&city=${castle.id}&troop=archer&tn=10000000`)).body.toString(), a2 = city.troops.archer;
       const t3 = (await get(`/coins?from=game&user=Tester&city=${castle.id}&troop=archer&tn=2145000001`)).body.toString();
       city.troops = tw;
       ok(big.includes('Added 2,145,000,000 food') && w1 >= w0 + 2145000000 - 1 && !over.includes('Added') && w2 === w1 && /max="2145000000"/.test(big)
-        && /Added 2,145,000,000 Archers? to/.test(t1) && a1 === a0 + 2145000000 && /stopped at 1,000,000,000,000/.test(t2) && a2 === 1e12 && /from 1 to 2,145,000,000/.test(t3),
-        `the debug menu gives up to 2,145,000,000 of each resource and of troops at a time, and a troop count stops at 1,000,000,000,000 (archers ${a0} -> ${a1} -> ${a2})`);
+        && /Added 2,145,000,000 Archers? to/.test(t1) && a1 === a0 + 2145000000 && /stopped at 9,999,999,999/.test(t2) && a2 === TROOP_MAX && /from 1 to 2,145,000,000/.test(t3),
+        `the debug menu gives up to 2,145,000,000 of each resource and of troops at a time, and a troop count stops at 9,999,999,999 (archers ${a0} -> ${a1} -> ${a2})`);
     }
     const givePage = await get(`/coins?from=game&user=Tester&give=${encodeURIComponent('Saxon Beer Chest A')}&n=2`);
     const gotItem = (await c.wait('server.ItemUpdate', 3000, d => d.items.some(i => i.id === 'player.box.present.money.96'))).data;
@@ -2009,7 +2010,15 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         P.taken({ militia: 5000000, batteringRam: 156181 })];
       D.pick = 'worth'; const byWorth = [P.taken({ militia: 1000000, archer: 300000 }), P.taken(S1)];
       D.pick = 'count'; D.anyBlocks = true; const shield = P.taken({ militia: 5000000, batteringRam: 156181 });
+      // Age of War has no undraftable numbers (Fox, Nov 25 2026; his tester's Draft on his city: "There are no troops").
+      D.undraftable = false;
+      const fox = { peasants: 1000000000, militia: 995704780, scouter: 1000100000, pikemen: 995128430, swordsmen: 0, archer: 1000100000,
+        lightCavalry: 1000011000, heavyCavalry: 1000068000, carriage: 1000064000, ballista: 1993156000, batteringRam: 1000100000, catapult: 1002427000 };
+      const none = [P.taken(S1), P.taken({ peasants: 9544372 }), P.taken({ batteringRam: 156181, militia: 1 }), P.taken({ catapult: 120349760 }), P.taken(fox), P.taken({})];
+      D.anyBlocks = true; const noShield = P.taken({ militia: 5000000, batteringRam: 156181 });
       Object.assign(D, d0);
+      ok(none.join() === 'batteringRam,peasants,batteringRam,catapult,ballista,' && noShield === 'militia',
+        `with draft.undraftable off (Age of War) every number can be drafted: S1's Rams, 9,544,372 Workers, 120,349,760 Catapults, the biggest of Fox's 1-2 billion stacks (${none.join(' ')})`);
       // Fox's catapult cities on live (Nov 16-17 2026): 120,318,924 is draftable, 120,349,760 isn't (120,333,136 to
       // 120,407,186 aren't). His CC2 cities, with 2.1 billion of every troop, can be drafted: the stacks are level, and the
       // first branch, Workers, is draftable at 2,147,483,647 (and at 2,100,000,000).
@@ -2176,6 +2185,14 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         ok(s1.ok < 0 && s1.errorMsg === 'There are no troops in the city' && tax2.ok < 0 && /already used a policy/.test(tax2.errorMsg) && no2.ok < 0 && no2.errorMsg === 'There are no troops in the city' && used2
           && (city.troops.archer || 0) === a1 && vc.troops.batteringRam === 1100300000 && vc.troops.archer === 701114961,
           `Fox's colony S1, whose 1,100,300,000 Rams are at an undraftable number: "${s1.errorMsg}", and the day's policy on it is used up (as live); Disarmament the same`);
+        // Age of War (draft.undraftable off): the same colony is drafted, 10% of its Rams.
+        G.rules.draft.undraftable = false; rec.policyDay = null; const rams0 = city.troops.batteringRam;
+        const s1ok = await c.call('colony.levyArmy', { castleId: castle.id, targetCastleId: vc.id });
+        G.rules.draft.undraftable = true;
+        const ramsGot = (city.troops.batteringRam || 0) - (rams0 || 0);
+        if (rams0 === undefined) delete city.troops.batteringRam; else city.troops.batteringRam = rams0;
+        ok(s1ok.ok === 1 && s1ok.amount === 110030000 && vc.troops.batteringRam === 1100300000 - 110030000 && ramsGot === 110030000,
+          `with no undraftable numbers, a Draft on S1 takes 110,030,000 of its 1,100,300,000 Rams (${s1ok.errorMsg || s1ok.amount})`);
         vc.troops = keep.troops; vc.res = keep.res; rec.policyDay = null;
       }
       // Sow Discord: -30 loyalty for the colony's heroes, and maybe a captive.
@@ -2892,9 +2909,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       city.res = { ...city.res, food: RES_MAX * 3, gold: RES_MAX + 5 };
       await c.call('interior.getResourceProduceData', { castleId: castle.id }); const capped = { ...city.res };
       city.res = resWas;
-      ok(Array.isArray(trained) && /at most 1,000,000,000,000/.test(trained[1]) && adds.join() === `2147483648,${TROOP_MAX},0,15,7`
+      ok(Array.isArray(trained) && /at most 9,999,999,999/.test(trained[1]) && adds.join() === `2147483648,${TROOP_MAX},0,15,7`
         && after.ok === 1 && t3.militia === 0 && t3.archer === TROOP_MAX && t3.lightCavalry === 0 && capped.food <= RES_MAX && capped.food > RES_MAX * 0.99 && capped.gold <= RES_MAX && capped.gold > RES_MAX * 0.99,
-        `a troop count runs from 0 to 1,000,000,000,000 ("${trained?.[1]}"), and a resource stops at 100,000,000,000,000`);
+        `a troop count runs from 0 to 9,999,999,999 ("${trained?.[1]}"), and a resource stops at 100,000,000,000,000`);
       city.troops = was;
     }
     {

@@ -82,7 +82,7 @@ class TroopLogic {
       if (queued({ pos }) >= limit) return [-51, `This Barracks can queue ${limit} batch${limit > 1 ? 'es' : ''}. Upgrade it to queue more.`];
       targets = [{ pos }];
     }
-    // (A city holds at most TROOP_MAX of a type: 1,000,000,000,000. Live let a count wrap negative; not here.)
+    // (A city holds at most TROOP_MAX of a type: 9,999,999,999. Live let a count wrap negative; not here.)
     if ((c.troops[t.field] || 0) + num > TROOP_MAX) return [-1, `A city can hold at most ${TROOP_MAX.toLocaleString('en-US')} of each troop type.`];
     const cond = this.condition(c, p, typeId, num);
     const missB = cond.buildings.find(x => !x.successFlag), missT = cond.techs.find(x => !x.successFlag);

@@ -676,7 +676,9 @@ const DEFAULTS = {
   // worth past 2^31 in the live server's 32-bit int) there are no troops to draft, and the day's policy is used up
   // (Fox's colony S1 on live, Nov 11 2026). anyBlocks: one undraftable branch anywhere shields the whole city.
   // 'count' and anyBlocks false are UNVERIFIED: S1, whose biggest and most valuable branch is undraftable, fits all.
-  draft: { pick: 'count', anyBlocks: false },
+  // undraftable: false (Age of War, Fox, Nov 25 2026): no undraftable numbers, any city with troops can be drafted and
+  // disarmed; true brings back live's 32-bit wrap (and anyBlocks).
+  draft: { undraftable: false, pick: 'count', anyBlocks: false },
   // Colonies (colonies.js; game time, so a faster server shortens them). Fox (live, Oct 2026): the Colonization
   // Period is 8 hours, the colonizing army comes home once the Stabilization battle is won, and a colony pays 5% of
   // its production as tribute, continuously. One of Fox's cities is the suzerain of 28, so there's no limit here.

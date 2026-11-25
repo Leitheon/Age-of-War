@@ -145,6 +145,9 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
 - **Be an Evonian**: the quest window has its Add to favorites button.
 - **Historic City policies on lords' cities**: the map's field window shows Policies on another lord's city (it showed
   them only on barbarian cities), for a Historic City you're in that reaches it and is above its level.
+- **No undraftable numbers**: Draft and Disarmament, from a Historic City or on a colony, always take the biggest branch
+  (`draft.undraftable`; true brings back live's 32-bit wrap and its "There are no troops in the city").
+- **The city panel's troop counts fit their cells**: a long count gets a smaller font and is narrowed slightly.
 - **Historic heroes taken from NPC cities start at level 1**, with their sheet's stats and no points, and must be levelled up
   (`historicHeroes.capturedLevel`); a hero taken from another lord keeps his level and stats.
 - **Historic heroes get 1 point a level after the first** (none at level 1, 149 at 150; wild ones at 30 have 29), as
@@ -154,8 +157,8 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   the Stratagem tab with the stratagems.
 - **No world boss**: the web client's built-in Pumpkin Warden (a figure on the map at 0,2) is turned off; the
   server has no world boss.
-- **Troops and resources**: a city holds 0 to 1,000,000,000,000 of each troop type (training past it is refused;
-  troops arriving stop there) and up to 100,000,000,000,000 of each resource. Troops eat a tenth of the live game's
+- **Troops and resources**: a city holds 0 to 9,999,999,999 of each troop type (training past it is refused;
+  troops arriving stop there, and a city already past it is brought down to it) and up to 100,000,000,000,000 of each resource. Troops eat a tenth of the live game's
   upkeep (`troopUpkeep`), at home, on the march and in camp, and live's 32-bit overflows are gone: no troop count wraps
   negative and bricks a city, and no troop type's upkeep flips to feed the city.
 - **Prestige and honor**: prestige is never lost (live took it for lost troops and for leaving an alliance:

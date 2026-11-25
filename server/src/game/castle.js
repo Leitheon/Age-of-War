@@ -13,9 +13,9 @@ const MAX_LEVEL_MSG = 'The building has already reached maximum level.';   // th
 function int32(n){ const m = ((Math.trunc(n) % 4294967296) + 4294967296) % 4294967296; return m >= 2147483648 ? m - 4294967296 : m; }
 // The most of one troop type a city holds, and of one resource (Fox, Nov 24 2026: "cap each troop type count at 2^40
 // and clamp it to 1trillion", "Troop counts should never be allowed to go negative", "allow resource numbers to be
-// clamped at 100trillion"). Live's count was a 32-bit integer that wrapped to -2,147,483,648 past 2,147,483,647 and
+// clamped at 100trillion"; Nov 25 2026: "cap the troop count at 9,999,999,999", so a count fits the city panel). Live's count was a 32-bit integer that wrapped to -2,147,483,648 past 2,147,483,647 and
 // bricked the city; not here. (Numbers are doubles here either way, exact to 2^53, so the size costs nothing.)
-const TROOP_MAX = 1e12, RES_MAX = 1e14;
+const TROOP_MAX = 9999999999, RES_MAX = 1e14;
 const clampTroops = n => Math.max(0, Math.min(TROOP_MAX, Math.floor(Number(n) || 0)));
 // A city's count of one troop type with n more added, however the troops arrive (training, Draft, armies coming
 // home, reinforcements, items): from 0 to TROOP_MAX.
