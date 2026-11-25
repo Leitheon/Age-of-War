@@ -177,6 +177,8 @@ const DEFAULTS = {
     level: 150,                                   // historic heroes defending NPC cities are level 150 (Fox, Nov 25 2026;
                                                   // was 30): a wild one in a barbarian city has his sheet's stats plus
                                                   // 149 points spread at random; a Historic City's ruler shows 150
+    defenderLeadership: 9999,                     // a wild one's leadership defending his barbarian city (Fox, Nov 25
+                                                  // 2026): he leads (9999 x 10 + 150) x 9999 troops in full, all of them
     itemLevel: 30,                                // the hero a Historic Hero item (player.box.hero.npc) gives: level 30,
                                                   // his waiting points cut to 29 in proportion
     capturedLevel: 1,                             // ...but one taken from an NPC city is level 1, no points, and

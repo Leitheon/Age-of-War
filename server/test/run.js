@@ -2487,6 +2487,12 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         const q = G.quests.defs.get(226);
         ok(js.includes('onClick:aowFavGo,children:"Add to favorites"') && js.includes('H("common.addToFavorites",{})') && /Age of War/.test(JSON.stringify(q)) && !/%s/.test(JSON.stringify(q)),
           'the quest window has an Add to favorites button for Be an Evonian, which ticks it (common.addToFavorites), and the quest names Age of War'); }
+      { // Fox (Nov 25 2026): a troop's icon in the city panel opens the Disband window for that troop; long counts fit their cells.
+        const pub = path.join(__dirname, '..', 'public'), html = fs.readFileSync(path.join(pub, 'index.html'), 'utf8');
+        const js = fs.readFileSync(path.join(pub, 'assets', html.match(/index-aow[0-9a-f]+\.js/)[0]), 'utf8');
+        ok(js.includes('t.jsx(I2,{troop:i.troop||{},castleId:n})') && js.includes('onClick:()=>aowCid&&aowDisband(aowOpen,aowCid,i,e[a])') && js.includes('open(t.jsx(gb,{castleId,u,have:Number(have)||0}),"bkdlg")')
+          && js.includes('style:aowTroopFit(_e(e[a]))'),
+          'the city panel\'s troop icons open the Barracks\' Disband window for their troop, and its troop counts are fitted to their cells'); }
       // Fox's live capture of a Ring hero (Jessica): an On War book, then level-ups to 13 with 2,500 left over.
       me.items['player.experience.1.c'] = 1;
       const book = await c.call('hero.useItem', { castleId: castle.id, itemId: 'player.experience.1.c', heroId: rh.id });
@@ -2549,6 +2555,12 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         ok(d && d.level === 150 && sum(a) === 149 && d.attack === free.atk + a.atk && o.level === 30 && sum(o.added) === 29 && o.added.pol > o.added.atk && o.added.atk > o.added.int
           && rb && rb.level === 150 && rb.historic === Number(rid) && rb.attack === G.npc.ruler(world.tileAt(srv.store, rfid)).attack,
           `historic heroes defend NPC cities at level 150: ${free.name} in a barbarian city with 149 points, ${rb && rb.name} ruling his Historic City (its own numbers); a Historic Hero item's hero is level 30 with 29`); }
+      { // Fox (Nov 25 2026): a historic hero defending a barbarian city has 9999 leadership, and leads the whole garrison by it.
+        const free = G.hh.free()[0], fid = G.hh.state(free.id).fieldId, d = G.hh.defender(fid, Date.now()), tile = world.tileAt(srv.store, fid), techs = G.data.techs;
+        const big = { militia: 900000000 }, full = G.npc.mods(tile, techs, d, big), plain = G.npc.mods(tile, techs, { ...d, leadership: undefined }, big);
+        const few = G.npc.mods(tile, techs, { ...d, leadership: 10 }, big);
+        ok(d.leadership === 9999 && full.attack === plain.attack && full.defence === plain.defence && few.attack < full.attack && few.defence < full.defence,
+          `a historic hero defending a barbarian city has 9999 leadership: 900,000,000 Warriors get his whole bonus (attack +${Math.round(full.attack)}%), which 10 leadership wouldn't give (+${Math.round(few.attack)}%)`); }
       if (rh) city.heroes = city.heroes.filter(h => h !== rh);
       me.title = titleWas; me.createdAt = createdWas; G.rules.rallyArmiesPerLevel = perRally;
     }

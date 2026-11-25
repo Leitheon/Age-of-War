@@ -147,10 +147,12 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   them only on barbarian cities), for a Historic City you're in that reaches it and is above its level.
 - **No undraftable numbers**: Draft and Disarmament, from a Historic City or on a colony, always take the biggest branch
   (`draft.undraftable`; true brings back live's 32-bit wrap and its "There are no troops in the city").
-- **The city panel's troop counts fit their cells**: a long count gets a smaller font and is narrowed slightly.
+- **The city panel's troop counts fit their cells**: a long count gets a smaller font and is narrowed slightly. A troop's
+  icon there opens the Disband window for that troop.
 - **Historic heroes defend NPC cities at level 150**: a wild one in a barbarian city with his sheet's stats and 149
   points spread at random, a Historic City's ruler with the city's own numbers; a Historic Hero item still gives one at
-  level 30 (`historicHeroes.level`, `historicHeroes.itemLevel`).
+  level 30 (`historicHeroes.level`, `historicHeroes.itemLevel`). One in a barbarian city has 9999 leadership
+  (`historicHeroes.defenderLeadership`) and leads the whole garrison by it.
 - **No experience items at the highest level**: Anabasis, Epitome of Military Science and On War don't work on a hero at
   his highest level (100, a Ring hero 120, a historic hero 150), and the item is kept.
 - **Alliance Military Situation**: lists the members' attacks on NPC Historic Cities too (not barbarian cities or valleys),

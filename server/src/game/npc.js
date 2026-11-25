@@ -164,11 +164,20 @@ class NpcLogic {
   techLevel(tile){ return tile.historic ? 10 : Math.max(1, Math.min(10, tile.level || 1)); }
   // Battle bonuses (%) for an NPC city or Historic City, from its research, its Walls (the same level) and its hero or ruler.
   // An NPC city below rules.npcMedicineFrom fights without Medicine's life bonus (Historic Cities always have it).
-  mods(tile, techs, ruler){
+  mods(tile, techs, ruler, troops = null){
     const L = this.techLevel(tile), e = id => id === 16 && !tile.historic && L < (this.rules.npcMedicineFrom ?? 1) ? 0 : techs[id]?.levels[L - 1]?.effect || 0;
-    const h = ruler || { attack: this.rules.npcHero[L] || 0, intelligence: this.rules.npcHero[L] || 0 };
-    return { attack: e(9) + h.attack * this.rules.heroAttackPerPoint, defence: e(10) + h.intelligence * this.rules.heroDefencePerIntelligence,
+    const h = ruler || { attack: this.rules.npcHero[L] || 0, intelligence: this.rules.npcHero[L] || 0 }, led = this.ledShare(h, troops);
+    return { attack: e(9) + h.attack * this.rules.heroAttackPerPoint * led, defence: e(10) + h.intelligence * this.rules.heroDefencePerIntelligence * led,
       life: e(16), range: e(14) + L * (this.rules.battle?.wallRangePerLevel || 0), wall: L * (this.rules.battle?.wallRangePerLevel || 0), fortLife: e(18), speedFoot: e(12), speedHorse: e(13) };
+  }
+  // The share of its hero's bonus a garrison gets. A hero with a leadership (a historic hero in a barbarian city:
+  // historicHeroes.defenderLeadership, 9999) leads (leadership x perPoint + level) x leadership troops in full and
+  // the rest at rules.leadership.defenceShare, as a lord's hero (combat.ledShare); any other NPC hero leads them all.
+  ledShare(h, troops){
+    const r = this.rules.leadership, ldr = Number(h?.leadership);
+    if (!(ldr > 0) || !r || r.enabled === false || !troops) return 1;
+    const count = Object.values(troops).reduce((a, n) => a + Math.max(0, n || 0), 0), cap = (ldr * (r.perPoint ?? 10) + (h.level || 0)) * ldr;
+    return count <= cap ? 1 : (cap + (count - cap) * (r.defenceShare || 0)) / count;
   }
   // Rebuild part of what was destroyed right after a battle: (level + 1) x npcRepair of it (dxcalc; live at an NPC 8:
   // 27% of the Archer Towers, 45% of the Traps, 63% of the Rolling Logs and 72% of the Trebuchets). A Historic City

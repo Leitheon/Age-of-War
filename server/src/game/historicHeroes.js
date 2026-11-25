@@ -353,7 +353,9 @@ class HistoricHeroLogic {
   defender(fieldId, now){
     const h = this.at(fieldId, now); if (!h) return null;
     const a = this.alloc(h.id);
-    return { name: h.name, level: this.rules.level, face: h.portrait, attack: h.atk + a.atk, intelligence: h.int + a.int, historic: h.id };
+    // (leadership: rules.defenderLeadership, 9999, Fox, Nov 25 2026; npc.mods gives the garrison his bonus by it)
+    return { name: h.name, level: this.rules.level, face: h.portrait, attack: h.atk + a.atk, intelligence: h.int + a.int, historic: h.id,
+      leadership: this.rules.defenderLeadership ?? 9999 };
   }
   where(fieldId){
     const { x, y } = world.xy(fieldId), t = world.tileAt(this.g.store, fieldId);

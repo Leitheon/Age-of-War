@@ -589,7 +589,7 @@ class ArmyLogic {
       const ruler = g.hh.asRuler(tile.id, npcState.ruler) || hhDef;
       // The NPC city's own hero (live: "Aaron (Level 3)").
       npcHero = !ruler && tile.type === world.T.NPC ? g.npc.hero(tile, now) : null;
-      defender = { troops: npcState.troops, forts: npcState.forts, mods: tile.type === world.T.NPC ? g.npc.mods(tile, g.data.techs, ruler) : {} };
+      defender = { troops: npcState.troops, forts: npcState.forts, mods: tile.type === world.T.NPC ? g.npc.mods(tile, g.data.techs, ruler, npcState.troops) : {} };
       if (ruler) defHero = { name: ruler.name, level: ruler.level, face: ruler.face };
       else if (npcHero) defHero = npcHero;
       // Live (Fox's Basilisk reports, Oct 29 2026): the barbarians' side has no lord's name ("Defender (Enemy's Side)
