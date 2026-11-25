@@ -90,7 +90,13 @@ class EquipmentLogic {
   }
 
   // ---------- stars ----------
-  // Up to four gems of one kind; success = base rate for the current star + 10% (Delicate) or 15% (Flawless) a gem.
+  starRate(star, gemId, count){
+    const raw = STAR_BASE_RATE[star] + count * GEM_RATE[gemId], b = this.g.rules.gear?.starBoost;
+    const f = b && star >= (b.fromStar ?? 11) ? Number(b.factor) || 1 : 1;
+    return Math.min(100, Math.round(raw * f * 10) / 10);
+  }
+  // Up to four gems of one kind; success = base rate for the current star + 10% (Delicate) or 15% (Flawless) a gem,
+  // times rules.gear.starBoost.factor from its fromStar up (to one decimal; 100% at most).
   enhanceStar(p, type, gemId, count, rnd = Math.random){
     const tech = this.techs[type]; if (!tech) return [-1, 'Unknown gear technology.'];
     if (type === MOUNT_TECH) return [-1, `${tech.name} (the mount) has no star levels.`];
@@ -101,7 +107,7 @@ class EquipmentLogic {
     count = Math.max(1, Math.min(4, Math.floor(Number(count) || 1)));
     if ((p.items?.[gemId] || 0) < count) return [-44, `You need ${count} ${this.g.data.items[gemId]?.name || gemId}.`];
     p.items[gemId] -= count;
-    const rate = Math.min(100, STAR_BASE_RATE[s.star] + count * GEM_RATE[gemId]);
+    const rate = this.starRate(s.star, gemId, count);
     const ok = rnd() * 100 < rate;
     const from = s.star;
     s.star = ok ? s.star + 1 : STAR_FAIL_TO[s.star];

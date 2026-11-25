@@ -793,7 +793,10 @@ const DEFAULTS = {
   // or higher on gear"); 0 announces nothing.
   // instantResearch (Age of War, Fox, Nov 25 2026: "gear should research instantly"): a gear level is done the moment
   // its research starts (materials and buildings still needed); false: researchMinutes, live-like.
-  gear: { instantResearch: true, researchMinutes: [5, 15, 30, 60, 120, 240, 480, 720, 1080, 1440], heroLevelsPerLevel: 10, announceStar: 11 },
+  // starBoost (Age of War, Fox, Nov 25 2026: "increase the success chance of getting stars above 11 by 33% over where
+  // they are now"): from 11 stars up (the 12th to the 15th) the chance is factor x live's, 4 Flawless 50% -> 66.5%,
+  // 45% -> 59.9%. The client's star window shows the same (patch-star-boost.py: change both together).
+  gear: { starBoost: { fromStar: 11, factor: 1.33 }, instantResearch: true, researchMinutes: [5, 15, 30, 60, 120, 240, 480, 720, 1080, 1440], heroLevelsPerLevel: 10, announceStar: 11 },
   // Wheel of Fortune (Amulets). The board has 24 prizes, as on the live game; one is the grand prize (kind 1).
   // Like the live boards (Fox's screenshots), it mixes items with 1,000,000 of a resource (`resources`),
   // 10, 30 or 100 cents (`cents`) and gear materials by 5 (`materials`). Which prizes and how often each

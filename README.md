@@ -162,6 +162,8 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
 - **Gear research is instant** (`gear.instantResearch`): a gear level is done the moment its research starts (materials and
   buildings still needed); a research left running from before finishes at startup. With timed research off, the Workshop
   shows research under way: "Researching Lv.N" with the time left, Speed Up and Cancel (the materials back).
+- **Stars above 11 are 33% likelier** (`gear.starBoost`): from 11 stars up the success chance is 1.33 times live's
+  (four Flawless gems: 66.5% for the 12th star, 59.9% after); the star window shows the same.
 - **11-star gear is announced**: raising gear to 11 stars or more puts a [System] line in everyone's chat and on the
   Newsboard (`gear.announceStar`).
 - **King and Queen**: 101 in each base stat and leadership 26, growing 1 a level (`royalHero`); ones hired before are

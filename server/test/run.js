@@ -1463,6 +1463,11 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         ok(s11.ok === 1 && s11.enhancedstarlv === 11 && at11 === online.length && online.every(id => sent.some(x => x.to === id)) && sent.length === at11
           && /has raised level 10 Weaponry to 11 stars/.test(sent[0]?.data.msg) && /11 stars/.test(news?.msg),
           `raising gear to 11 stars tells everyone online (${at11} lords) and the Newsboard: "${sent[0]?.data.msg}"; 6 stars says nothing`); }
+      { // Fox (Nov 25 2026): from 11 stars up the chance is 33% better than live's; below 11 it is live's.
+        const E = G.equipment, F = 'enhanced.star.2', D = 'enhanced.star.1';
+        const rates = [[10, F], [11, F], [12, F], [14, F], [11, D], [12, D]].map(([st, g]) => E.starRate(st, g, 4));
+        ok(rates.join() === '55,66.5,59.9,59.9,39.9,33.3' && E.starRate(0, F, 4) === 100 && E.starRate(12, D, 1) < 0,
+          `stars above 11 are 33% likelier: four Flawless gems give 11 -> 12 ${rates[1]}% (was 50), 12 -> 13 ${rates[2]}% (was 45); four Delicate ${rates[4]}% and ${rates[5]}% (were 30, 25); 10 -> 11 stays ${rates[0]}%`); }
       { // Fox's tester Nap (Nov 25 2026): "mount has stars, that's not normal": the mount holds none, a save's are dropped, the star set skips it.
         const E = G.equipment, savedGear = me.gear; give('enhanced.star.2', 4);
         me.gear = {}; for (const t of E.types()) me.gear[t] = { lv: 10, star: 12 }; me.gear[3].star = 9;
@@ -2534,7 +2539,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           && js.includes('t.jsx(c,{title:"Neutral",list:e.middle||[]})') && js.includes('v&&o&&t.jsx("div",{className:"al-bottom"+(C?"":" aow-subnote")')
           && js.includes('function aowRedReports(') && js.includes('aowRedReports()},[])')
           && js.includes('!m&&t.jsx("div",{className:"ws-stars"') && js.includes('aowGearUp&&t.jsxs("span",{className:"ws-sub aow-ws-up",children:[" · Researching Lv.",i+1," ",It(aowLeft)]})')
-          && js.includes('aowCmd:"equipmenttech.speedUpResearch"') && (js.match(/H\(aowCmd\|\|ic\[e\],/g) || []).length === 3 && js.includes('H("equipmenttech.cancelResearch",{castleId:e.castleId})') && js.includes('title:"Build time for one",children:["⏱ ",It(Number(ne.time))]') && js.includes('It(Number(k.conditionBean.time)*w)')
+          && js.includes('Math.round(r*(e>=11?1.33:1)*10)/10') && js.includes('aowCmd:"equipmenttech.speedUpResearch"') && (js.match(/H\(aowCmd\|\|ic\[e\],/g) || []).length === 3 && js.includes('H("equipmenttech.cancelResearch",{castleId:e.castleId})') && js.includes('title:"Build time for one",children:["⏱ ",It(Number(ne.time))]') && js.includes('It(Number(k.conditionBean.time)*w)')
           && /\.mm-btn:has\(>\.mm-alarm\)::after\{[^}]*var\(--aow-report-red[^}]*animation:aow-report-flash/.test(fs.readFileSync(path.join(pub, 'assets', html.match(/index-aow[0-9a-f]+\.css/)[0]), 'utf8')),
           'the city panel\'s troop icons open the Barracks\' Disband window for their troop, and its troop counts are fitted to their cells; the alliance window\'s Military tab is War Reports, its Manage pages show their messages and Diplomacy lists Neutral alliances; the Reports scroll flashes red under attack; the Workshop shows no stars on the mount; the Walls window shows build times; a Workshop tile under research shows its time left, Speed Up and Cancel'); }
       // Fox's live capture of a Ring hero (Jessica): an On War book, then level-ups to 13 with 2,500 left over.
