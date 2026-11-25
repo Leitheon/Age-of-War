@@ -148,6 +148,8 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
 - **No undraftable numbers**: Draft and Disarmament, from a Historic City or on a colony, always take the biggest branch
   (`draft.undraftable`; true brings back live's 32-bit wrap and its "There are no troops in the city").
 - **The city panel's troop counts fit their cells**: a long count gets a smaller font and is narrowed slightly.
+- **No experience items at the highest level**: Anabasis, Epitome of Military Science and On War don't work on a hero at
+  his highest level (100, a Ring hero 120, a historic hero 150), and the item is kept.
 - **Alliance Military Situation**: lists the members' attacks on NPC Historic Cities too (not barbarian cities or valleys),
   and a report opened there shows its outcome and troops (it showed every battle as a defeat with none).
 - **Historic heroes taken from NPC cities start at level 1**, with their sheet's stats and no points, and must be levelled up

@@ -308,7 +308,10 @@ class ItemUse {
       if (h.loyalty >= 100) return [-1, `${h.name} is already completely loyal.`];
       h.loyalty = Math.min(100, h.loyalty + MEDAL_LOYALTY[itemId]);
     } else if (EXP_BOOKS[itemId]){
-      if (!h.ringHero && !h.historic && h.level >= this.g.heroes.maxLevel(h)) return [-1, `${h.name} is at the highest level and gains no more experience.`];
+      // No hero takes one at his highest level (100, a Ring hero 120, a historic hero 150), and the item is kept (Fox,
+      // Nov 25 2026: "experience items should not work on heroes once they reach max level"; live let Ring heroes go on).
+      const top = this.g.heroes.maxLevel(h);
+      if (h.level >= top) return [-1, `${h.name} is at the highest level (${top}) and can't use ${it.name}.`];
       const [fixed, share] = EXP_BOOKS[itemId];
       this.g.heroes.gainExp(h, Math.max(fixed, Math.round(this.g.heroes.expToNext(h.level) * share)));
     } else if (Object.values(HERO_BUFF_OF).includes(itemId)){

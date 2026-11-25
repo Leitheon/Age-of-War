@@ -2495,6 +2495,20 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       ok(book.ok === 1 && ups.slice(0, 12).every(u => u.ok === 1) && ups[12].ok === -99 && ups[12].errorMsg === 'You have insufficient experience points to upgrade.'
         && rh.level === 13 && rh.exp === 2500 && rh.points === 24 && rb.isHero === 4 && rb.upgradeExp === 25350 && rb.leadership === 13 && rb.leadershipAdded === 130 && rb.itemId === '',
         'a Ring hero, as live: On War gives 100,000 experience at level 1, each level costs 150 x level^2 and gives 2 points (level 13 with 2,500 left), and the hero shows as isHero 4');
+      { // Fox (Nov 25 2026): no experience item works on a hero at his highest level, Ring and historic heroes too; the item is kept.
+        const was = { level: rh.level, exp: rh.exp }; rh.level = 120; me.items['player.experience.1.c'] = 1;
+        c.inbox = c.inbox.filter(m => m.cmd !== 'hero.useItem');   // (an earlier test's reply left unread)
+        const atTop = await c.call('hero.useItem', { castleId: castle.id, itemId: 'player.experience.1.c', heroId: rh.id });
+        const keptRing = me.items['player.experience.1.c'] === 1 && rh.exp === was.exp;
+        Object.assign(rh, was);
+        me.items['player.experience.1.a'] = 2;
+        const hist = { id: 1, name: 'Caesar', historic: 1, level: 150, exp: 0 }, plain = { id: 2, name: 'Plain', level: 100, exp: 0 }, young = { id: 3, name: 'Young', historic: 1, level: 149, exp: 0 };
+        const r150 = G.itemUse.useOnHero(me, city, hist, 'player.experience.1.a', Date.now()), r100 = G.itemUse.useOnHero(me, city, plain, 'player.experience.1.a', Date.now());
+        const left = me.items['player.experience.1.a'], r149 = G.itemUse.useOnHero(me, city, young, 'player.experience.1.a', Date.now());
+        delete me.items['player.experience.1.a']; delete me.items['player.experience.1.c'];
+        ok(atTop.ok < 0 && /highest level \(120\) and can't use On War/.test(atTop.errorMsg) && keptRing && Array.isArray(r150) && /\(150\)/.test(r150[1]) && hist.exp === 0
+          && Array.isArray(r100) && /\(100\)/.test(r100[1]) && left === 2 && !Array.isArray(r149) && young.exp > 0,
+          `experience items don't work on a hero at his highest level (a Ring hero at 120, a historic hero at 150, any other at 100) and aren't used up: "${atTop.errorMsg}"`); }
       const H = G.heroes, at = (lv, extra = {}) => ({ level: lv, exp: 0, base: { pol: 1, atk: 1, int: 1 }, added: { pol: 0, atk: 0, int: 0 }, points: 0, ...extra });
       const need = lv => H.persuadeNeed(at(lv)).join('x');
       const cap = at(99, { exp: H.expToNext(99) + 500 }), capCity = { heroes: [cap] }; cap.id = 1;
