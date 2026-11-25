@@ -1212,8 +1212,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           const json = (await get('/heroes.json')).body.toString(), poseidon = JSON.parse(json).find(h => h.name === 'Poseidon');
           ok(rulers === 17 && pos === 'Poseidon' && napRules && led.name === 'Napoleon Bonaparte' && led.attack === base.attack && led.intelligence === base.intelligence && led.face === nap.portrait
             && notWild && joined && Array.isArray(send) && /bound to Paris/.test(send[1]) && Array.isArray(fire) && /can't be dismissed/.test(fire[1]) && stays && back && again?.level === 1
-            && poseidon.attack === 99 && poseidon.leadership === 150,
-            `Historic City rulers: Poseidon in Atlantis and 16 capitals (Napoleon in Paris), leading with the city's own hero numbers (${base.attack} attack) under their names, out of the barbarian cities; whoever takes Paris from the NPCs gets Napoleon there at level 1 (99 in each stat, leadership 150), bound to it: no reinforcing ("${send?.[1]}"), no dismissing, never a prisoner; another lord taking Paris gets him as he is (level 50); given up, he rules Paris again, and the next taker gets him at level 1`);
+            && poseidon.attack === 150 && poseidon.politics === 150 && poseidon.intelligence === 150 && poseidon.leadership === 200
+            && JSON.parse(json).find(h => h.name === 'Caesar').attack === 99,
+            `Historic City rulers: Poseidon in Atlantis and 16 capitals (Napoleon in Paris), leading with the city's own hero numbers (${base.attack} attack) under their names, out of the barbarian cities; whoever takes Paris from the NPCs gets Napoleon there at level 1 (99 in each stat, leadership 150), bound to it: no reinforcing ("${send?.[1]}"), no dismissing, never a prisoner; Poseidon 150 in each stat, leadership 200; another lord taking Paris gets him as he is (level 50); given up, he rules Paris again, and the next taker gets him at level 1`);
         }
         // Fox (Oct 29 2026): taking a level 8 NPC city didn't finish the Queen's "Conquer a level 8 NPC city".
         const qs = G.quests.state(me), rec = qs.max.npcCity, q8 = G.quests.check(me, city, { kind: 'npcCity', level: 8 }, Date.now());

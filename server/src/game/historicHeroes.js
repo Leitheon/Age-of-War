@@ -258,11 +258,12 @@ class HistoricHeroLogic {
     const h = base && this.rulerAt(fieldId);
     return h ? { ...base, name: h.name, face: h.portrait, historic: h.id } : base;
   }
-  rulerStats(){ return { pol: 99, atk: 99, int: 99, ldr: 150, ...(this.g.rules.historic?.rulerStats || {}) }; }
+  // A ruler's base stats: rules.historic.rulerStats, or his own line in rulerStatsByHero.
+  rulerStats(h){ return { pol: 99, atk: 99, int: 99, ldr: 150, ...(this.g.rules.historic?.rulerStats || {}), ...(h && this.g.rules.historic?.rulerStatsByHero?.[h.name] || {}) }; }
   isRuler(id){ return this.rulers()[id] != null; }
-  // A hero's base stats: a ruler's are rules.historic.rulerStats (Fox, Nov 24 2026: 99 each, leadership 150), any
-  // other's his sheet's.
-  baseOf(h){ const r = this.isRuler(h.id) ? this.rulerStats() : h; return { pol: r.pol, atk: r.atk, int: r.int, ldr: r.ldr }; }
+  // A hero's base stats: a ruler's are rules.historic.rulerStats (Fox, Nov 24 2026: 99 each, leadership 150; Poseidon
+  // 150 each, leadership 200), any other's his sheet's.
+  baseOf(h){ const r = this.isRuler(h.id) ? this.rulerStats(h) : h; return { pol: r.pol, atk: r.atk, int: r.int, ldr: r.ldr }; }
   // The lord who holds the city gets its ruler, there (Fox, Nov 24 2026: "lock them to their city. They cannot be
   // reinforced to another city, and they cannot be captured. They can be marched. Whomever owns the city gets to
   // use them from the city"): a hero of c's, bound to it (hero.bound, its field), loyal (100), needing no Feasting
