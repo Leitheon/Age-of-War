@@ -2055,11 +2055,12 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         city.policies = null; const second = Pn.use(city, lord, 'disarm', pc.fieldId, T0);
         back(23 * 3600e3 + 30 * 60e3); city.policies = null; const late = Pn.use(city, lord, 'tax', pc.fieldId, T0);
         city.policies = null; const other = Pn.use(city, lord, 'tax', near.id, T0);
+        city.policies = null; const npcAgain = Pn.use(city, lord, 'food', near.id, T0);   // (an NPC city: any number, Fox)
         back(30 * 60e3 + 1000); city.policies = null; const nextDay = Pn.use(city, lord, 'tax', pc.fieldId, T0);
         G.rules.policies.targetHours = 0; city.policies = null;
         ok(!Array.isArray(first) && Array.isArray(second) && /already had a policy used on it in the last 24 hours\. Try again in 24 hours/.test(second[1]) && Array.isArray(late) && /Try again in 30 minutes/.test(late[1])
-          && !Array.isArray(other) && !Array.isArray(nextDay),
-          `a city takes one policy every 24 hours, whoever issues it ("${second[1]}"); another city can take one meanwhile, and the same city again a day later`); }
+          && !Array.isArray(other) && !Array.isArray(npcAgain) && !Array.isArray(nextDay),
+          `a lord's city takes one policy every 24 hours, whoever issues it ("${second[1]}"), and again a day later; an NPC city takes them one after another`); }
       G.rules.policies.range[12] = 9;
       ok((!far || (tooFar.ok < 0 && /draft area \(9 miles/.test(tooFar.errorMsg))) && notHC.ok < 0 && /Historic City/.test(notHC.errorMsg) && disarm.ok === 1 && disarm.amount === 100 && disarm.armyType === 'Archer'
         && pc.troops.archer === 900 && (penpal.reports || []).some(r => /used Disarmament on/.test(r.title) && /<policyReport detail="[^"]*100 Archer disbanded/.test(r.content)),

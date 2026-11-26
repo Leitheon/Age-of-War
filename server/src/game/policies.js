@@ -77,8 +77,8 @@ class Policies {
   noTroops(kind){ return 'There are no troops in the city'; }
   troopName(field){ return Object.values(this.g.data.troops).find(t => t.field === field)?.name || field; }
 
-  // When a city last took a policy (db.policyTargets, by city id or, for an NPC city, its spot), and how long it must
-  // still wait (ms; 0 if it can take one now).
+  // When a lord's city last took a policy (db.policyTargets, by city id), and how long it must still wait (ms; 0 if
+  // it can take one now).
   targetWait(key, now){
     const ms = (this.rules.targetHours ?? 24) * 3600e3, last = this.g.db.policyTargets?.[key];
     return ms > 0 && last != null && now - last < ms ? last + ms - now : 0;
@@ -109,9 +109,9 @@ class Policies {
     // Atlantis (18) reaches a state capital (16). (The message is ours: live's words UNVERIFIED.)
     const targetLevel = dc ? this.level(dc) : tile.historic?.level || 0;
     if (targetLevel && targetLevel >= this.level(c)) return [-1, `Policies can only be used on cities below your Historic City's level (${this.level(c)}); that is a level ${targetLevel} Historic City.`];
-    // One policy a city every rules.policies.targetHours (24), whoever issues it.
-    const key = dc ? `c${dc.id}` : `f${target}`, wait = this.targetWait(key, now);
-    if (wait > 0) return [-1, `${dc ? dc.name : g.armies.placeName(target)} has already had a policy used on it in the last ${this.rules.targetHours} hours. Try again in ${wait >= 3600e3 ? `${Math.ceil(wait / 3600e3)} hours` : `${Math.ceil(wait / 60e3)} minutes`}.`];
+    // One policy a lord's city every rules.policies.targetHours (24), whoever issues it; NPC cities any number.
+    const key = dc ? `c${dc.id}` : null, wait = key ? this.targetWait(key, now) : 0;
+    if (wait > 0) return [-1, `${dc.name} has already had a policy used on it in the last ${this.rules.targetHours} hours. Try again in ${wait >= 3600e3 ? `${Math.ceil(wait / 3600e3)} hours` : `${Math.ceil(wait / 60e3)} minutes`}.`];
     g.logic.settle(c, p, now);
     const share = this.share(kind), stores = dc ? dc.res : st.res || {}, troops = dc ? dc.troops : st.troops || {};
     let amount = 0, armyType = '';
@@ -131,7 +131,7 @@ class Policies {
       if (kind === 'draft') c.troops[field] = addTroops(c.troops[field], amount);
     }
     c.policies = { day: this.today(now), used: this.used(c, now) + 1 };
-    this.markTarget(key, now);
+    if (key) this.markTarget(key, now);
     if (st) g.npc.save(g.db, tile, st, now);
     const here = g.armies.placeName(target), what = this.what(kind, amount, armyType);
     if (dc){

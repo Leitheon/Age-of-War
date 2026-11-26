@@ -143,8 +143,8 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   (attack, scout, transport) but never to reinforce or found another city, be dismissed or be captured; another lord
   taking the city takes him as he is, and a city given up has him rule it again. The website's Heroes page shows where.
 - **Be an Evonian**: the quest window has its Add to favorites button.
-- **One policy a city every 24 hours** (`policies.targetHours`): a city, a lord's or an NPC's, takes one Historic City
-  policy a day, whoever issues it.
+- **One policy a lord's city every 24 hours** (`policies.targetHours`): a lord's city takes one Historic City policy a
+  day, whoever issues it; NPC cities take any number.
 - **Historic City policies on lords' cities**: the map's field window shows Policies on another lord's city (it showed
   them only on barbarian cities), for a Historic City you're in that reaches it and is above its level.
 - **No undraftable numbers**: Draft and Disarmament, from a Historic City or on a colony, always take the biggest branch
