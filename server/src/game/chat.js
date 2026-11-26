@@ -140,7 +140,8 @@ class Chat {
   // A "[System]" line in the chat, for one lord or (id null) everyone online. Announcements to everyone also go on
   // the Newsboard (NoticeWin, mail.getAllTVMsg), which keeps the last rules.chat.newsboard of them (default 50).
   system(id, msg){
-    const data = { msg: esc(String(msg)), sender: '', alliance: false, noSenderSystemInfo: false, tV: false, tVContext: '' };
+    // (world: an announcement to everyone, which the web client shows in World chat too, patch-world-announce.py)
+    const data = { msg: esc(String(msg)), sender: '', alliance: false, noSenderSystemInfo: false, tV: false, tVContext: '', ...(id == null ? { world: true } : {}) };
     for (const to of id == null ? [...this.g.online.keys()] : [id]) this.g.push(to, 'server.SystemInfoMsg', data);
     if (id == null) this.news(msg);
   }

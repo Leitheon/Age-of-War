@@ -788,6 +788,10 @@ const DEFAULTS = {
   // heroLevelsPerLevel: a hero wears gear up to one level per this many hero levels (Evony Advanced Guide, "Hero
   // Gear"; checked live by Fox), so a level 35 hero wears level 3 gear even when the Workshop has level 10, with
   // at most 9 stars (a level's stars: level + 6). 0 turns the limit off.
+  // Server-wide [System] lines (chat for everyone online, and the Newsboard; Fox, Nov 25 2026: "when declaring war on
+  // an alliance you dont see a notification in world chat/system for the entire server to see. The server should also
+  // see historic city captures"): an alliance setting another hostile, a Historic City taken (from the NPCs or a lord).
+  announce: { allianceWar: true, historicCity: true },
   // announceStar: a lord raising gear to this many stars or more is announced to everyone online and on the Newsboard
   // (Fox, Nov 25 2026: "a system message viewable to everyone logged in whenever a player gets a star level to level 11
   // or higher on gear"); 0 announces nothing.

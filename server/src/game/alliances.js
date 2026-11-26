@@ -301,6 +301,9 @@ class Alliances {
     if (cur && now - cur.at < cool) return [-1, `You can change your relation with ${b.name} again in ${Math.ceil((cur.at + cool - now) / HOUR)} hours.`];
     a.relations[b.id] = { type: t, at: now };
     this.event(a, `${p.name} set ${b.name} as ${t === REL.FRIEND ? 'a friendly' : t === REL.ENEMY ? 'a hostile' : 'a neutral'} alliance.`, now);
+    // War is announced to the whole server (rules.announce.allianceWar), once: not again while already hostile.
+    if (t === REL.ENEMY && cur?.type !== REL.ENEMY && this.g.rules.announce?.allianceWar !== false)
+      this.g.chat.system(null, `The alliance ${a.name} has declared war on ${b.name}!`);
     this.g.store.touch();
     return { alliance: a };
   }

@@ -166,6 +166,9 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   (four Flawless gems: 66.5% for the 12th star, 59.9% after); the star window shows the same.
 - **11-star gear is announced**: raising gear to 11 stars or more puts a [System] line in everyone's chat and on the
   Newsboard (`gear.announceStar`).
+- **Wars and Historic City captures are announced**: an alliance setting another hostile, and a Historic City taken (from
+  the NPCs or a lord), put a [System] line in everyone's chat and on the Newsboard (`announce`). Announcements to everyone
+  show in World chat as well as the System tab.
 - **King and Queen**: 101 in each base stat and leadership 26, growing 1 a level (`royalHero`); ones hired before are
   brought to it, their points kept. The royal helms' texts say so.
 - **Historic heroes defend NPC cities at level 150**: a wild one in a barbarian city with his sheet's stats and 149

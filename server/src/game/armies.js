@@ -966,7 +966,15 @@ class ArmyLogic {
     g.store.touch();
     return { captive: held?.hero || null, heldIn: held?.castle || null, hh, npcHero: held ? null : npcHero };
   }
+  // A Historic City taken, from the NPCs or from a lord, is announced to the whole server (rules.announce.historicCity).
+  announceCapture(p, won){
+    const g = this.g, hc = world.historicAt(won.castle.fieldId);
+    if (!hc || g.rules.announce?.historicCity === false) return;
+    const { x, y } = world.xy(won.castle.fieldId), al = g.alliances?.of(p), name = String(hc.name || won.castle.name).replace(/^\ufeff/, '');
+    g.chat.system(null, `${g.fame.chatName(p)}${al ? ` of ${al.name}` : ''} has captured the Historic City ${name}(${x},${y})${won.lord ? ` from ${won.lord.name}` : ''}!`);
+  }
   conquestReports(p, won, here){
+    this.announceCapture(p, won);
     const g = this.g, { x, y } = world.xy(won.castle.fieldId), add = (title, content) => g.reports.add(p, { type: REPORT_TYPE.OTHER, startPos: here, targetPos: here, title, content });
     if (won.lord){
       const names = won.captives.map(h => `${h.name} (level ${h.level})`);

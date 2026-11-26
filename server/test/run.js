@@ -1208,14 +1208,21 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           G.abandonCastle(lord2, P);
           const back = HH.rulerAt(paris)?.id === nap.id;
           const won2 = A.conquer({ troops: { archer: 50 }, loot: {} }, lord, home, null, pT, G.npc.state(db, pT, Date.now()), {}, null, Date.now());
+          // Fox (Nov 25 2026): a Historic City taken is announced to the whole server, from the NPCs or from a lord.
+          const sysWas = [], pushWas = G.push; G.push = (to, cmd, data) => { if (cmd === 'server.SystemInfoMsg') sysWas.push(data.msg); return pushWas.call(G, to, cmd, data); };
+          A.announceCapture(lord, won2); A.announceCapture(lord2, took); A.announceCapture(lord, { castle: home });   // (conquestReports calls it)
+          G.push = pushWas;
+          const newsHc = (G.db.newsboard || []).slice(-2).map(x => x.msg);
+          const hcSaid = newsHc.length === 2 && /^Ruletaker has captured the Historic City Paris\(\d+,\d+\)!$/.test(newsHc[0]) && /^Ruletaker2 has captured the Historic City Paris\(\d+,\d+\) from Ruletaker!$/.test(newsHc[1])
+            && sysWas.length === 2 * G.online.size;
           const again = G.heroes.list(won2.castle).find(h => h.historic === nap.id);
           G.abandonCastle(lord, won2.castle);
           const json = (await get('/heroes.json')).body.toString(), poseidon = JSON.parse(json).find(h => h.name === 'Poseidon');
-          ok(rulers === 17 && pos === 'Poseidon' && napRules && led.name === 'Napoleon Bonaparte' && led.attack === base.attack && led.intelligence === base.intelligence && led.face === nap.portrait
+          ok(hcSaid && rulers === 17 && pos === 'Poseidon' && napRules && led.name === 'Napoleon Bonaparte' && led.attack === base.attack && led.intelligence === base.intelligence && led.face === nap.portrait
             && notWild && joined && Array.isArray(send) && /bound to Paris/.test(send[1]) && Array.isArray(fire) && /can't be dismissed/.test(fire[1]) && stays && back && again?.level === 1
             && poseidon.attack === 150 && poseidon.politics === 150 && poseidon.intelligence === 150 && poseidon.leadership === 200
             && JSON.parse(json).find(h => h.name === 'Caesar').attack === 125 && JSON.parse(json).find(h => h.name === 'Caesar').leadership === 175,
-            `Historic City rulers: Poseidon in Atlantis and 16 capitals (Napoleon in Paris), leading with the city's own hero numbers (${base.attack} attack) under their names, out of the barbarian cities; whoever takes Paris from the NPCs gets Napoleon there at level 1 (125 in each stat, leadership 175), bound to it: no reinforcing ("${send?.[1]}"), no dismissing, never a prisoner; Poseidon 150 in each stat, leadership 200; another lord taking Paris gets him as he is (level 50); given up, he rules Paris again, and the next taker gets him at level 1`);
+            `Historic City captures are announced to everyone ("${newsHc.join('" / "')}"); Historic City rulers: Poseidon in Atlantis and 16 capitals (Napoleon in Paris), leading with the city's own hero numbers (${base.attack} attack) under their names, out of the barbarian cities; whoever takes Paris from the NPCs gets Napoleon there at level 1 (125 in each stat, leadership 175), bound to it: no reinforcing ("${send?.[1]}"), no dismissing, never a prisoner; Poseidon 150 in each stat, leadership 200; another lord taking Paris gets him as he is (level 50); given up, he rules Paris again, and the next taker gets him at level 1`);
         }
         // Fox (Oct 29 2026): taking a level 8 NPC city didn't finish the Queen's "Conquer a level 8 NPC city".
         const qs = G.quests.state(me), rec = qs.max.npcCity, q8 = G.quests.check(me, city, { kind: 'npcCity', level: 8 }, Date.now());
@@ -1461,7 +1468,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         Math.random = rnd; G.push = push; me.gear = savedGear;
         const online = [...G.online.keys()], news = (G.db.newsboard || []).slice(-1)[0];
         ok(s11.ok === 1 && s11.enhancedstarlv === 11 && at11 === online.length && online.every(id => sent.some(x => x.to === id)) && sent.length === at11
-          && /has raised level 10 Weaponry to 11 stars/.test(sent[0]?.data.msg) && /11 stars/.test(news?.msg),
+          && /has raised level 10 Weaponry to 11 stars/.test(sent[0]?.data.msg) && sent[0]?.data.world === true && /11 stars/.test(news?.msg),
           `raising gear to 11 stars tells everyone online (${at11} lords) and the Newsboard: "${sent[0]?.data.msg}"; 6 stars says nothing`); }
       { // Fox (Nov 25 2026): from 11 stars up the chance is 33% better than live's; below 11 it is live's.
         const E = G.equipment, F = 'enhanced.star.2', D = 'enhanced.star.1';
@@ -2539,9 +2546,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           && js.includes('t.jsx(c,{title:"Neutral",list:e.middle||[]})') && js.includes('v&&o&&t.jsx("div",{className:"al-bottom"+(C?"":" aow-subnote")')
           && js.includes('function aowRedReports(') && js.includes('aowRedReports()},[])')
           && js.includes('!m&&t.jsx("div",{className:"ws-stars"') && js.includes('aowGearUp&&t.jsxs("span",{className:"ws-sub aow-ws-up",children:[" · Researching Lv.",i+1," ",It(aowLeft)]})')
-          && js.includes('Math.round(r*(e>=11?1.33:1)*10)/10') && js.includes('aowCmd:"equipmenttech.speedUpResearch"') && (js.match(/H\(aowCmd\|\|ic\[e\],/g) || []).length === 3 && js.includes('H("equipmenttech.cancelResearch",{castleId:e.castleId})') && js.includes('title:"Build time for one",children:["⏱ ",It(Number(ne.time))]') && js.includes('It(Number(k.conditionBean.time)*w)')
+          && js.includes('Q.world&&F("world",{ts:V,sys:!0,parts:FC(Q.msg).parts,kind:"system"})') && js.includes('Math.round(r*(e>=11?1.33:1)*10)/10') && js.includes('aowCmd:"equipmenttech.speedUpResearch"') && (js.match(/H\(aowCmd\|\|ic\[e\],/g) || []).length === 3 && js.includes('H("equipmenttech.cancelResearch",{castleId:e.castleId})') && js.includes('title:"Build time for one",children:["⏱ ",It(Number(ne.time))]') && js.includes('It(Number(k.conditionBean.time)*w)')
           && /\.mm-btn:has\(>\.mm-alarm\)::after\{[^}]*var\(--aow-report-red[^}]*animation:aow-report-flash/.test(fs.readFileSync(path.join(pub, 'assets', html.match(/index-aow[0-9a-f]+\.css/)[0]), 'utf8')),
-          'the city panel\'s troop icons open the Barracks\' Disband window for their troop, and its troop counts are fitted to their cells; the alliance window\'s Military tab is War Reports, its Manage pages show their messages and Diplomacy lists Neutral alliances; the Reports scroll flashes red under attack; the Workshop shows no stars on the mount; the Walls window shows build times; a Workshop tile under research shows its time left, Speed Up and Cancel'); }
+          'the city panel\'s troop icons open the Barracks\' Disband window for their troop, and its troop counts are fitted to their cells; the alliance window\'s Military tab is War Reports, its Manage pages show their messages and Diplomacy lists Neutral alliances; the Reports scroll flashes red under attack; the Workshop shows no stars on the mount; the Walls window shows build times; a Workshop tile under research shows its time left, Speed Up and Cancel; announcements to everyone show in World chat too'); }
       // Fox's live capture of a Ring hero (Jessica): an On War book, then level-ups to 13 with 2,500 left over.
       me.items['player.experience.1.c'] = 1;
       const book = await c.call('hero.useItem', { castleId: castle.id, itemId: 'player.experience.1.c', heroId: rh.id });
@@ -3304,10 +3311,11 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const up = await ally.x.call('alliance.setPowerForUserByAlliance', { userName: me.name, typeId: 6 });
       const crows = await rival.x.call('alliance.createAlliance', { castleId: rival.qc.id, allianceName: 'Crows' });
       const hostile = await c.call('alliance.setAllianceFriendship', { targetAllianceName: 'Crows', type: 3 });
+      const warNews = (G.db.newsboard || []).slice(-1)[0]?.msg;   // (Fox, Nov 25 2026: the whole server sees an alliance declare war)
       const again = await c.call('alliance.setAllianceFriendship', { targetAllianceName: 'Crows', type: 1 });
       const lists = await c.call('alliance.getAllianceFriendshipList', {});
       const W = G.war, beanAlly = G.mapBean({ player: me }, world.tileAt(srv.store, ally.qc.fieldId)), beanRival = G.mapBean({ player: me }, world.tileAt(srv.store, rival.qc.fieldId));
-      ok(vice.ok === 1 && AL.rank(ally.q) === 5 && up.ok < 0 && crows.ok === 1 && hostile.ok === 1 && again.ok < 0 && /again in/.test(again.errorMsg) && lists.enemyList.some(u => u.allianceName === 'Crows')
+      ok(vice.ok === 1 && AL.rank(ally.q) === 5 && up.ok < 0 && crows.ok === 1 && hostile.ok === 1 && warNews === 'The alliance Wolves has declared war on Crows!' && again.ok < 0 && /again in/.test(again.errorMsg) && lists.enemyList.some(u => u.allianceName === 'Crows')
         && AL.relation(me, ally.q) === 0 && AL.relation(me, rival.q) === 3 && AL.relation(rival.q, me) === 2
         && beanAlly.relation === 0 && beanAlly.allianceName === 'Wolves' && beanRival.relation === 3 && beanRival.allianceName === 'Crows',
         'ranks go to lower members only; another alliance can be set hostile, once a day; the map shows an ally green (0) and a hostile alliance red (3)');
