@@ -93,7 +93,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
   // every city, startWalls, and its gold in place of cents, noCents, are off for the live checks and tested on their own;
   // so are troops eating a tenth of live's upkeep, troopUpkeep, and prestige never lost, battlePrestige.losses and
   // alliances.quitPrestigeRate.)
-  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, troopUpkeep: 1, battlePrestige: { losses: true }, alliances: { quitPrestigeRate: 0.1 }, heroAutoLevel: false, innRestock: false, prisonersNeedNoSeat: false, reports: { heroCapture: true, itemOpened: true, reinforcements: true, outcomeInTitle: false }, historicHeroes: { questFree: false }, draft: { undraftable: true }, war: { required: true }, npcConquest: { layout: { keepCottages: null } }, dynamiteFullDemolish: false, mayorExp: 0, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
+  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, troopUpkeep: 1, battlePrestige: { losses: true }, alliances: { quitPrestigeRate: 0.1 }, heroAutoLevel: false, innRestock: false, prisonersNeedNoSeat: false, reports: { heroCapture: true, itemOpened: true, reinforcements: true, outcomeInTitle: false }, historicHeroes: { questFree: false }, draft: { undraftable: true }, war: { required: true }, policies: { targetHours: 0 }, npcConquest: { layout: { keepCottages: null } }, dynamiteFullDemolish: false, mayorExp: 0, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
     population: 100, taxRate: 20, productionRate: 100, buildings: { '0': [1, 1], '1001': [7, 1], '1002': [4, 1], '1003': [5, 1], '1004': [6, 1] } } }));
   const srv = main({ ...PORTS, dataDir, cacheDir: path.join(dataDir, 'cache'), speed: 600, logLevel: 'warn', embedded: true, assetCdn: '', flashClient: true, legacyLogin: true, adminPassword: ADMIN.pw });
   ADMIN.token = srv.game.adminToken;
@@ -2047,6 +2047,19 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       city.powerLevel = 3; G.rules.policies.range[14] = r14; city.policies = null;
       ok(same.ok < 0 && higher.ok < 0 && /below your Historic City's level \(12\); that is a level 12/.test(same.errorMsg) && /level 14 Historic City/.test(higher.errorMsg) && lower.ok === 1,
         `policies only go down: a level 12 can't use them on another 12 or a 14, a 14 can on a 12 (${same.errorMsg})`);
+      { // Fox's tester Nap (Nov 26 2026): a city takes one policy every 24 hours, whoever issues it; the next day it can take another.
+        G.rules.policies.targetHours = 24; city.policies = null; delete G.db.policyTargets; const T0 = Date.now(), Pn = G.policies || P;
+        // (the city's last policy is moved back in time, not the clock forward: the cities would settle a day ahead)
+        const lord = G.db.players[city.playerId], key = `c${pc.id}`, back = ms => { G.db.policyTargets[key] -= ms; };
+        const first = Pn.use(city, lord, 'tax', pc.fieldId, T0);
+        city.policies = null; const second = Pn.use(city, lord, 'disarm', pc.fieldId, T0);
+        back(23 * 3600e3 + 30 * 60e3); city.policies = null; const late = Pn.use(city, lord, 'tax', pc.fieldId, T0);
+        city.policies = null; const other = Pn.use(city, lord, 'tax', near.id, T0);
+        back(30 * 60e3 + 1000); city.policies = null; const nextDay = Pn.use(city, lord, 'tax', pc.fieldId, T0);
+        G.rules.policies.targetHours = 0; city.policies = null;
+        ok(!Array.isArray(first) && Array.isArray(second) && /already had a policy used on it in the last 24 hours\. Try again in 24 hours/.test(second[1]) && Array.isArray(late) && /Try again in 30 minutes/.test(late[1])
+          && !Array.isArray(other) && !Array.isArray(nextDay),
+          `a city takes one policy every 24 hours, whoever issues it ("${second[1]}"); another city can take one meanwhile, and the same city again a day later`); }
       G.rules.policies.range[12] = 9;
       ok((!far || (tooFar.ok < 0 && /draft area \(9 miles/.test(tooFar.errorMsg))) && notHC.ok < 0 && /Historic City/.test(notHC.errorMsg) && disarm.ok === 1 && disarm.amount === 100 && disarm.armyType === 'Archer'
         && pc.troops.archer === 900 && (penpal.reports || []).some(r => /used Disarmament on/.test(r.title) && /<policyReport detail="[^"]*100 Archer disbanded/.test(r.content)),

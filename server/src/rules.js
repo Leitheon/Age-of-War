@@ -683,7 +683,9 @@ const DEFAULTS = {
   // miles in any direction, and uses a day, by Historic City level (Evony Advanced Guide): level 12 9 miles and 4
   // a day, 14 33 miles, 16 its whole state (99), 18 the whole map and 10 a day; levels 14 and 16 6 and 8 a day
   // (Fox, Oct 26 2026).
-  policies: { perDay: { 12: 4, 14: 6, 16: 8, 18: 10 }, range: { 12: 9, 14: 33, 16: 99, 18: 400 } },
+  // targetHours: a city (a lord's or an NPC's) takes one policy every 24 hours, from any Historic City (Fox's tester
+  // Nap, Nov 26 2026: "the same city can be policied multiple times, should only be once every 24hrs"); 0: no limit.
+  policies: { perDay: { 12: 4, 14: 6, 16: 8, 18: 10 }, range: { 12: 9, 14: 33, 16: 99, 18: 400 }, targetHours: 24 },
   // Draft and Disarmament, from a Historic City or on a colony (policies.taken): the branch taken is the one with the
   // most troops (pick 'count'), or the one worth most (pick 'worth', count x troopExp). At an undraftable number (its
   // worth past 2^31 in the live server's 32-bit int) there are no troops to draft, and the day's policy is used up
