@@ -109,6 +109,15 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
     const home = (await get('/')).body.toString();
     ok(/\/assets\/index-[\w]+\.js/.test(home) && home.includes('<script src="/welcome"></script>'), 'the home page is the web client');
     {
+      // The sign-in page (tools/login-page): its own map, marks and fonts, all shipped in public/assets; DoA's painting
+      // and Trajan Pro unused; the login page's smoke canvas gone from the bundle.
+      const cssUrl = (home.match(/href="(\/assets\/login-aow\w+\.css)"/) || [])[1], css = cssUrl ? (await get(cssUrl)).body.toString() : '';
+      const urls = [...css.matchAll(/url\((\/assets\/[^)]+)\)/g)].map(m => m[1]), got = await Promise.all(urls.map(u => get(u)));
+      const bundle = (await get(home.match(/\/assets\/index-aow\w+\.js/)[0])).body.toString();
+      ok(!!cssUrl && urls.length >= 7 && got.every(r => r.status === 200) && !/login-bg|Trajan/i.test(css) && !/className:"login-haze"\}\),t\.jsx\(\w+,\{\}\)/.test(bundle),
+        `the sign-in page draws its own campaign map with free fonts (${urls.length} files, all here), not DoA's background or Trajan Pro`);
+    }
+    {
       // The banner across the top: the Discord invite after the welcome line, unless config.json names another link.
       let own = {}; try { own = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config.json'), 'utf8')); } catch (e){}
       const want = own.welcomeLink ?? 'https://discord.gg/cdCAFYTwxZ', js = (await get('/welcome.js')).body.toString();

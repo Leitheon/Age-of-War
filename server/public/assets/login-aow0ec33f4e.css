@@ -1,0 +1,90 @@
+/* Age of War's sign-in page (Fox, Nov 27 2026: "something generic that doesn't use DoA's assets"): a campaign map
+   drawn by build.py (contours, the world's coordinate grid, one army's march), Cinzel and Alegreya Sans (SIL Open Font
+   License, fonts/), and the game's own gold buttons. Loaded after the client's stylesheet, so these rules win; the
+   phone sizes are repeated in the media queries below for that reason. {name} is filled in by build.py. */
+@font-face{font-family:AowCinzel;src:url(/assets/aow-cinzel-400-b873cdd9.woff2) format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:AowCinzel;src:url(/assets/aow-cinzel-700-8efa224f.woff2) format("woff2");font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:AowSans;src:url(/assets/aow-alegreya-sans-400-b2a5a35a.woff2) format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:AowSans;src:url(/assets/aow-alegreya-sans-700-5acd19a5.woff2) format("woff2");font-weight:700;font-style:normal;font-display:swap}
+
+:root{
+  --aow-ink:#1c2933;      /* the map */
+  --aow-deep:#0f171d;     /* its edges */
+  --aow-brass:#c9a14e;    /* grid, frame, markers, rules */
+  --aow-parch:#efe4c8;    /* text */
+  --aow-muted:#a59c86;    /* help text */
+  --aow-red:#b54a34;      /* the enemy */
+}
+
+/* The map: the sign-in page and the "Entering the realm" screen after it. */
+.stage{color-scheme:dark;background:radial-gradient(ellipse 80% 75% at 50% 44%,#243542 0%,var(--aow-ink) 52%,var(--aow-deep) 100%);color:var(--aow-parch);font-family:AowSans,Arial,sans-serif}
+.stage:before{background:radial-gradient(ellipse 85% 80% at 50% 45%,transparent 40%,rgba(9,14,18,.78) 100%),url(/assets/aow-map-c6ec3981.svg) no-repeat center center / cover}
+/* The frame round the map, with a tick every 24 pixels and a longer one every 120, like a chart's edge. */
+.stage:after{top:14px;right:14px;bottom:14px;left:14px;box-shadow:none;border:1px solid rgba(201,161,78,.34);
+  --t:rgba(201,161,78,.5);
+  background:
+    repeating-linear-gradient(90deg,var(--t) 0 1px,transparent 1px 120px) top left / 100% 10px no-repeat,
+    repeating-linear-gradient(90deg,var(--t) 0 1px,transparent 1px 24px) top left / 100% 5px no-repeat,
+    repeating-linear-gradient(90deg,var(--t) 0 1px,transparent 1px 120px) bottom left / 100% 10px no-repeat,
+    repeating-linear-gradient(90deg,var(--t) 0 1px,transparent 1px 24px) bottom left / 100% 5px no-repeat,
+    repeating-linear-gradient(180deg,var(--t) 0 1px,transparent 1px 120px) top left / 10px 100% no-repeat,
+    repeating-linear-gradient(180deg,var(--t) 0 1px,transparent 1px 24px) top left / 5px 100% no-repeat,
+    repeating-linear-gradient(180deg,var(--t) 0 1px,transparent 1px 120px) top right / 10px 100% no-repeat,
+    repeating-linear-gradient(180deg,var(--t) 0 1px,transparent 1px 24px) top right / 5px 100% no-repeat}
+/* On the map: a lord's city, its army's march to an enemy city, and a Historic City. (The client's fire glow and
+   embers are gone: build.py takes them out of the bundle.) */
+.login-stage .login-haze{top:0;height:auto;background:
+  url(/assets/aow-march-441a2f54.svg) no-repeat left 7% top 54% / min(29vw,420px) auto,
+  url(/assets/aow-historic-52e40e7b.svg) no-repeat right 9% top 22% / 86px auto}
+
+/* The panel: a dispatch case on the map table. Its rules name .login-panel: the game's windows use .tab, .lbl and
+   the like too, and stay as they are. */
+.login-panel{background:linear-gradient(180deg,rgba(24,35,44,.95),rgba(15,22,28,.97));border-color:rgba(201,161,78,.8);border-radius:4px;
+  box-shadow:0 0 0 1px rgba(0,0,0,.55),0 18px 50px rgba(3,6,9,.7)}
+.login-panel:before{border-color:rgba(201,161,78,.32);border-radius:2px}
+.login-crest{margin-bottom:24px}
+.login-game{font-family:AowCinzel,Times New Roman,serif;font-weight:700;font-size:30px;letter-spacing:.06em;color:var(--aow-parch);text-shadow:0 2px 10px rgba(0,0,0,.6)}
+.login-crest:after{width:42%;margin-top:14px;background:linear-gradient(90deg,transparent,var(--aow-brass),transparent)}
+.login-panel-slim .login-game{font-size:24px}
+
+.login-panel .tab{font-family:AowCinzel,serif;font-size:14px;letter-spacing:.06em;text-transform:none;color:#cdbf9b;border-color:rgba(201,161,78,.4);border-radius:3px;background:rgba(10,16,21,.55)}
+.login-panel .tab:hover{color:var(--aow-parch);border-color:rgba(201,161,78,.75)}
+.login-panel .tab-active,.login-panel .tab-active:hover{color:#3a2400;border-color:#b9760f;background:linear-gradient(180deg,#ffe38a,#ffca3c 48%,#f5a71c 52%,#f3b52b)}
+
+.login-panel .form{gap:16px}
+.login-panel .lbl{font-family:AowSans,Arial,sans-serif;font-size:15px;font-weight:700;letter-spacing:0;text-transform:none;color:#dcc387;text-shadow:none}
+.login-panel .lbl .sub{display:inline;margin-left:6px;font-size:14px;color:var(--aow-muted)}
+.login-panel .field{height:38px;border-color:rgba(201,161,78,.32);border-radius:3px;background:rgba(7,11,14,.72);color:var(--aow-parch);font-family:AowSans,Arial,sans-serif;font-size:16px}
+.login-panel .field:focus{border-color:var(--aow-brass);box-shadow:0 0 0 2px rgba(201,161,78,.28);background:rgba(7,11,14,.86)}
+.login-panel .chk,.login-panel .forgot{font-family:AowSans,Arial,sans-serif;font-size:14px}
+.login-panel .chk{color:#cdbf9b}.login-panel .forgot{color:#dcc387}
+.login-panel .chk input{accent-color:var(--aow-brass)}
+.login-panel .btn-login{font-family:AowCinzel,serif;font-size:18px;letter-spacing:.1em;border-radius:3px}
+.login-panel .status{font-family:AowSans,Arial,sans-serif;font-size:14px;color:#f0cf86;text-shadow:none}
+.login-panel .tab:focus-visible,.login-panel .btn-login:focus-visible,.login-panel .forgot:focus-visible,.login-links a:focus-visible,.login-panel .chk input:focus-visible{outline:2px solid var(--aow-brass);outline-offset:2px}
+
+/* The website's pages, top left. */
+.login-links{left:34px;top:30px;gap:10px}
+.login-links a{font-family:AowCinzel,Times New Roman,serif;font-size:15px;letter-spacing:.06em;color:#d9bd7c;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+.login-links a:before{content:none}
+.login-links a:hover{color:var(--aow-parch);text-shadow:0 1px 3px rgba(0,0,0,.8)}
+
+/* "Entering the realm" after signing in. */
+.loadscreen,.loadscreen-title{font-family:AowCinzel,Times New Roman,serif}
+.loadscreen-title{color:var(--aow-parch);letter-spacing:.06em}
+.loadscreen-bar{border-color:rgba(201,161,78,.6)}
+.loadscreen-pct{font-family:AowSans,Arial,sans-serif;font-size:14px}
+
+/* Phones: the panel scrolls with the page, the march sits below it, no Historic City. */
+@media (max-width:560px){
+  .stage:after{top:8px;right:8px;bottom:8px;left:8px}
+  .login-stage .login-haze{background:url(/assets/aow-march-441a2f54.svg) no-repeat center bottom 5% / min(78vw,330px) auto}
+  .login-links{left:0;top:18px;gap:8px 20px}
+  .login-links a{font-size:14px}
+  .login-game{font-size:24px}
+  .login-panel-slim .login-game{font-size:21px}
+  .login-panel .field{height:42px}
+}
+@media (max-width:360px){
+  .login-game{font-size:20px;letter-spacing:.03em}
+}

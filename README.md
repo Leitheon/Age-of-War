@@ -12,7 +12,9 @@ state heartbeat, and its automation and market features.
   - `src/` — the server. `src/game/handlers/` answers the client's commands; `auth.js`, `webmap.js`, `webstate.js`
     and `webshop.js` are this client's own.
   - `art/` — **not in git**: the game's pictures and fonts (`flash/`, `tiles/`, `_uiassets/`, `heroes/`, `fonts/`,
-    `login-bg.jpg`, `mapTile.jpg`).
+    `mapTile.jpg`). The sign-in page uses none of them.
+  - `tools/login-page/` — the sign-in page's look: `build.py` draws its campaign map and writes it, `login.css` and the
+    fonts (Cinzel and Alegreya Sans, SIL Open Font License) into `public/assets/`.
   - `client/` — **not in git**: `EvonyClient1921.swf`, which the server reads the game's data from (buildings,
     troops, research, items, quests).
   - `data/` — **not in git**: the world (`world.json`), the log, and `rules.json` if you change any rules.
@@ -144,6 +146,10 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   (attack, scout, transport) but never to reinforce or found another city, be dismissed or be captured; another lord
   taking the city takes him as he is, and a city given up has him rule it again. The website's Heroes page shows where.
 - **Be an Evonian**: the quest window has its Add to favorites button.
+- **A sign-in page of its own** (`server/tools/login-page/`): the page where players sign in and register is a
+  campaign map drawn for Age of War (contour lines, the world's coordinate grid, a city's army marching on an enemy
+  city, a Historic City), with the free fonts Cinzel and Alegreya Sans; none of DoA's art (its battle painting and
+  Trajan Pro lettering) or its smoke and embers. The "Entering the realm" screen after it is the same map.
 - **The Discord invite on the banner**: the line scrolling across the top of the game screen ends with the server's
   Discord invite, a link that opens in a new tab (the line slows down while the mouse is over it). The admin page's
   Banner box (on the overview) changes the line and the link; players see it the next time they load the game. The
