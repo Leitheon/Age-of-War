@@ -118,6 +118,7 @@ class Combat {
       // cataphracts all die but kill 12,779 of them).
       const mode = cfg.turn || 'moveOrAttack', simul = !!cfg.simultaneous, pending = [];
       const holds = s => (s.who === 'D' && (cfg.defendersStay === 'all' || (cfg.defendersStay === 'ranged' && s.ranged)))
+        || (s.typeId === SCOUT && (cfg.scoutsStay === 'all' || cfg.scoutsStay === s.who))
         || (cfg.transportersHoldBack && s.typeId === CARRIAGE && all.some(o => o.who === s.who && o.count > 0 && o.typeId !== CARRIAGE));
       const step = (s, enemies) => {
         const near = enemies.reduce((a, b) => Math.abs(b.x - s.x) < Math.abs(a.x - s.x) ? b : a), gap = Math.abs(near.x - s.x);
@@ -161,14 +162,16 @@ class Combat {
       // How many of a kind fire this round: fortRatePercent of the starting number a round (rounded up), or all
       // that are left at once.
       const firing = (k, pct) => { const left = forts[k] - used[k]; return pct ? Math.min(left, Math.ceil(forts[k] * pct / 100 - 1e-9)) : left; };
-      if (forts.trap - used.trap > 0){
+      // Traps catch foot and mounted troops only, and none go off with neither in the army (live, Fox's CC2 tests of
+      // Nov 26 2026: no traps used on 10,000 Ballistae, Rams, Catapults or Transporters, 2 or 3 on any other kind).
+      const trapped = largest(foes().filter(s => s.cls === 'foot' || s.cls === 'mounted'));
+      if (forts.trap - used.trap > 0 && trapped){
         // trapRatePercent of the starting traps fire each round (trapCeil: rounded up each round; otherwise small
         // numbers carry over between rounds).
         const n = cfg.trapCeil ? firing('trap', cfg.trapRatePercent || 100)
           : Math.min(forts.trap, Math.floor(forts.trap * (cfg.trapRatePercent || 100) / 100 * round + 1e-9)) - used.trap;
         used.trap += n;
-        const t = largest(foes().filter(s => s.cls === 'foot' || s.cls === 'mounted'));
-        if (t) t.count -= Math.min(t.count, Math.floor(n * cfg.trapPower * (cfg.trapKill?.[t.cls] || 0)));
+        trapped.count -= Math.min(trapped.count, Math.floor(n * cfg.trapPower * (cfg.trapKill?.[trapped.cls] || 0)));
       }
       if (forts.abatis - used.abatis > 0){
         const t = largest(foes().filter(s => s.cls === 'mounted'));

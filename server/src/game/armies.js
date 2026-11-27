@@ -606,10 +606,12 @@ class ArmyLogic {
     const cityLeft = dc && shut ? dc.troops : dc && guests.length ? this.shareLosses(dc.troops, guests, r.defLeft) : r.defLeft;
     const defBefore = dc ? { ...dc.troops } : null;
     if (dc) this.relive(dp, { ...dc.troops }, cityLeft, now);
-    // Wounded: a share of each side's losses waits in its own city (the attacker's home city).
+    // Wounded: a share of each side's losses waits in its own city (the attacker's home city); between two lords,
+    // each side's own share (rules.wounded.lords).
     const lostOf = (was, now) => Object.fromEntries(Object.entries(was).map(([k, n]) => [k, n - (now[k] || 0)]).filter(([, n]) => n > 0));
-    const attHeal = c ? this.wound(c, p, lostOf(before, a.troops), now) : null;
-    const defHeal = dc ? this.wound(dc, dp, lostOf(defBefore, cityLeft), now) : null;
+    const lords = !!(p && dp), attBase = this.woundBase(lords, 'attack'), defBase = this.woundBase(lords, 'defence');
+    const attHeal = c ? this.wound(c, p, lostOf(before, a.troops), now, attBase) : null;
+    const defHeal = dc ? this.wound(dc, dp, lostOf(defBefore, cityLeft), now, defBase) : null;
     const xp = r.expAttacker;
     if (hero) g.heroes.gainExp(hero, xp);
     if (defHeroObj && r.expDefender) g.heroes.gainExp(defHeroObj, r.expDefender);
@@ -719,8 +721,8 @@ class ArmyLogic {
     // were charged again at the next wave; and a city's lord paid for his allies' troops. Only the lord's own
     // troops that are gone for good count now.)
     const prestige = p && r.attackerWon && !dp ? this.battlePrestige(p, r.att, r.def) : 0;
-    const pLoss = r.attackerWon ? 0 : this.lostPrestige(p, this.dead(lostOf(before, a.troops), p, c, now));
-    const dLoss = dp && r.attackerWon ? this.lostPrestige(dp, this.dead(lostOf(defBefore, cityLeft), dp, dc, now)) : 0;
+    const pLoss = r.attackerWon ? 0 : this.lostPrestige(p, this.dead(lostOf(before, a.troops), p, c, now, attBase));
+    const dLoss = dp && r.attackerWon ? this.lostPrestige(dp, this.dead(lostOf(defBefore, cityLeft), dp, dc, now, defBase)) : 0;
     if (p && (prestige || pLoss)){ p.prestige = Math.max(0, (p.prestige || 0) + prestige - pLoss); g.pushPlayerInfo(p); }
     if (dp && dLoss){ dp.prestige = Math.max(0, (dp.prestige || 0) - dLoss); g.pushPlayerInfo(dp); }
     let note = '';
@@ -730,7 +732,7 @@ class ArmyLogic {
     if (won?.captive) note += `; captured ${won.captive.name}`;
     if (won?.captives?.length) note += `; captured ${won.captives.map(h => h.name).join(', ')}`;
     if (heroSeized) note += `; ${hero.name} was captured`;
-    const injuredPer = Math.round((g.rules.wounded?.share ?? 0) * 100) || undefined;
+    const injuredPer = this.injuredPer(lords, 'attack'), defInjuredPer = this.injuredPer(lords, 'defence');
     // Live (Fox's Basilisk report, Oct 29 2026): an attack's report is titled "Attack Reports", whatever came of it,
     // as a scout's is "Scout Reports"; a conquest, a colonization, a taken valley and a captured hero keep their own.
     const plain = !won && !parked && !colony && !captured && !heroSeized && !won?.captive;
@@ -743,12 +745,12 @@ class ArmyLogic {
     // The allied troops' lords get the battle too; an army with nobody left, or in a city that changed hands, goes home.
     for (const ga of guests){
       const gp = this.db.players[ga.playerId]; if (!gp) continue;
-      report(gp, { type: REPORT_TYPE.ARMY, attack: false, title: `${out ? theirs + ': ' : ''}${p.name} attacked ${dc.name}, where your troops are stationed`, content: battleXml({ ...body, injuredPer, isAttack: false, won: r.attackerWon, back: null }) });
+      report(gp, { type: REPORT_TYPE.ARMY, attack: false, title: `${out ? theirs + ': ' : ''}${p.name} attacked ${dc.name}, where your troops are stationed`, content: battleXml({ ...body, injuredPer: defInjuredPer, isAttack: false, won: r.attackerWon, back: null }) });
       if (won || parked || !Object.values(ga.troops).some(n => n > 0)) this.sendHome(ga, now);
       g.pushArmies(gp);
     }
     if (guests.length) g.pushFriends(dp);
-    if (dp) report(dp, { type: REPORT_TYPE.ARMY, attack: false, title: (out ? theirs + ': ' : '') + (won ? `${p.name} conquered ${dc.name}` : parked ? `${p.name} is colonizing ${dc.name}` : colony ? `${p.name} suppressed ${dc.name}'s uprising` : heroSeized ? `${p.name} attacked ${dc.name}; you captured ${hero.name}` : `${p.name} attacked ${dc.name}`), content: battleXml({ ...body, injuredPer, autoHeal: this.healXml(defHeal, dc), isAttack: false, won: r.attackerWon, back: null, honor: hon?.def }) });
+    if (dp) report(dp, { type: REPORT_TYPE.ARMY, attack: false, title: (out ? theirs + ': ' : '') + (won ? `${p.name} conquered ${dc.name}` : parked ? `${p.name} is colonizing ${dc.name}` : colony ? `${p.name} suppressed ${dc.name}'s uprising` : heroSeized ? `${p.name} attacked ${dc.name}; you captured ${hero.name}` : `${p.name} attacked ${dc.name}`), content: battleXml({ ...body, injuredPer: defInjuredPer, autoHeal: this.healXml(defHeal, dc), isAttack: false, won: r.attackerWon, back: null, honor: hon?.def }) });
     g.log.info(`${p.name} attacked ${here}: ${r.attackerWon ? 'won' : 'lost'} in ${r.round} round${r.round > 1 ? 's' : ''}${loot ? `, loot ${Object.values(loot).reduce((x, y) => x + y, 0)}` : ''}${captured ? ', valley taken' : ''}${conquest ? `, loyalty ${conquest.loyalty}` : ''}${found.length ? `, found ${foundText}` : ''}`);
     // Live (Fox): a lost attack doesn't march home; what is left of the army is home at once (arrive()).
     if (!r.attackerWon) a.lost = true;
@@ -771,8 +773,8 @@ class ArmyLogic {
   }
   // Of the troops a battle cost city c ({field: n}, after Penicillin), those gone for good: less the wounded, who
   // wait in c to be healed (wound()). No city, no wounded.
-  dead(lost, p, c, now){
-    const share = c ? this.woundShare(p, now) : 0;
+  dead(lost, p, c, now, base){
+    const share = c ? this.woundShare(p, now, base) : 0;
     return Object.fromEntries(Object.entries(lost || {}).map(([k, n]) => [k, n - Math.floor(n * share)]).filter(([, n]) => n > 0));
   }
   // Honor for attacker p and defender dp from a battle: attRows and defRows are the two sides' units (with lose).
@@ -816,7 +818,8 @@ class ArmyLogic {
     g.effort.kills(p, r.def); g.effort.kills(dp, r.att);
     this.relive(p, before, left, now); this.relive(dp, defBefore, r.defLeft, now);
     const lostOf = (was, after) => Object.fromEntries(Object.entries(was).map(([k, n]) => [k, n - (after[k] || 0)]).filter(([, n]) => n > 0));
-    const attHeal = home ? this.wound(home, p, lostOf(before, left), now) : null, defHeal = this.wound(dc, dp, lostOf(defBefore, r.defLeft), now);
+    const attBase = this.woundBase(true, 'attack'), defBase = this.woundBase(true, 'defence');   // (a battle between two lords)
+    const attHeal = home ? this.wound(home, p, lostOf(before, left), now, attBase) : null, defHeal = this.wound(dc, dp, lostOf(defBefore, r.defLeft), now, defBase);
     if (hero) g.heroes.gainExp(hero, r.expAttacker);
     if (defHero && r.expDefender) g.heroes.gainExp(defHero, r.expDefender);
     const fortsAfter = { ...fortsBefore };
@@ -831,11 +834,11 @@ class ArmyLogic {
       defender: { king: dp.name, hero: defHero, pos: this.placeName(dc.fieldId), units: units(r.def) }, loot: null, back: null };
     g.log.info(`${p.name} fought at ${this.placeName(dc.fieldId)}: ${r.attackerWon ? 'won' : 'lost'} in ${r.round} round${r.round > 1 ? 's' : ''}`);
     const honor = this.honor(p, dp, r.def, r.att, r.attackerWon);
-    const pLoss = r.attackerWon ? 0 : this.lostPrestige(p, this.dead(lostOf(before, left), p, home, now));
-    const dLoss = r.attackerWon ? this.lostPrestige(dp, this.dead(lostOf(defBefore, r.defLeft), dp, dc, now)) : 0;
+    const pLoss = r.attackerWon ? 0 : this.lostPrestige(p, this.dead(lostOf(before, left), p, home, now, attBase));
+    const dLoss = r.attackerWon ? this.lostPrestige(dp, this.dead(lostOf(defBefore, r.defLeft), dp, dc, now, defBase)) : 0;
     if (pLoss){ p.prestige = Math.max(0, (p.prestige || 0) - pLoss); g.pushPlayerInfo(p); }
     if (dLoss){ dp.prestige = Math.max(0, (dp.prestige || 0) - dLoss); g.pushPlayerInfo(dp); }
-    return { won: r.attackerWon, left, body, attHeal, defHeal, honor, injuredPer: Math.round((g.rules.wounded?.share ?? 0) * 100) || undefined };
+    return { won: r.attackerWon, left, body, attHeal, defHeal, honor, injuredPer: this.injuredPer(true, 'attack'), defInjuredPer: this.injuredPer(true, 'defence') };
   }
   // ---------- wounded troops (rules.wounded) ----------
   // The wounded resting in a city's Rally Spot, after the ones left too long have died.
@@ -856,11 +859,19 @@ class ArmyLogic {
   cureCost(troops){ return Object.entries(troops).reduce((s, [k, n]) => s + n * this.healGold(k), 0); }
   // Losses from a battle: a share comes back wounded. With Auto Heal on and the gold in the city, every wounded
   // troop there is cured at once. Returns what was healed and its cost, or null.
-  // The share of a battle's losses that survive wounded: rules.wounded.share, +1% a level of the achievements'
-  // bonus, and the Christmas Gift's +15%.
-  woundShare(p, now){ return ((this.g.rules.wounded?.share ?? 0) + (this.g.effort.bonus(p, 'wounded') || 0) / 100) * (1 + this.g.items.healBonus(p, now)); }
-  wound(c, p, lost, now){
-    const share = this.woundShare(p, now), w = this.wounded(c, now);
+  // The share of a battle's losses that survive wounded: the battle's own share (woundBase), +1% a level of the
+  // achievements' bonus, and the Christmas Gift's +15%.
+  woundShare(p, now, base = this.woundBase()){ return (base + (this.g.effort.bonus(p, 'wounded') || 0) / 100) * (1 + this.g.items.healBonus(p, now)); }
+  // A battle's wounded share before bonuses: rules.wounded.share, or in a battle between two lords (lords true)
+  // rules.wounded.lords' share for that side ('attack' or 'defence').
+  woundBase(lords = false, side = 'attack'){
+    const r = this.g.rules.wounded || {};
+    return (lords ? r.lords?.[side] : null) ?? r.share ?? 0;
+  }
+  // What a battle's report shows as its "injuredPer" (%), for that side.
+  injuredPer(lords, side){ return Math.round(this.woundBase(lords, side) * 100) || undefined; }
+  wound(c, p, lost, now, base){
+    const share = this.woundShare(p, now, base), w = this.wounded(c, now);
     let any = false;
     for (const [k, n] of Object.entries(lost)){ const hurt = Math.floor(n * share); if (hurt > 0){ w[k] = (w[k] || 0) + hurt; any = true; } }
     if (!any) return null;

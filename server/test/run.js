@@ -733,6 +733,26 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       ok(p18.every(r => !r.attackerWon && r.round === 3 && r.att[0].lose === 156000 && cata(r) > 12779 && cata(r) < 12779 * 1.8
         && used(r, 'trap') === 1568 && used(r, 'rollingLogs') === 6 && used(r, 'rockfall') === 6),
         `Fox's 156,000 pikemen on a level 18 Historic City, whatever its archers: 3 rounds, all die but kill ${p18.map(cata).join(' and ')} cataphracts (dxcalc 12,779 with the hero's bonus on 10,140 of them), 1,568 traps, 6 logs and 6 trebuchets, as in dxcalc`);
+      // Fox's CC2 tests (Nov 26 2026): 10,000 of one kind under a level 44 hero (64 attack, 18 intelligence),
+      // research 10, on a lord's city with 2,145,000,000 of every troop, Walls 10, a few defenses, its mayor
+      // defending (964.7 attack with gear and buff, 88 intelligence). Live: the attackers meet the city's Cavalry
+      // (its Scouts stay in), in these rounds; traps go off on every kind but the siege troops and Transporters.
+      {
+        const city = {}; for (const t of Object.values(srv.game.data.troops)) city[t.field] = 2145000000;
+        city.carriage = 1835000000;
+        const am = { attack: 114, defence: 50 + 18 * 1.21, life: 50, range: 50, fortLife: 100, speedFoot: 100, speedHorse: 50 };
+        const dm = { attack: 50 + 964.7 * 0.25, defence: 50 + 88 * 1.21 * 0.25, life: 50, range: 95, fortLife: 100, speedFoot: 100, speedHorse: 50 };
+        const live = { peasants: 3, militia: 3, scouter: 1, pikemen: 3, swordsmen: 3, archer: 4, carriage: 3, lightCavalry: 2, heavyCavalry: 2, ballista: 4, batteringRam: 4, catapult: 4 };
+        const siege = ['carriage', 'ballista', 'batteringRam', 'catapult'], off = [];
+        for (const [f, rounds] of Object.entries(live)){
+          const r = C.fight({ troops: { [f]: 10000 }, mods: am }, { troops: city, forts: { trap: 8, abatis: 5, arrowTower: 1, rollingLogs: 8, rockfall: 4 }, mods: dm });
+          const lost = r.def.filter(u => u.lose && !u.fort).map(u => u.field), traps = r.fortsUsed.trap || 0;
+          const right = r.round === rounds && !lost.includes('scouter') && (f === 'carriage' || lost.join() === 'lightCavalry')
+            && (siege.includes(f) || f === 'scouter' ? traps === 0 : traps > 0);
+          if (!right) off.push(`${f}: ${r.round} rounds, lost ${lost.join('/') || 'nothing'}, ${traps} traps`);
+        }
+        ok(!off.length, `Fox's CC2 tests, one kind at a time on a city with 2.145 billion of every troop: the live number of rounds for all 12 kinds, its Cavalry hit and never its Scouts, no traps on siege troops or Transporters${off.length ? ' (off: ' + off.join('; ') + ')' : ''}`);
+      }
       // m3.112: Fox's 101 live valley battles (NA62, Nov 2026, from the battle capture): 200 archers, heroes of
       // known attack, Military Tradition 5 (+25%), Archery 6 (+30% range). Archers at 0.63 (Age I's 0.5 was ~25%
       // short): 78 come out in the live number of rounds (59 at 0.5), every one within a round, no archer lost.
@@ -2474,6 +2494,14 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const honorRep = (me.reports || []).find(r => /honor="-?\d+"/.test(r.content || '') && /Wardenhold/.test((r.title || '') + (r.content || ''))), foeRep = (foe.reports || []).find(r => /honor="-?\d+"/.test(r.content || ''));
       ok(!!honorRep && !!foeRep && Number.isFinite(me.honor) && Number.isFinite(foe.honor) && G.beans.playerInfo(me, G.castlesOf(me)).honor === Math.round(me.honor),
         `battles between lords carry each side's honor in its report and add it to the lord's honor (here ${Math.round(me.honor)} and ${Math.round(foe.honor)})`);
+      // Fox's CC2 tests (Nov 26 2026): between two lords, 20% of the attacker's losses come back wounded and 40% of
+      // the defender's, and each side's report says so (injuredPer); against NPCs it stays 10%.
+      {
+        const atkRep = (me.reports || []).find(r => /attack="true"|isAttack="true"/.test(r.content || '') && /injuredPer/.test(r.content || '') && /honor=/.test(r.content || ''));
+        const defRep = (foe.reports || []).find(r => /isAttack="false"/.test(r.content || '') && /injuredPer/.test(r.content || '') && /honor=/.test(r.content || ''));
+        ok(/injuredPer="20"/.test(atkRep?.content || '') && /injuredPer="40"/.test(defRep?.content || '') && A.woundBase(false) === 0.1 && A.woundBase(true, 'attack') === 0.2 && A.woundBase(true, 'defence') === 0.4,
+          `between lords the attacker's report shows 20% wounded and the defender's 40% (${(atkRep?.content.match(/injuredPer="\d+"/) || ['none'])[0]}, ${(defRep?.content.match(/injuredPer="\d+"/) || ['none'])[0]}); against NPCs 10%`);
+      }
       { // Fox (Nov 24 2026): "Honor/prestige should not be able to go negative".
         const was = [me.honor, foe.honor, me.prestige], rows = o => Object.entries(o).map(([t, l]) => ({ typeId: Number(t), lose: l }));
         me.honor = 100; foe.honor = 100;

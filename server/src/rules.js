@@ -316,6 +316,14 @@ const DEFAULTS = {
     // NPC 1-5 without losses, as on live (Fox, Nov 2026: they walked up to the walls, and the towers killed them
     // while the ballistae lost nothing). With nothing else of their side left they move up like the rest.
     transportersHoldBack: true,
+    // scoutsStay 'D': a defending city's scouts don't march out to meet the attackers (Fox's dxcalc case, Nov 26 2026:
+    // 160,000 cataphracts on a city with 2,145,000,000 of every troop meet its cavalry in round 2 and kill 86,197; the
+    // city's 1.9 billion scouts, out first at their 3,000 speed, had taken the blow and ended it in one round). Live
+    // (Fox's 24 CC2 tests, Nov 26 2026, one army of each kind on a city with 2.145 billion of every troop): the
+    // attackers kill the city's Cavalry, never its Scouts, and the live number of rounds comes out in 23 of the 24
+    // (with the scouts marching, every one ended in round 1). 'all': nobody's scouts move; null: they march as the
+    // rest (they still move last).
+    scoutsStay: 'D',
     // Experiments, off: distMod (ranged units do 50% beyond half their range, 100% within it, 25% point-blank,
     // the guide's table, instead of rangedScale's flat half), ballistaCreep ('A' or 'both': ballistae keep
     // moving while they shoot), defendersStay ('ranged' or 'all' hold the wall), wallRangeTowersOnly,
@@ -678,7 +686,9 @@ const DEFAULTS = {
   // is what Scouts and Archers come to (UNVERIFIED). With Auto Heal on, every wounded troop in the city is cured
   // as soon as the battle ends if the city has the gold. "If the wounded soldiers are not attended to in time,
   // they will gradually die": diePerHour of them an hour (game time; the rate is UNVERIFIED).
-  wounded: { share: 0.1, healGold: { scouter: 69, archer: 140, lightCavalry: 285, heavyCavalry: 875 }, healShare: 0.147, diePerHour: 0.1 },
+  // lords: in a battle between two lords, the attacker's share and the defender's (Fox's 24 CC2 tests, Nov 26 2026:
+  // every attacker's report says "injuredPer 20" and Auto Heal cured 20% of its losses, every defender's 40%).
+  wounded: { share: 0.1, lords: { attack: 0.2, defence: 0.4 }, healGold: { scouter: 69, archer: 140, lightCavalry: 285, heavyCavalry: 875 }, healShare: 0.147, diePerHour: 0.1 },
   // Historic City policies (PoliciesView; the amounts are the client's own texts, in policies.js). Draft area,
   // miles in any direction, and uses a day, by Historic City level (Evony Advanced Guide): level 12 9 miles and 4
   // a day, 14 33 miles, 16 its whole state (99), 18 the whole map and 10 a day; levels 14 and 16 6 and 8 a day
