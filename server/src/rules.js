@@ -312,6 +312,14 @@ const DEFAULTS = {
     // their range before anything else they don't counter (the Age I combat guide: "they will always attack
     // enemy ranged units first"). With it the guide's lossless ballista farming of NPC 1-5 comes out lossless.
     rangedFirst: true,
+    // ...and before what they counter (archers at enemy archers before cavalry). Fox, Nov 27 2026, the valley guide:
+    // 50 / 100 / 200 archers take valleys 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with
+    // 1 Cavalry valleys 4-10, without losing archers. With archers shooting the valley's cavalry first, its archers
+    // closed in and fired a volley (up to 4% of the archers lost at level 10); shooting its archers first, the one
+    // Cavalry holds the valley's troops where they stand and the archers lose nothing, every level, every mix of
+    // troops (Archery 5 or more; at Archery 4 or less the archers can't reach across the field at the start). Fox's
+    // live CC2 test G3 agrees: its archers, ballistae and catapults killed the city's archers (none before).
+    rangedOverCounter: true,
     // Transporters stay back while anything else of their side still fights, so ballistae and transporters farm
     // NPC 1-5 without losses, as on live (Fox, Nov 2026: they walked up to the walls, and the towers killed them
     // while the ballistae lost nothing). With nothing else of their side left they move up like the rest.

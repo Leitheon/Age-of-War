@@ -7,10 +7,10 @@
 //     moves its speed toward the nearest enemy, fastest first (ties: defender first; scouts last); then every
 //     stack with an enemy in range strikes, all at once (simultaneous), so two armies that close in the same
 //     round both strike in it. Defending troops march out too.
-//   - A stack strikes the enemy it counters first (counterFirst: pikemen at horsemen, archers at cavalry...);
-//     otherwise melee stacks hit the fastest enemy in range and ranged stacks (archers, ballistae, catapults,
-//     archer's towers) the closest enemy ranged stack in range, else the closest (rangedFirst). Damage beyond
-//     what kills the target stack is lost.
+//   - Ranged stacks (archers, ballistae, catapults, archer's towers) shoot the closest enemy ranged stack in range
+//     first (rangedFirst, rangedOverCounter). Otherwise a stack strikes the enemy it counters first (counterFirst:
+//     pikemen at horsemen, archers at cavalry...); otherwise melee stacks hit the fastest enemy in range and ranged
+//     stacks the closest. Damage beyond what kills the target stack is lost.
 //   - Kills = count x attack x bonus x max(minDefenceFactor, 1 - defence/1000) x damageScale x (rangedScale or
 //     towerScale) / life, rounded up (players' Age I formula; bonus from rules.counters, e.g. pikemen x1.8
 //     against horsemen; defence counts as at least defenceFloor; however high it is, minDefenceFactor of the
@@ -75,6 +75,12 @@ class Combat {
     const d = e => Math.abs(e.x - s.x), total = e => e.count * e.atk;
     const inRange = enemies.filter(e => d(e) <= s.range + 1e-9);
     if (!inRange.length) return null;
+    // rangedOverCounter: a ranged stack shoots enemy ranged stacks in its range before what it counters (archers at
+    // enemy archers before cavalry), as the Age I guide has it ("they will always attack enemy ranged units first").
+    if (s.ranged && this.cfg.rangedFirst && this.cfg.rangedOverCounter){
+      const shooters = inRange.filter(e => e.ranged);
+      if (shooters.length) return shooters.sort((a, b) => d(a) - d(b) || total(b) - total(a))[0];
+    }
     // counterFirst: a stack goes for the enemies it has a counter bonus against first (pikemen at horsemen...).
     if (this.cfg.counterFirst && (this.cfg.counterFirst !== 'melee' || !s.ranged)){
       const fav = inRange.filter(e => this.counter(s, e) > 1);

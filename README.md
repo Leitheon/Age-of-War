@@ -119,6 +119,11 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   full contents list, Speech Text, Civil Code, the Dream Truce (starts now), the Truce Agreement (no password check),
   the Pioneer Express Teleport and the Christmas Gift's healing and training bonuses work, and holiday treats whose
   descriptions say what they do but not how much get a day of it (`rules.eventItemBuffs`).
+- **Farming valleys** (`rules.battle.rangedOverCounter`): the valley guide's archers take valleys without losing any:
+  50 / 100 / 200 archers for levels 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with 1
+  Cavalry for levels 4-10, against every mix of troops a valley has, with Archery 5 or more. Archers, ballistae and
+  catapults shoot the enemy's ranged troops in range before what they counter (archers shot a valley's cavalry first,
+  and its archers closed in and fired back); the one Cavalry holds the valley's troops where they stand.
 - **Farming NPC 1-5**: transporters stay back while anything else in their army still fights
   (`rules.battle.transportersHoldBack`), so ballistae and transporters take an NPC 1-5 without losses, and NPC 1-5's
   troops fight without Medicine (`rules.npcMedicineFrom`): as in the community farming guide, about 450 ballistae

@@ -790,6 +790,24 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         return (!r.attackerWon || lost > 110 ? 'M' : lost > 0 ? 'S' : '0') !== want;
       }).map(([k]) => k);
       ok(miss.length <= 2, `the guide's Archery/Horseback Riding table at an NPC 5 comes out as it has it in ${22 - miss.length} of 22 rows (off: ${miss.join(', ') || 'none'})`);
+      // The valley guide (Fox, Nov 27 2026): 50 / 100 / 200 archers take valleys 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 /
+      // 20,000 / 20,000 archers with 1 Cavalry valleys 4-10, without losing archers: every level, against every mix of
+      // troops a valley rolls (8 valleys, 5 days each), with Archery 5 and 10 and a hero of 80 attack. Archers shoot the
+      // valley's archers before its cavalry (rangedOverCounter); the other way round they lost some from level 6 on.
+      {
+        const GUIDE = [null, { archer: 50 }, { archer: 100 }, { archer: 200 }, { archer: 400, lightCavalry: 1 }, { archer: 800, lightCavalry: 1 }, { archer: 1600, lightCavalry: 1 },
+          { archer: 3200, lightCavalry: 1 }, { archer: 10000, lightCavalry: 1 }, { archer: 20000, lightCavalry: 1 }, { archer: 20000, lightCavalry: 1 }];
+        const valleyFight = (L, id, day, A) => { const troops = GUIDE[L]; return C.fight({ troops, mods: C.mods(research(A, 10, A), {}, heroOf(80), troops) }, { troops: N.valley(L, id, day), forts: {}, mods: {} }); };
+        const dirty = [], was = C.rules.battle.rangedOverCounter;
+        for (const A of [5, 10]) for (let L = 1; L <= 10; L++) for (let id = 1; id <= 8; id++) for (let day = 0; day < 15; day += 3){
+          const r = valleyFight(L, id * 7919, day, A), lost = GUIDE[L].archer - (r.attLeft.archer || 0);
+          if (!r.attackerWon || lost) dirty.push(`Archery ${A} level ${L}: ${lost} lost`);
+        }
+        C.rules.battle.rangedOverCounter = false;
+        let before = 0; for (let L = 6; L <= 10; L++) for (let id = 1; id <= 8; id++) for (let day = 0; day < 15; day += 3) if (GUIDE[L].archer - (valleyFight(L, id * 7919, day, 10).attLeft.archer || 0)) before++;
+        C.rules.battle.rangedOverCounter = was;
+        ok(!dirty.length && before > 0, `the valley guide's archers (with 1 Cavalry from level 4) take valleys 1-10 without losing an archer, against every mix of troops, at Archery 5 and 10 (shooting the cavalry first they lost some in ${before} of 200 fights)${dirty.length ? ': ' + dirty.slice(0, 5).join('; ') : ''}`);
+      }
       // Fox (Nov 24 2026): with ballistae and transporters an NPC 1-5 costs nothing; the transporters had walked up to
       // the walls and lost 230 to the towers while the ballistae lost none. They stay back now while anything else fights.
       const hauls = [[1, 20], [2, 50], [3, 170], [4, 250], [5, 550]].map(([L, n]) => farmFight(L, { ballista: n, carriage: 1000 }));
