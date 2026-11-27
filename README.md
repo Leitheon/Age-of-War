@@ -150,7 +150,9 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   game's own map round Atlantis (`art/login-map.jpg`, a screenshot from the client, 1920 x 1200), Atlantis left of
   the panel on any screen and below it on a phone, with the free fonts Cinzel and Alegreya Sans; none of DoA's art
   (its battle painting and Trajan Pro lettering) or its smoke and embers. The website's Heroes, NPCs and Drop Table
-  links sit in a row at the top left. The "Entering the realm" screen after it shows the same map.
+  links sit in a row at the top left. The "Entering the realm" screen after it shows the same map. The picture is
+  found under a download's name too ("login-map (1).jpg", a .png) or beside the server's files; the server log and the
+  admin page's overview say which file it shows, or where to put one.
 - **The Discord invite on the banner**: the line scrolling across the top of the game screen ends with the server's
   Discord invite, a link that opens in a new tab (the line slows down while the mouse is over it). The admin page's
   Banner box (on the overview) changes the line and the link; players see it the next time they load the game. The

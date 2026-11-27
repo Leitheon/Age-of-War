@@ -198,7 +198,16 @@ class AdminPage {
     return `<h2>Banner</h2><p class="dim">The line that scrolls across the top of the game, and a link after it (your Discord invite). Players see a change the next time they load the game.</p>
       <p>Now: ${esc(b.text)}${b.link ? `<a href="${esc(b.link)}" target="_blank" rel="noopener">${esc(b.link)}</a>` : ''}${b.text || b.link ? '' : '<span class="dim">(empty: no banner text)</span>'}${own ? '' : ' <span class="dim">(from config.json)</span>'}</p>
       ${this.form('banner', {}, `<input name="text" value="${esc(b.text)}" placeholder="Welcome to Age of War! Join us on Discord:" size="52"> <input name="link" value="${esc(b.link)}" placeholder="https://discord.gg/..." size="32"> <button>Save banner</button>`)}
-      ${own ? this.form('banner', { default: 1 }, '<button class="ghost">Use config.json\'s banner</button>', { inline: true }) : ''}`;
+      ${own ? this.form('banner', { default: 1 }, '<button class="ghost">Use config.json\'s banner</button>', { inline: true }) : ''}
+      ${this.loginMapNote()}`;
+  }
+  // The sign-in page's background picture (art/login-map.jpg): found, or where to put it.
+  loginMapNote(){
+    const m = this.g.loginMap?.(); if (!m) return '';
+    let kb = 0; try { kb = Math.round(require('fs').statSync(m.file).size / 1024); } catch (e){}
+    return `<h2>Sign-in page background</h2>` + (m.file
+      ? `<p>Showing <b>${esc(m.file)}</b> (${num(kb)} KB). <a href="/login-map" target="_blank" rel="noopener">See it</a>. To change it, replace that file; players see the new one within a day.</p>`
+      : `<p class="bad">No picture found, so the page shows the drawn map. Put <b>login-map.jpg</b> in <b>${esc(m.dir)}</b>; no restart needed.</p>`);
   }
   accountsTable(accs, now){
     const S = this.S;

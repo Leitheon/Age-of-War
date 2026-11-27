@@ -126,6 +126,22 @@ function createArtLog(cacheDir, log){
   };
 }
 
+// The sign-in page's background (tools/login-page/login.css): login-map.jpg in art/. Found under another name too
+// ("login-map (1).jpg", "Login-Map.JPG", a .png), or beside the server's files or the folder above them, so a
+// download dropped in the wrong place still shows; the newest wins. Served at /login-map, which the offline cache
+// (sw.js) leaves alone, so a new picture shows within a day (the browser keeps it that long).
+function findLoginMap(artDir, root){
+  const isMap = n => /^login-map.*\.(jpe?g|png)$/i.test(n);
+  const exact = path.join(artDir, 'login-map.jpg');
+  try { if (fs.statSync(exact).isFile()) return exact; } catch (e){}
+  for (const dir of [artDir, root, path.dirname(root)]){
+    let names = []; try { names = fs.readdirSync(dir).filter(isMap); } catch (e){ continue; }
+    const files = names.map(n => path.join(dir, n)).filter(f => { try { return fs.statSync(f).isFile(); } catch (e){ return false; } });
+    if (files.length) return files.sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
+  }
+  return null;
+}
+
 // pages: { '/path': (URLSearchParams) => html or { body, type } } for pages the game itself serves (the coins page,
 // the news ticker's movingText.txt).
 // json: { onMessage, onClose } for the new client's /json socket (ws.js).
@@ -312,6 +328,7 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
     if (rel.startsWith('..') || path.isAbsolute(rel)) return send(res, 400, 'Bad path', 'text/plain');
     const local = path.join(pub, rel);
     if (local.startsWith(pub + path.sep) && fs.existsSync(local) && fs.statSync(local).isFile()) return sendFile(res, local);
+    if (/^login-map(\.jpg)?$/i.test(rel)){ const f = findLoginMap(artDir, root); return f ? sendFile(res, f, { 'Cache-Control': 'public, max-age=86400' }) : send(res, 404, 'Not found', 'text/plain'); }
     // A historic hero's portrait (images/icon/hero/N.png): Evony's own first, then DoA's, then "portrait unknown".
     const face = /^(?:flash[\\/])?images[\\/]icon[\\/]hero[\\/](\d+)\.png$/.exec(rel);
     if (face) return heroPortrait(res, Number(face[1]));
@@ -354,4 +371,4 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
   return srv;
 }
 
-module.exports = { startHttp, config2, botConfig, createFacePool, createArtLog };
+module.exports = { startHttp, config2, botConfig, createFacePool, createArtLog, findLoginMap };

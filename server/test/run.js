@@ -114,8 +114,20 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const cssUrl = (home.match(/href="(\/assets\/login-aow\w+\.css)"/) || [])[1], css = cssUrl ? (await get(cssUrl)).body.toString() : '';
       const urls = [...css.matchAll(/url\((\/assets\/[^)]+)\)/g)].map(m => m[1]), got = await Promise.all(urls.map(u => get(u)));
       const bundle = (await get(home.match(/\/assets\/index-aow\w+\.js/)[0])).body.toString();
-      ok(!!cssUrl && urls.length >= 5 && got.every(r => r.status === 200) && !/login-bg|Trajan/i.test(css) && /url\(\/login-map\.jpg\)/.test(css) && !/className:"login-haze"\}\),t\.jsx\(\w+,\{\}\)/.test(bundle),
+      ok(!!cssUrl && urls.length >= 5 && got.every(r => r.status === 200) && !/login-bg|Trajan/i.test(css) && /url\(\/login-map\)/.test(css) && !/className:"login-haze"\}\),t\.jsx\(\w+,\{\}\)/.test(bundle),
         `the sign-in page shows the map round Atlantis (art/login-map.jpg; else its own drawn map) with free fonts (${urls.length} files, all here), not DoA's background or Trajan Pro`);
+      // Its picture: art/login-map.jpg, or a download under another name ("login-map (1).JPG", a .png), or one left
+      // beside the server's files; the newest wins; none: the drawn map. /login-map serves what's found.
+      const { findLoginMap } = require('../src/http'), tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'aow-lm-'));
+      const art = path.join(tmp, 'srv', 'art'); fs.mkdirSync(art, { recursive: true });
+      const none = findLoginMap(art, path.join(tmp, 'srv'));
+      fs.writeFileSync(path.join(tmp, 'srv', 'Login-Map.PNG'), 'x'); const beside = findLoginMap(art, path.join(tmp, 'srv'));
+      fs.writeFileSync(path.join(art, 'login-map (1).JPG'), 'x'); const renamed = findLoginMap(art, path.join(tmp, 'srv'));
+      fs.writeFileSync(path.join(art, 'login-map.jpg'), 'x'); const exact = findLoginMap(art, path.join(tmp, 'srv'));
+      fs.rmSync(tmp, { recursive: true, force: true });
+      const real = findLoginMap(path.join(__dirname, '..', 'art'), path.join(__dirname, '..')), served = await get('/login-map');
+      ok(none === null && /Login-Map\.PNG$/.test(beside || '') && /login-map \(1\)\.JPG$/.test(renamed || '') && /art[\\/]login-map\.jpg$/.test(exact || '') && served.status === (real ? 200 : 404),
+        'the sign-in background is found as art/login-map.jpg, under a download\'s name, or beside the server; /login-map serves it' + (real ? '' : ' (none here)'));
     }
     {
       // The banner across the top: the Discord invite after the welcome line, unless config.json names another link.

@@ -26,7 +26,7 @@
    in it, Atlantis stays at the same spot on any screen, left of the panel. */
 .stage{color-scheme:dark;background:radial-gradient(ellipse 80% 75% at 50% 44%,#243542 0%,var(--aow-ink) 52%,var(--aow-deep) 100%);color:var(--aow-parch);font-family:AowSans,Arial,sans-serif}
 .stage:before{background:var(--aow-veil),
-  url(/login-map.jpg) no-repeat 23.4% 54.2% / max(1920px,100vw,160vh) auto,
+  url(/login-map) no-repeat 23.4% 54.2% / max(1920px,100vw,160vh) auto,
   url({map}) no-repeat center center / cover}
 .stage:after,.login-stage .login-haze{display:none}
 
@@ -71,7 +71,7 @@
 /* Phones: the panel scrolls with the page; Atlantis shows below it. */
 @media (max-width:560px){
   .stage:before{background:var(--aow-veil),
-    url(/login-map.jpg) no-repeat 23.4% 5% / max(1920px,100vw,160vh) auto,
+    url(/login-map) no-repeat 23.4% 5% / max(1920px,100vw,160vh) auto,
     url({map}) no-repeat center center / cover}
   .login-links{left:0;top:18px;gap:8px 20px}
   .login-links a{font-size:14px}

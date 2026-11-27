@@ -7,7 +7,7 @@ const { loadRules } = require('./rules');
 const { Store } = require('./store');
 const { Game } = require('./game/game');
 const { startPolicyServer, startGameServer } = require('./net');
-const { startHttp, createFacePool, createArtLog } = require('./http');
+const { startHttp, createFacePool, createArtLog, findLoginMap } = require('./http');
 const { Perf } = require('./perf');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -78,6 +78,10 @@ function main(overrides = {}){
     welcome: { text: cfg.welcomeText, link: cfg.welcomeLink } });
   log.info(`Placed ${game.historicCount.toLocaleString('en-US')} Historic Cities on the map`);
   game.legacyLogin = !!cfg.legacyLogin;
+  // The sign-in page's background picture (art/login-map.jpg): where it is, or where it should go.
+  const artDir = path.resolve(ROOT, cfg.artDir || 'art');
+  game.loginMap = () => ({ file: findLoginMap(artDir, ROOT), dir: artDir });
+  { const m = game.loginMap(); if (m.file) log.info(`Sign-in page background: ${m.file}`); else log.warn(`The sign-in page has no background picture: put login-map.jpg in ${m.dir} (it shows the drawn map until then)`); }
 
   // The Flash client's game and policy ports: off unless "flashClient": true (players use the web client).
   const policySrv = cfg.flashClient ? startPolicyServer(cfg.policyPort, log) : null;
