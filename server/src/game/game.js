@@ -126,7 +126,7 @@ class Game {
     this.buildQueue = new BuildQueue(this);
     // HungerBuff: the client's "hungry" icon while one of the lord's cities is out of food and eating more than it
     // grows (on Age II nothing deserts, Fox; armies just can't march without food for the road).
-    this.items.extraBuffs = (p, now) => { const c = this.hungryCity(p, now); return [...this.effort.buffs(p, now), ...(c ? [{ typeId: 'HungerBuff', endTime: now + 86400000, descName: `Hunger: ${c.name} has run out of food. Its troops can't march without food for the road.` }] : [])]; };
+    this.items.extraBuffs = (p, now) => { const c = this.hungryCity(p, now); return [...this.effort.buffs(p, now), ...this.charms.lordBuffs(p, now), ...(c ? [{ typeId: 'HungerBuff', endTime: now + 86400000, descName: `Hunger: ${c.name} has run out of food. Its troops can't march without food for the road.` }] : [])]; };
     this.hungerShown = new Map();
     this.chat = new Chat(this);
     this.security = new Security(this);   // accounts, bans, mutes, freezes, the activity and audit logs (0.1.69)

@@ -47,6 +47,36 @@ class Charms {
   heroFactor(h, now = this.g.now()){ return Math.max(0, 1 + 0.1 * this.stacks(h, 'amplifier', now) - 0.2 * this.stacks(h, 'poison', now)); }
   plagued(c, now = this.g.now()){ return (c?.charms?.plagueUntil || 0) > now; }
 
+  // ---------- what the buff bar shows ----------
+  // The web client has an icon for each (PlayerMarchSpeedBuff ... DevilGatesOpen) but was never sent them, so a lord
+  // given Fleet Feet saw nothing happen (Fox, Nov 27 2026: "The Fleet Feet item has been reported as not working").
+  // The angel items are the lord's buffs (items.buffBeans); the devil items are the city's (its bean's buffs), shown
+  // while that city is open. Stacks show as "x2"; the time is when the last one ends.
+  lordBuffs(p, now = this.g.now()){
+    const out = [];
+    for (const [key, typeId, label, text] of [
+      ['fleet', 'PlayerMarchSpeedBuff', 'Fleet Feet', n => `your troops march ${35 * n}% faster`],
+      ['endurance', 'PlayerTroopHpBuff', 'Endurance of the Immortals', n => `your troops have ${5 * n}% more hit points`],
+      ['amplifier', 'PlayerHeroStatsBuff', "Alchemist's Amplifier", n => `your heroes' stats are ${10 * n}% higher`]]){
+      const ends = live(p?.charms?.[key], now);
+      if (ends.length) out.push({ typeId, endTime: Math.max(...ends), descName: `${label}${ends.length > 1 ? ` x${ends.length}` : ''}: ${text(ends.length)}` });
+    }
+    return out;
+  }
+  cityBuffs(c, now = this.g.now()){
+    const ch = c?.charms || {}, out = [];
+    if ((ch.plagueUntil || 0) > now) out.push({ typeId: 'DevilRepopCut', endTime: ch.plagueUntil, descName: "Opportunist's Plague: this city repopulates 10% slower" });
+    for (const [key, typeId, label, text] of [
+      ['wastes', 'DevilMarchSlow', 'Lost in the Wastes', n => `troops from this city take ${20 * n}% longer to march`],
+      ['poison', 'DevilPoison', 'Poisoned Feast', n => `this city's heroes' stats are ${20 * n}% lower`]]){
+      const ends = live(ch[key], now);
+      if (ends.length) out.push({ typeId, endTime: Math.max(...ends), descName: `${label}${ends.length > 1 ? ` x${ends.length}` : ''}: ${text(ends.length)}` });
+    }
+    const lock = ch.gateLock;
+    if (lock && lock.until > now && lock.open) out.push({ typeId: 'DevilGatesOpen', endTime: lock.until, descName: "Broken Gates: this city's gates are locked open, so its troops come out to fight. Use Broken Gates on it to free them." });
+    return out;
+  }
+
   protectedWhy(q, now){
     const w = this.g.war;
     if (w.beginner(q, now)) return `${q.name} is under Beginner's Protection.`;
@@ -59,9 +89,12 @@ class Charms {
   useAngel(p, itemId, name, now = this.g.now()){
     const g = this.g, a = ANGEL[itemId]; if (!a) return [-40, "That item isn't an angel item."];
     if (!g.items.ensure(p, itemId)) return [-44, `You don't have ${a.label}.`];
-    const q = g.chat.byName(name);
-    if (!q) return [-3, `There is no lord called ${String(name || '').trim()}.`];
-    if (q.id === p.id) return [-1, `${a.label} is used on another lord.`];
+    // (They go on another lord, as their descriptions say; the web client's box said "blank = yourself" until 0.1.75.)
+    const typed = String(name || '').trim();
+    if (!typed) return [-3, `Type the name of the lord to use ${a.label} on: it works on another lord, not on yourself.`];
+    const q = g.chat.byName(typed);
+    if (!q) return [-3, `There is no lord called ${typed}.`];
+    if (q.id === p.id) return [-1, `${a.label} works on another lord, not on yourself: give it to a friend or an ally.`];
     if (this.stacks(q, a.key, now) >= a.max) return [-1, `${q.name} already has ${a.label} ${a.max} times over.`];
     const until = now + this.ms(a.hours);
     this.add(q, a.key, until);
@@ -103,11 +136,15 @@ class Charms {
     } else {
       const day = g.npc.day(now), uses = c.charms.gateDay === day ? c.charms.gateUses || 0 : 0;
       if (uses >= d.perDay) return [-1, `${d.label} has been used on ${c.name} ${d.perDay} times today.`];
-      const open = !own || String(param) !== '0';
-      if (own && String(param) === '0') delete c.charms.gateLock;   // (your own city: unjam the gates)
+      // On your own city it frees gates another lord locked open ("players can apply item on themselves to unlock
+      // gates"). The Flash window asks Open ("1") or Close ("0"); the web client asks nothing, and so unlocks: before,
+      // it held them open instead. Gates that aren't locked keep the item.
+      const open = !own || String(param) === '1', locked = c.charms.gateLock && c.charms.gateLock.until > now;
+      if (own && !open && !locked) return [-1, `${c.name}'s gates aren't locked. Broken Gates frees them after another lord locks them open.`];
+      if (own && !open) delete c.charms.gateLock;
       else c.charms.gateLock = { open, until };
       c.charms.gateDay = day; c.charms.gateUses = uses + 1;
-      note = own ? (open ? 'Your gates are held open for 1 hour.' : 'Your gates work again.') : 'Its gates are locked open for 1 hour: its troops must come out to fight.';
+      note = own ? (open ? 'Your gates are held open for 1 hour.' : 'Your gates are free again: the Rally Spot decides whether your troops come out.') : 'Its gates are locked open for 1 hour: its troops must come out to fight.';
       g.pushCastle(c, 2);
     }
     g.items.take(p, itemId);

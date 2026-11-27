@@ -322,6 +322,26 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           && wastes.ok === 1 && Math.abs(G.charms.marchFactor(vic, vcity) - 1.2 / 1.7) < 1e-9 && feast.ok === 1 && Math.abs(G.heroes.effective(hv, 'atk') - atk0 * 0.8) < 1e-6
           && closed === false && gates.ok === 1 && A.gateOpen(vcity) === true && G.beans.castle(vcity, vic).goOutForBattle === true,
           'Devil items go on another lord\'s city: Opportunist\'s Plague (population gone, once a day), Lost in the Wastes (20% slower marches), Poisoned Feast (heroes 20% weaker), Broken Gates (gates held open); not on a lord under Beginner\'s Protection');
+        {
+          // What the lord sees (0.1.75): the angel items as his buffs and the devil items as his city's, with the web
+          // client's icons; the march window's factor; a blank name; Broken Gates on his own city frees them.
+          const lb = G.items.buffBeans(vic), cb = G.beans.castle(vcity, vic).buffs.map(x => x.typeId);
+          const ff = lb.find(x => x.typeId === 'PlayerMarchSpeedBuff'), hp = lb.find(x => x.typeId === 'PlayerTroopHpBuff');
+          const blank = await c.call('shop.useAngelItem', { itemId: 'player.box.present.money.70', playername: '' });
+          const mine = G.castlesOf(me)[0], param = await c.call('army.getTroopParam', { castleId: mine.id });
+          vic.items['player.box.present.money.77'] = 2;
+          const freed = G.charms.useDevil(vic, 'player.box.present.money.77', vxy.x, vxy.y, undefined);
+          const again = G.charms.useDevil(vic, 'player.box.present.money.77', vxy.x, vxy.y, undefined);
+          const parts = { lord: !!ff && /x2: your troops march 70% faster/.test(ff.descName) && !!hp,
+            city: ['DevilRepopCut', 'DevilMarchSlow', 'DevilPoison', 'DevilGatesOpen'].every(t => cb.includes(t)),
+            blank: blank.ok < 0 && /Type the name of the lord/.test(blank.errorMsg) && me.items['player.box.present.money.70'] === 1,
+            param: param.marchCharmFactor === G.charms.marchFactor(me, mine),
+            gates: !Array.isArray(freed) && A.gateOpen(vcity) === false && Array.isArray(again) && /aren't locked/.test(again[1]) && vic.items['player.box.present.money.77'] === 1
+              && !G.beans.castle(vcity, vic).buffs.some(x => x.typeId === 'DevilGatesOpen') };
+          ok(Object.values(parts).every(Boolean), 'the player interaction items show: angel items as the lord\'s buffs, devil items as his city\'s; the march window counts Fleet Feet; a blank name says to type one; Broken Gates on your own city frees its gates (and keeps the item when they aren\'t locked)'
+            + (Object.values(parts).every(Boolean) ? '' : ` (off: ${Object.keys(parts).filter(k => !parts[k]).join(', ')})`));
+          vcity.goOut = false;
+        }
         // Gates closed: the city's scouts stay in, so a scout meets nobody (the Age I guide).
         delete vcity.charms.gateLock; vcity.troops = { scouter: 1000 };
         const sc = { id: G.store.id(), playerId: me.id, castleId: city0.id, heroId: 0, mission: 3, from: city0.fieldId, target: vcity.fieldId, troops: { scouter: 5 }, carry: {}, loot: null,

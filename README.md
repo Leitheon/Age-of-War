@@ -146,6 +146,12 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   (attack, scout, transport) but never to reinforce or found another city, be dismissed or be captured; another lord
   taking the city takes him as he is, and a city given up has him rule it again. The website's Heroes page shows where.
 - **Be an Evonian**: the quest window has its Add to favorites button.
+- **Player interaction items show** (`charms.js`): Fleet Feet, Endurance of the Immortals and Alchemist's Amplifier
+  appear in the receiving lord's buff bar, and Opportunist's Plague, Lost in the Wastes, Poisoned Feast and Broken
+  Gates in the bar of the city they hit, with their stacks and time left. The march window counts Fleet Feet and Lost
+  in the Wastes (`army.getTroopParam`'s `marchCharmFactor`). The angel items' Lord name box asks for another lord's
+  name (it said "blank = yourself", which was refused), and Broken Gates on your own city frees its gates (the web
+  client asks no Open or Close; it held them open).
 - **A sign-in page of its own** (`server/tools/login-page/`): the page where players sign in and register shows the
   game's own map round Atlantis (`art/login-map.jpg`, a screenshot from the client, 1920 x 1200), Atlantis left of
   the panel on any screen and below it on a phone, with the free fonts Cinzel and Alegreya Sans; none of DoA's art

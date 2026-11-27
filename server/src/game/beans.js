@@ -56,7 +56,7 @@ class Beans {
       allowAlliance: c.allowAlliance !== false, canChangeIcon: true, goOutForBattle: this.game.armies.gateOpen(c), hasEnemy: this.game.armies.incoming(c).length > 0, colonization: this.game.colonies.colonization(c), usePACIFY_SUCCOUR_OR_PACIFY_PRAY: 0,
       buildings, buildCommands: this.buildCommands(c), buildingQueues: this.game.buildQueue.beans(c), resource: this.resource(c, p), troop: this.troop(c), strTroop: this.troopStr(c), fortification: this.forts(c),
       heros: (c.heroes || []).map(h => this.game.heroes.bean(h)), fields: (c.valleys || []).map(id => this.game.armies.fieldBean(world.tileAt(this.game.store, id))),
-      buffs: [], trades: this.game.market.ordersOf(c).map(o => this.game.market.tradeBean(o)), transingTrades: this.game.market.shipsOf(c).map(s => this.game.market.shipBean(s)), colonyBeans: this.game.colonies.beans(c), mercenaryBeans: [],
+      buffs: this.game.charms ? this.game.charms.cityBuffs(c) : [], trades: this.game.market.ordersOf(c).map(o => this.game.market.tradeBean(o)), transingTrades: this.game.market.shipsOf(c).map(s => this.game.market.shipBean(s)), colonyBeans: this.game.colonies.beans(c), mercenaryBeans: [],
     };
   }
   mailCounts(p){ const m = this.game.mail.counts(p); return { newMailCount: m.count, newMaileCount_inbox: m.count_inbox, newMaileCount_system: m.count_system }; }

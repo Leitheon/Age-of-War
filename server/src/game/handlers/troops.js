@@ -64,11 +64,13 @@ module.exports = (game, H) => {
   };
   // March bonuses the client folds into its travel-time estimate, in %: Compass for foot troops, Horseback Riding
   // for horses, siege and transporters, Logistics for load. The Relief Station multiplies speed between your own cities.
+  // marchCharmFactor: what Fleet Feet on the lord and Lost in the Wastes on the city do to the time (charms.js); the
+  // web client multiplies its estimate by it (patched in, 0.1.75), so the window shows the time the march will take.
   H['army.getTroopParam'] = (conn, d, cmd) => {
     const c = game.castleOr(conn, cmd, d.castleId); if (!c) return;
     const p = conn.player;
     game.reply(conn, cmd, { marchSkillParam: game.logic.techEffect(p, 12), driveSkillParam: game.logic.techEffect(p, 13), loadSkillParam: game.logic.techEffect(p, 11),
-      transportStationParam: game.armies.stationParam(c) });
+      transportStationParam: game.armies.stationParam(c), marchCharmFactor: game.charms.marchFactor(p, c, game.now()) });
   };
   H['army.IsDropItemInCastle'] = (conn, d, cmd) => game.reply(conn, cmd, {});
 };
