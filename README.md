@@ -146,6 +146,12 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   (attack, scout, transport) but never to reinforce or found another city, be dismissed or be captured; another lord
   taking the city takes him as he is, and a city given up has him rule it again. The website's Heroes page shows where.
 - **Be an Evonian**: the quest window has its Add to favorites button.
+- **Camping** (the march window's Timing): Camp waits at home the time typed (up to 24 hours, fed an hour's upkeep an
+  hour, as the original client does), then marches; Arrive at camps just long enough to get there on the second typed,
+  in the server time the window shows (it used to be ignored, so the army left at once), and refuses a time the march
+  alone can't make. The troops panel's bar reads "Camping" until the army sets out; an army recalled after its camp
+  comes home in the time it has marched (the camp counted too). The window's Food Cost and load counted the camp at
+  twice its food, which refused long camps.
 - **Player interaction items show** (`charms.js`): Fleet Feet, Endurance of the Immortals and Alchemist's Amplifier
   appear in the receiving lord's buff bar, and Opportunist's Plague, Lost in the Wastes, Poisoned Feast and Broken
   Gates in the bar of the city they hit, with their stacks and time left. The march window counts Fleet Feet and Lost

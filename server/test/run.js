@@ -360,6 +360,33 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
             + (Object.values(parts).every(Boolean) ? '' : ` (off: ${Object.keys(parts).filter(k => !parts[k]).join(', ')})`));
           vcity.goOut = false;
         }
+        {
+          // Camping (0.1.77), as the march window sends it: Camp sends restTime (seconds, at most 24 hours, fed an
+          // hour's upkeep an hour); Arrive at sends arriveAt, and the army camps so that it gets there on that second,
+          // or is refused if the march alone takes longer. An army recalled after its camp comes home in the time it
+          // has marched, not counting the camp; one recalled in camp gets the unused camp food back.
+          const lord = G.createPlayer({ name: 'Camper' }, { userName: 'Camper' }), home = G.castlesOf(lord)[0];
+          home.buildings[5] = { typeId: 29, level: 10, status: 0, startTime: 0, endTime: 0 }; home.troops = { scouter: 1000 }; home.res.food = 1e9; lord.createdAt = 0;
+          const { x: hx, y: hy } = world.xy(home.fieldId), far = world.idOf((hx + 200) % world.SIZE, hy);
+          const bean = extra => ({ missionType: 3, heroId: -1, targetPoint: far, troops: { scouter: 10 }, resource: {}, restTime: 0, ...extra });
+          const t0 = Date.now();
+          const over = A.send(home, lord, bean({ restTime: 25 * 3600 }), t0);
+          const food0 = home.res.food, day = A.send(home, lord, bean({ restTime: 24 * 3600 }), t0).army, dayFood = food0 - home.res.food;
+          const at = t0 + 3600000 + 345, arrive = A.send(home, lord, bean({ arriveAt: at }), t0).army;
+          const soon = A.send(home, lord, bean({ arriveAt: t0 + 10 }), t0);
+          const camp = A.send(home, lord, bean({ restTime: 60 }), t0).army, d = 2000, back = A.recall(lord, camp.id, camp.campUntil + d);
+          const inCamp = A.send(home, lord, bean({ restTime: 3600 }), t0).army, cf = inCamp.campFood, f1 = home.res.food, early = A.recall(lord, inCamp.id, t0 + 1800000), refund = home.res.food - f1;
+          const up = 10 * Object.values(G.data.troops).find(t => t.field === 'scouter').upkeep * (G.rules.troopUpkeep ?? 1);
+          const parts = { over: Array.isArray(over) && /at most 24 hours/.test(over[1]),
+            day: !!day && day.campUntil - day.startTime === 24 * 3600000 && day.campFood === Math.ceil(up * 24) && day.reachTime === t0 + 24 * 3600000 + day.oneWay && dayFood === A.foodFor({ scouter: 10 }, day.oneWay) + day.campFood,
+            arrive: !!arrive && arrive.reachTime === Math.floor(at / 1000) * 1000 && arrive.campUntil === arrive.reachTime - arrive.oneWay && arrive.restTime === Math.round((arrive.campUntil - t0) / 1000),
+            soon: Array.isArray(soon) && /Too soon/.test(soon[1]),
+            back: !Array.isArray(back) && camp.direction === 2 && camp.reachTime - (camp.campUntil + d) === d && camp.oneWay > 3 * d,
+            early: !Array.isArray(early) && inCamp.reachTime === t0 + 1800000 && cf > 0 && Math.abs(refund - cf / 2) <= 1 };
+          ok(Object.values(parts).every(Boolean), 'camping: Camp time up to 24 hours (an hour\'s upkeep an hour), Arrive at lands on the second asked (too soon is refused), and a recall after the camp comes home in the time marched'
+            + (Object.values(parts).every(Boolean) ? '' : ` (off: ${Object.keys(parts).filter(k => !parts[k]).join(', ')})`));
+          for (const a of [day, arrive, camp, inCamp]) if (a) delete G.db.armies[a.id];
+        }
         // Gates closed: the city's scouts stay in, so a scout meets nobody (the Age I guide).
         delete vcity.charms.gateLock; vcity.troops = { scouter: 1000 };
         const sc = { id: G.store.id(), playerId: me.id, castleId: city0.id, heroId: 0, mission: 3, from: city0.fieldId, target: vcity.fieldId, troops: { scouter: 5 }, carry: {}, loot: null,

@@ -60,6 +60,9 @@ class ArmyLogic {
     // (whole seconds: live, 37 reinforcements over 1.41 tiles took 28 s, where the formula gives 28.3)
     return Math.max(1000, Math.floor(distance(from, to) * 60000 / s) * 1000 / this.g.logic.speed);
   }
+  // Times in the march window's words: a span as H:MM:SS, and a moment in the server time it shows (New York).
+  clock(sec){ sec = Math.max(0, Math.round(sec)); return `${Math.floor(sec / 3600)}:${String(Math.floor(sec / 60) % 60).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`; }
+  serverTime(ms){ return new Date(ms).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
   foodFor(troops, ms){ let f = 0; for (const t of Object.values(this.g.data.troops)) f += (troops[t.field] || 0) * t.upkeep * 2; return Math.ceil(f * (this.g.rules.troopUpkeep ?? 1) * ms / 3600000); }
   load(troops, p){ let l = 0; for (const t of Object.values(this.g.data.troops)) l += (troops[t.field] || 0) * t.load; return Math.floor(l * (1 + this.g.logic.techEffect(p, TECH.LOGISTICS) / 100)); }
   rallyLevel(c){ return this.g.logic.level(c, 29); }
@@ -177,8 +180,24 @@ class ArmyLogic {
     // Camp time (the march window's hours and minutes, up to 24 hours; Fox: live): the army waits at home that long
     // before it marches, eating the city's food meanwhile, so the window adds an hour's upkeep for each hour of it to
     // the food the march needs.
-    const campS = Math.min(24 * 3600, Math.max(0, Math.floor(Number(bean.restTime) || 0)));
-    const campFood = Math.ceil(this.upkeepOf(troops) * (g.rules.troopUpkeep ?? 1) * campS / 3600);
+    // The window's two Timing choices (Fox, Nov 27 2026: "make sure both the camp time and arrive at camp time
+    // sections work properly"): Camp sends restTime, seconds; Arrive at sends restTime 0 and arriveAt, the moment
+    // (ms) the army should get there, and the camp is what's left after the march. Before 0.1.77 arriveAt went
+    // unread, so such an army left at once and got there early; and a camp over 24 hours was quietly cut to 24.
+    // Arrive at lands on the second typed (the client sends that moment plus the milliseconds of its clock).
+    // The original client caps the camp at 24 hours and feeds it an hour's upkeep an hour (NewArmyWin.timeInPutChange).
+    const DAY_MS = 24 * 3600000, arriveAt = Math.floor(Number(bean.arriveAt) || 0);
+    let campMs;
+    if (arriveAt > 0){
+      campMs = Math.floor(arriveAt / 1000) * 1000 - now - ms;
+      if (campMs < 0) return [-1, `Too soon: the march alone takes ${this.clock(ms / 1000)}, so the earliest it can get there is ${this.serverTime(now + ms)} (server time). Pick a later time.`];
+      if (campMs > DAY_MS) return [-1, 'Arrive at takes a time within the next 24 hours.'];
+    } else {
+      campMs = Math.max(0, Math.floor(Number(bean.restTime) || 0)) * 1000;
+      if (campMs > DAY_MS) return [-1, `Camp time is at most 24 hours (you entered ${this.clock(campMs / 1000)}).`];
+    }
+    const campS = Math.round(campMs / 1000);
+    const campFood = Math.ceil(this.upkeepOf(troops) * (g.rules.troopUpkeep ?? 1) * campMs / 3600000);
     const food = this.foodFor(troops, ms) + campFood;
     if (c.res.food - (carry.food || 0) < food) return [-1, `This march needs ${food.toLocaleString('en-US')} food for the road.`];
     // All good: take the troops, food, cargo and hero out of the city.
@@ -190,8 +209,8 @@ class ArmyLogic {
     p.armySeq = (p.armySeq || 0) + 1;
     const id = g.store.id();
     const a = { id, playerId: p.id, castleId: c.id, heroId: hero ? hero.id : 0, mission, from: c.fieldId, target, troops, carry, loot: null,
-      startTime: now, reachTime: now + campS * 1000 + ms, oneWay: ms, direction: DIR.FORWARD, restTime: campS };
-    if (campS){ a.campUntil = now + campS * 1000; a.campFood = campFood; }
+      startTime: now, reachTime: now + campMs + ms, oneWay: ms, direction: DIR.FORWARD, restTime: campS };
+    if (campMs > 0){ a.campUntil = now + campMs; a.campFood = campFood; }
     // The march window asks whether the troops come home once the city is built or stay to guard it.
     if (mission === MISSION.CONSTRUCT) a.backAfter = bean.backAfterConstruct !== false && bean.backAfterConstruct !== 'false';
     // The web client's No Capture box: win the fight and take the loot, but take nothing (no valley or flat, no
@@ -266,13 +285,14 @@ class ArmyLogic {
     if (a.direction === DIR.STAY){ const sentBack = !!host && a.playerId !== p.id; this.sendHome(a, now); return { army: a, sentBack, host }; }
     // Still in camp at home: it never left, so it is back at once, with the food for the camp time it didn't use.
     if (a.direction === DIR.FORWARD && (a.campUntil || 0) > now){
-      const c = this.db.castles[a.castleId], left = Math.floor((a.campFood || 0) * (a.campUntil - now) / (a.restTime * 1000 || 1));
+      const c = this.db.castles[a.castleId], left = Math.floor((a.campFood || 0) * (a.campUntil - now) / ((a.campUntil - a.startTime) || 1));
       if (c && left > 0){ c.res.food += left; this.g.pushResources(c); }
       delete a.campUntil; delete a.campFood;
       Object.assign(a, { direction: DIR.BACK, startTime: now, reachTime: now });
       return { army: a };
     }
-    const gone = Math.max(1000, now - a.startTime);
+    // (Since it left: an army that camped set out when its camp ended.)
+    const gone = Math.max(1000, now - (a.campUntil || a.startTime));
     Object.assign(a, { direction: DIR.BACK, startTime: now, reachTime: now + this.homeMs(a, Math.min(gone, a.oneWay)) });
     return { army: a };
   }
