@@ -201,13 +201,40 @@ class AdminPage {
       ${own ? this.form('banner', { default: 1 }, '<button class="ghost">Use config.json\'s banner</button>', { inline: true }) : ''}
       ${this.loginMapNote()}`;
   }
-  // The sign-in page's background picture (art/login-map.jpg): found, or where to put it.
+  // The sign-in page's background picture (art/login-map.jpg): found, or where to put it; and an upload, so no one has
+  // to find the folder (Fox, Nov 27 2026: a private window still showed the drawn map after 0.1.74).
   loginMapNote(){
     const m = this.g.loginMap?.(); if (!m) return '';
     let kb = 0; try { kb = Math.round(require('fs').statSync(m.file).size / 1024); } catch (e){}
     return `<h2>Sign-in page background</h2>` + (m.file
-      ? `<p>Showing <b>${esc(m.file)}</b> (${num(kb)} KB). <a href="/login-map" target="_blank" rel="noopener">See it</a>. To change it, replace that file; players see the new one within a day.</p>`
-      : `<p class="bad">No picture found, so the page shows the drawn map. Put <b>login-map.jpg</b> in <b>${esc(m.dir)}</b>; no restart needed.</p>`);
+      ? `<p>Showing <b>${esc(m.file)}</b> (${num(kb)} KB). <a href="/login-map" target="_blank" rel="noopener">See it</a>. Upload another to change it; players see it within a day (or with F5).</p>`
+      : `<p class="bad">No picture found, so the page shows the drawn map. Upload login-map.jpg below (or put it in <b>${esc(m.dir)}</b>).</p>`)
+      + `<form class="box" id="lm-form"><input type="file" id="lm-file" accept="image/jpeg,image/png"> <button>Upload picture</button> <span id="lm-msg" class="dim">A JPEG or PNG, up to 8 MB; about 1920 x 1200 looks best.</span></form>
+      <script>document.getElementById('lm-form').addEventListener('submit', async e => {
+        e.preventDefault(); const f = document.getElementById('lm-file').files[0], msg = document.getElementById('lm-msg');
+        if (!f){ msg.textContent = 'Choose the picture first.'; return; }
+        msg.textContent = 'Uploading ' + f.name + '...';
+        try {
+          const r = await fetch('/admin/login-map?t=${this.tok}', { method: 'POST', body: f, headers: { 'Content-Type': f.type || 'application/octet-stream' } });
+          const j = await r.json().catch(() => ({ ok: false, msg: 'The server answered ' + r.status + '.' }));
+          if (j.ok) location.href = '?note=' + encodeURIComponent(j.msg); else msg.textContent = j.msg;
+        } catch (err){ msg.textContent = 'The upload failed: ' + err.message; }
+      });</script>`;
+  }
+  // The upload (http.js /admin/login-map): the page's token, a real JPEG or PNG; saved as art/login-map.jpg (or .png),
+  // the other login-map pictures in art/ removed so it's the one shown.
+  saveLoginMap(q, body){
+    if (!Buffer.isBuffer(body)) return { redirect: '/admin' };   // (a plain visit: back to the admin page)
+    if (q.get('t') !== this.tok) return { ok: false, msg: 'That page had expired (the server restarted). Reload it and try again.' };
+    const jpg = body.length > 3 && body[0] === 0xff && body[1] === 0xd8 && body[2] === 0xff, png = body.length > 8 && body.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    if (!jpg && !png) return { ok: false, msg: 'That isn\'t a JPEG or PNG picture.' };
+    const fs = require('fs'), path = require('path'), m = this.g.loginMap(), dir = m.dir;
+    fs.mkdirSync(dir, { recursive: true });
+    for (const n of fs.readdirSync(dir)) if (/^login-map.*\.(jpe?g|png)$/i.test(n)) fs.rmSync(path.join(dir, n), { force: true });
+    const file = path.join(dir, png ? 'login-map.png' : 'login-map.jpg');
+    fs.writeFileSync(file, body);
+    this.S.audit('uploaded the sign-in background', path.basename(file), `${num(Math.round(body.length / 1024))} KB`);
+    return { ok: true, msg: `Sign-in background saved as ${file}. Open the sign-in page in a private window to see it.` };
   }
   accountsTable(accs, now){
     const S = this.S;

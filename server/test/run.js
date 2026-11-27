@@ -125,6 +125,24 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       fs.writeFileSync(path.join(art, 'login-map (1).JPG'), 'x'); const renamed = findLoginMap(art, path.join(tmp, 'srv'));
       fs.writeFileSync(path.join(art, 'login-map.jpg'), 'x'); const exact = findLoginMap(art, path.join(tmp, 'srv'));
       fs.rmSync(tmp, { recursive: true, force: true });
+      // The admin page's upload: the password and the page's token; a JPEG or PNG only; saved where the lookup looks
+      // first, the other pictures there removed. (The saving is tried on a scratch folder, not the real art/.)
+      const upload = (t, body, auth = true) => new Promise((resolve, reject) => {
+        const rq = http.request({ host: '127.0.0.1', port: PORTS.httpPort, path: '/admin/login-map?t=' + t, method: 'POST', headers: { 'Content-Type': 'image/jpeg', 'Content-Length': body.length, ...(auth ? { Authorization: 'Basic ' + Buffer.from('admin:' + ADMIN.pw).toString('base64') } : {}) } },
+          res => { const c = []; res.on('data', d => c.push(d)); res.on('end', () => resolve({ status: res.statusCode, body: Buffer.concat(c).toString() })); });
+        rq.on('error', reject); rq.end(body);
+      });
+      const JPG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(64)]);
+      const noAuth = await upload(srv.game.adminToken, JPG, false), badTok = await upload('wrong', JPG), notPic = await upload(srv.game.adminToken, Buffer.from('<html>hello</html>'));
+      const G = srv.game, scratch = fs.mkdtempSync(path.join(require('os').tmpdir(), 'aow-up-')), lm0 = G.loginMap;
+      fs.writeFileSync(path.join(scratch, 'login-map (1).jpg'), 'old');
+      G.loginMap = () => ({ file: findLoginMap(scratch, scratch), dir: scratch });
+      const saved = G.admin.saveLoginMap(new URLSearchParams({ t: srv.game.adminToken }), JPG), after = fs.readdirSync(scratch);
+      const shown = (await get('/admin')).body.toString();
+      G.loginMap = lm0; fs.rmSync(scratch, { recursive: true, force: true });
+      ok(noAuth.status === 401 && badTok.status === 400 && /expired/.test(badTok.body) && notPic.status === 400 && /isn't a JPEG or PNG/.test(notPic.body)
+        && saved.ok && after.join() === 'login-map.jpg' && /id="lm-file"/.test(shown) && G.security.db.audit.some(x => x.action === 'uploaded the sign-in background'),
+        'the admin page uploads the sign-in background (password and token; JPEG or PNG only) and saves it as art/login-map.jpg, the old ones removed');
       const real = findLoginMap(path.join(__dirname, '..', 'art'), path.join(__dirname, '..')), served = await get('/login-map');
       ok(none === null && /Login-Map\.PNG$/.test(beside || '') && /login-map \(1\)\.JPG$/.test(renamed || '') && /art[\\/]login-map\.jpg$/.test(exact || '') && served.status === (real ? 200 : 404),
         'the sign-in background is found as art/login-map.jpg, under a download\'s name, or beside the server; /login-map serves it' + (real ? '' : ' (none here)'));

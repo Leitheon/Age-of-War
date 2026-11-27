@@ -88,7 +88,7 @@ function main(overrides = {}){
   const onMessage = (conn, cmd, payload) => { if (log.debugOn) log.debug(`<- ${cmd} ${JSON.stringify(payload)?.slice(0, 200)}`); game.handle(conn, cmd, payload); };
   const onClose = conn => game.disconnect(conn);
   const gameSrv = cfg.flashClient ? startGameServer(cfg.gamePort, onMessage, onClose, log, perf) : null;
-  const httpSrv = startHttp({ ...cfg, buildingQueue: rules.buildQueue?.enabled !== false }, ROOT, log, { '/coins': q => game.coinsPage(q), '/admin': q => game.adminPage(q),
+  const httpSrv = startHttp({ ...cfg, buildingQueue: rules.buildQueue?.enabled !== false }, ROOT, log, { '/coins': q => game.coinsPage(q), '/admin': q => game.adminPage(q), '/admin/login-map': (q, body) => game.admin.saveLoginMap(q, body),
     // The banner and coin rate (game.welcomeJs). The game page loads /welcome: the service worker keeps every .js it
     // has seen (sw.js), so /welcome.js stayed what a browser first got; /welcome.js stays for pages from before 0.1.71.
     '/welcome': () => ({ body: game.welcomeJs(), type: 'text/javascript; charset=utf-8' }),

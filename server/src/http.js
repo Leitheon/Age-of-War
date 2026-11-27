@@ -269,6 +269,15 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
     try { const u = new URL(req.url, 'http://x'); p = decodeURIComponent(u.pathname); query = u.searchParams; } catch (e){ return send(res, 400, 'Bad path', 'text/plain'); }
     // Flex's HTTPService turns a GET with an XML content type into a POST, so RoboEvony POSTs for config.xml.
     if (p === '/config.xml' && req.method === 'POST'){ req.resume(); return send(res, 200, botConfig(cfg, req.headers.host), TYPES['.xml']); }
+    // The admin page's sign-in background upload (admin.js): the picture's own bytes, sent by the page's script, up
+    // to 8 MB; the page (game.admin) checks its token and saves it where findLoginMap looks first.
+    if (req.method === 'POST' && p === '/admin/login-map' && pages[p]){
+      if (!adminOk(cfg, req)){ req.resume(); res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Server admin", charset="UTF-8"', 'Content-Type': 'text/plain' }); return res.end('Admin password needed.'); }
+      const body = await new Promise(done => { const parts = []; let n = 0; req.on('data', d => { n += d.length; if (n > 8 * 1048576){ done(null); req.destroy(); } else parts.push(d); }); req.on('end', () => done(Buffer.concat(parts))); req.on('error', () => done(null)); });
+      if (body == null) return send(res, 413, 'The picture is over 8 MB.', 'text/plain');
+      try { const r = pages[p](query, body); return send(res, r.ok ? 200 : 400, JSON.stringify(r), 'application/json; charset=utf-8'); }
+      catch (e){ log.error(`${p}: ${e.message}`); return send(res, 500, JSON.stringify({ ok: false, msg: 'Server error: ' + e.message }), 'application/json; charset=utf-8'); }
+    }
     // The admin page's forms (its actions) come as POSTs: their fields join the query, with _post set.
     if (req.method === 'POST' && ADMIN_PAGES.has(p)){
       if (!adminOk(cfg, req)){ req.resume(); res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Server admin", charset="UTF-8"', 'Content-Type': 'text/plain' }); return res.end('Admin password needed.'); }
