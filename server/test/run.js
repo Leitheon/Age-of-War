@@ -3837,22 +3837,27 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         `the shop leaves out the ${off.length} items Fox hid (Speakers, Rituals of Pact, Truce Agreements, holiday chests...) and won't sell them; ${listed.length} are listed`);
       {
         // The hero recruitment items (Fox, Nov 27 2026): sold at rules.webShop.prices (the client's table has them at
-        // 0), all but the Legendary Ring (hidden), the Epic Hero item, the Gold Helms of King and Queen (the King/Queen
-        // quests' reward) and the Royal Guard (unpriced); a helm bought gives its hero.
-        const HERO = ['player.box.hero.a', 'player.box.hero.b', 'player.box.hero.c', 'player.box.hero.f', 'player.box.hero.d', 'player.box.hero.e'];
-        const wares = Object.fromEntries(cat.data.tabs.flatMap(x => x.items).map(x => [x.id, x])), rate = srv.game.rules.webShop.goldPerCoin;
-        const G = srv.game, rg = wares['player.box.hero.a'];
+        // 0): Fox's four (Plate Helm of Lancelot 500,000 gold, Holy Helm of Mars 1,000,000, Crystal of Attunement
+        // 5,000,000, Ardee's Sigil of Recruitment 10,000,000); not the Legendary Ring (hidden), the Epic Hero item, the
+        // Leather and Chain Helms, the Royal Guard or the Gold Helms of King and Queen (unpriced); a helm bought gives its hero.
+        // Fox's prices for the medal boxes, The Lost Armor Script, the three hero books and two teleporters too.
+        const HERO = { 'player.box.hero.c': 500000, 'player.box.hero.d': 1000000, 'player.box.hero.e': 5000000, 'player.box.hero.f': 10000000,
+          'player.box.special.1': 500000, 'player.box.special.2': 2000000, 'player.box.special.3': 5000000, 'equipment.tech.upgrade.book1': 1000000,
+          'hero.intelligence.1': 500000, 'hero.management.1': 500000, 'hero.power.1': 500000, 'player.more.castle.1.a': 1000000, 'player.more.castle.1.c': 2000000,
+          'player.queue.building': 5000, 'player.heart.1.a': 2000000 };
+        const wares = Object.fromEntries(cat.data.tabs.flatMap(x => x.items).map(x => [x.id, x]));
+        const G = srv.game, rg = wares['player.box.hero.c'];
         G.logic.settle(home, pw, Date.now()); home.res.gold = rg.price; pw.boundGold = 0;
         if (!G.heroes.vacancies(home)){ const plot = [...Array(40).keys()].map(i => i + 1).find(i => !home.buildings[i]); home.buildings[plot] = { typeId: 27, level: 5, status: 0, startTime: 0, endTime: 0 }; }
         const hall = G.heroes.vacancies(home), before = G.heroes.list(home).length;
-        const bought = await call2('shop.buyPooled', { itemId: 'player.box.hero.a', amount: 1 });
-        const used = hall ? G.itemUse.use(pw, home, 'player.box.hero.a', Date.now()) : null;
-        const king = G.data.items['player.box.hero.king'], crystal = wares['player.box.hero.e'];
+        const bought = await call2('shop.buyPooled', { itemId: 'player.box.hero.c', amount: 1 });
+        const used = hall ? G.itemUse.use(pw, home, 'player.box.hero.c', Date.now()) : null;
+        const king = G.data.items['player.box.hero.king'], sigil = wares['player.box.hero.f'];
         const kingBuy = await call2('shop.buyPooled', { itemId: 'player.box.hero.king', amount: 1 });
-        ok(HERO.every(id => wares[id] && wares[id].price === srv.game.rules.webShop.prices[id] * rate) && !wares['hero.gen.npc2'] && !wares['player.box.hero.npc']
-          && !wares['player.box.hero.king'] && !wares['player.box.hero.queen'] && !wares['player.box.hero.rg'] && kingBuy.data.ok < 0
+        ok(Object.entries(HERO).every(([id, gold]) => wares[id] && wares[id].price === gold) && !wares['hero.gen.npc2'] && !wares['player.box.hero.npc']
+          && ['player.box.hero.king', 'player.box.hero.queen', 'player.box.hero.rg', 'player.box.hero.a', 'player.box.hero.b'].every(id => !wares[id]) && kingBuy.data.ok < 0
           && bought.data.ok === 1 && (!hall || (!Array.isArray(used) && G.heroes.list(home).length === before + 1)) && /101/.test(king.desc) && king.name === 'Gold Helm of King' && G.data.items['player.box.hero.queen'].name === 'Gold Helm of Queen',
-          `the shop sells the 6 hero recruitment items (Leather Helm of Robinhood ${rg.price.toLocaleString('en-US')} gold ... Crystal of Attunement ${crystal.price.toLocaleString('en-US')}), not the Legendary Ring, the Epic Hero item, the Gold Helms of King and Queen or the Royal Guard; a Leather Helm bought gives its hero${hall ? '' : ' (no Feasting Hall room to try it)'}`);
+          `the shop sells Fox's 4 hero recruitment items (Plate Helm of Lancelot ${rg.price.toLocaleString('en-US')} gold ... Ardee's Sigil of Recruitment ${sigil.price.toLocaleString('en-US')}), none of the rest, and the medal boxes, The Lost Armor Script, The Art of War, The Wealth of Nations, Excalibur, the Adv City and War Teleporters, Bernini's Hammer and Speech Text at his prices; a Plate Helm bought gives its hero${hall ? '' : ' (no Feasting Hall room to try it)'}`);
       }
       const order = await call2('common.setCityOrder', { order: String(home.id) }), wrong = await call2('common.setCityOrder', { order: '1,2' });
       ok(order.data.ok === 1 && order.data.cityOrder === String(home.id) && wrong.data.ok < 0, 'the city order takes only the lord\'s own cities');
@@ -4196,6 +4201,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         const live = k => (pb.buffs?.[k] || 0) > G.now(), fast = G.troops.unitSeconds(city, pb, 3), tsb = pb.buffs.TrainSpeedBuff;
         delete pb.buffs.TrainSpeedBuff; const slow = G.troops.unitSeconds(city, pb, 3); pb.buffs.TrainSpeedBuff = tsb;
         G.catchUp(city); city.loyalty = 40; city.complaint = 30; give('player.heart.1.a'); const speech = use('player.heart.1.a');
+        // Speech Text works on a city once an hour (Fox, Nov 27 2026): a second at once is refused and kept; an hour on, it works.
+        const loy1 = city.loyalty; city.loyalty = 50; give('player.heart.1.a'); const kept0 = has('player.heart.1.a'), speech2 = use('player.heart.1.a'), kept1 = has('player.heart.1.a');
+        city.speechReady = G.now() - 1; const speech3 = use('player.heart.1.a'); city.loyalty = loy1;
         G.catchUp(city); city.pop = Math.floor(G.logic.popMax(city) / 4); const pop0 = city.pop; give('player.pop.1.a'); const civil = use('player.pop.1.a');
         give('player.truce.dream'); const dream = use('player.truce.dream');
         give('player.peace.1'); const truce = ask('city.setStopWarState', { itemId: 'player.peace.1', ItemId: 'player.peace.1', password: 'not checked', passWord: 'not checked' });
@@ -4205,6 +4213,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           yearKey: yearKey?.ok === 1 && !has('player.key.birthdaykey.2015'),
           buffs: live('ReduceTroopsUpkeepBuff') && live('TroopReliveBuff') && live('IncFoodProduceBuff') && live('HealBonusBuff') && live('TrainSpeedBuff') && slow > fast,
           city: speech?.ok === 1 && city.loyalty >= 99.9 && !city.complaint && civil?.ok === 1 && city.pop > pop0,
+          speechHour: speech2?.ok < 0 && /once an hour/.test(speech2?.errorMsg) && kept1 === kept0 && speech3?.ok === 1 && has('player.heart.1.a') === kept0 - 1,
           truces: dream?.ok === 1 && G.account.inDreamTruce(pb, G.now() + 120000) && truce?.ok === 1 && live('PlayerPeaceBuff') };
         const failed = Object.keys(checks).filter(k => !checks[k]);
         ok(!failed.length,

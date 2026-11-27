@@ -88,7 +88,8 @@ class BuildQueue {
     // The hammer: the lord's own, or one bought for its price ("Do you want to buy and use one?").
     const items = this.g.items, price = this.g.data.items[HAMMER]?.price || 5;
     let bought = 0;
-    const rate = centsRate(this.g.rules), gold = price * rate;   // (no cents: its worth in gold, nocents.js)
+    // (no cents: its worth in gold, nocents.js; the shop's price, rules.webShop.prices, when it names one)
+    const rate = centsRate(this.g.rules), gold = Math.round((this.g.rules.webShop?.prices?.[HAMMER] ?? price) * rate);
     if (!items.has(p, HAMMER)){
       if (rate){
         if (this.g.goldPool(p) < gold) return [-28, `You need a Bernini's Hammer to queue this building (${fmt(gold)} gold); your cities have ${fmt(this.g.goldPool(p))}.`];

@@ -508,20 +508,36 @@ const DEFAULTS = {
   // hidden: items the shop doesn't list or sell (Fox, Nov 2026); they still work wherever else they turn up.
   // prices: coin prices for items the client's table gives none (so the shop didn't sell them), or to change one.
   //   The hero recruitment items (Fox, Nov 27 2026: "enable the hero recruitment items in the market. Everything
-  //   except for the Legendary Ring"): live gave the helms only from the Wheel of Fortune, so these are ours, rising
-  //   with the hero each gives (x goldPerCoin in gold: Leather Helm of Robinhood 150,000 ... Crystal of Attunement
-  //   1,500,000). The Epic Hero item (player.box.hero.npc, a random historic hero; its name is Chinese only), the Gold
-  //   Helms of King and Queen and the Royal Guard stay unsold.
+  //   except for the Legendary Ring"): live gave the helms only from the Wheel of Fortune, so the prices are Fox's
+  //   (x goldPerCoin in gold). The Epic Hero item (player.box.hero.npc, a random historic hero; its name is Chinese
+  //   only) and the other helms stay unsold.
+  // Speech Text (loyalty to 100, grievance to 0) works on a city once in this many minutes (Fox, Nov 27 2026: "1 hour
+  // use cooldown", "Cooldown is per city"); 0: no wait.
+  speechTextCooldownMinutes: 60,
   webShop: { goldPerCoin: 10000, goldFinish: true,
     prices: {
-      'player.box.hero.a': 15,           // Leather Helm of Robinhood: a level 10-15 hero
-      'player.box.hero.b': 30,           // Chain Helm of Beowulf: a level 16-25 hero
-      'player.box.hero.c': 60,           // Plate Helm of Lancelot: a level 26-35 hero, one attribute 70-80
-      'player.box.hero.f': 75,           // Ardee's Sigil of Recruitment: a level 5-10 hero, one base attribute 115-125
-      'player.box.hero.d': 100,          // Holy Helm of Mars: a level 36-50 hero, one attribute 81-90
-      'player.box.hero.e': 150,          // Crystal of Attunement: a level 51-70 hero, one attribute 101-110
-      // (Not the Gold Helm of King or Queen, the King/Queen quests' reward, or the Royal Guard: Fox, Nov 27 2026, "The
-      // king/queen helms should not be in the shop", "and the royal guard should not be available".)
+      // Fox's prices (Nov 27 2026: "we only need 4 at these prices. the other can be hidden").
+      'player.box.hero.c': 50,           // Plate Helm of Lancelot: a level 26-35 hero, one attribute 70-80 (500,000 gold)
+      'player.box.hero.d': 100,          // Holy Helm of Mars: a level 36-50 hero, one attribute 81-90 (1,000,000)
+      'player.box.hero.e': 500,          // Crystal of Attunement: a level 51-70 hero, one attribute 101-110 (5,000,000)
+      'player.box.hero.f': 1000,         // Ardee's Sigil of Recruitment: a level 5-10 hero, one base attribute 115-125 (10,000,000)
+      // Fox's prices for items the shop sold at the table's (Nov 27 2026): the medal boxes (were 800,000, 1,400,000 and
+      // 2,400,000 gold), The Lost Armor Script (was 80,000), the three hero books, two teleporters, Bernini's Hammer and
+      // Speech Text.
+      'player.box.special.1': 50,        // Junior Medal Box (500,000 gold)
+      'player.box.special.2': 200,       // Medium Medal Box (2,000,000)
+      'player.box.special.3': 500,       // Senior Medal Box (5,000,000)
+      'equipment.tech.upgrade.book1': 100,   // The Lost Armor Script (1,000,000)
+      'hero.intelligence.1': 50,         // The Art of War (500,000; was 400,000)
+      'hero.management.1': 50,           // The Wealth of Nations (500,000; was 400,000)
+      'hero.power.1': 50,                // Excalibur (500,000; was 400,000)
+      'player.more.castle.1.a': 100,     // Adv City Teleporter (1,000,000; was 900,000)
+      'player.more.castle.1.c': 200,     // War Teleporter (2,000,000; was 1,400,000)
+      'player.queue.building': 0.5,      // Bernini's Hammer (5,000; was 50,000), also when queuing buys one (buildQueue.js)
+      'player.heart.1.a': 200,           // Speech Text (2,000,000; was 1,000,000), once an hour a city (speechTextCooldownMinutes)
+      // (Not the Leather Helm of Robinhood, Chain Helm of Beowulf, Royal Guard or Gold Helms of King and Queen, the
+      // King/Queen quests' reward: Fox, Nov 27 2026, "The king/queen helms should not be in the shop", "and the royal
+      // guard should not be available".)
     },
     hidden: [
       'alliance.ritual_of_pact.advanced',                           // Ritual of Pact (Advanced)

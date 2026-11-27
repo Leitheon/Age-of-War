@@ -298,7 +298,11 @@ class ItemUse {
     if (itemId === 'player.pop.1.a'){                                  // Civil Code
       if (c.pop >= max) return [-40, 'Your population is already at its limit.'];
       c.pop = Math.min(max, c.pop + Math.max(100, Math.floor(max * 0.2)));
-    } else if (itemId === 'player.heart.1.a'){ c.loyalty = 100; c.complaint = 0; }   // Speech Text
+    } else if (itemId === 'player.heart.1.a'){                         // Speech Text: once an hour a city (rules)
+      const wait = (this.g.rules.speechTextCooldownMinutes ?? 0) * 60000, left = (c.speechReady || 0) - now;
+      if (wait && left > 0){ const m = Math.ceil(left / 60000); return [-40, `Speech Text works on ${c.name} once an hour: it can be used there again in ${m} minute${m === 1 ? '' : 's'}.`]; }
+      c.loyalty = 100; c.complaint = 0; if (wait) c.speechReady = now + wait;
+    }
     else if (this.items.applyBuffItem(p, itemId, now)){ out.buffs = true; }          // Haunted / Christmas Castle
     else return [-40, `${it.name} isn't used on a city.`];
     this.items.take(p, itemId); out.items.add(itemId); out.res = true;
