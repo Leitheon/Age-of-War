@@ -122,10 +122,11 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
 - **Each Barracks trains what its own level allows**: a level 1 Barracks in a city with a level 10 one trains only
   what level 1 allows (it trained every kind); its window shows the rest with their requirement. An order spread over
   the barracks goes only to those high enough to train it.
-- **Hero recruitment items in the shop** (`rules.webShop.prices`): Royal Guard, Leather Helm of Robinhood, Chain Helm of
-  Beowulf, Plate Helm of Lancelot, Ardee's Sigil of Recruitment, Holy Helm of Mars, Crystal of Attunement and the Gold
-  Helm of King and of Queen, from 100,000 to 2,000,000 gold (live gave them only from the Wheel of Fortune, so the
-  client's item table has no price). Not the Legendary Ring, or the Epic Hero item (a random historic hero).
+- **Hero recruitment items in the shop** (`rules.webShop.prices`): Leather Helm of Robinhood, Chain Helm of Beowulf,
+  Plate Helm of Lancelot, Ardee's Sigil of Recruitment, Holy Helm of Mars and Crystal of Attunement, from 150,000 to
+  1,500,000 gold (live gave them only from the Wheel of Fortune, so the client's item table has no price). Not the
+  Legendary Ring, the Epic Hero item (a random historic hero), the Gold Helms of King and Queen (the King/Queen quests'
+  reward) or the Royal Guard.
 - **Farming valleys** (`rules.battle.rangedOverCounter`): the valley guide's archers take valleys without losing any:
   50 / 100 / 200 archers for levels 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with 1
   Cavalry for levels 4-10, against every mix of troops a valley has, with Archery 5 or more. Archers, ballistae and
