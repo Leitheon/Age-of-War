@@ -54,8 +54,9 @@ const HANDLER_FILES = ['account', 'castle', 'map', 'troops', 'shop', 'research',
   'auth', 'webmap', 'webstate', 'webshop', 'webreports', 'webauto', 'webmarket', 'webcalc', 'webmisc', 'webspeed'];
 
 class Game {
-  constructor({ store, data, rules, speed, protocol, log, logDir, faces, art, perf, site = '', version = '' }){
+  constructor({ store, data, rules, speed, protocol, log, logDir, faces, art, perf, site = '', version = '', welcome = {} }){
     this.version = version;
+    this.welcome = { text: String(welcome.text ?? ''), link: String(welcome.link ?? '') };   // config.json's banner, until the admin page sets one
     this.site = String(site || '').replace(/\/$/, '');
     this.adminToken = require('crypto').randomBytes(12).toString('hex');   // the admin pages' links carry it (t=)
     this.perf = perf || null; this.store = store; this.data = data; this.rules = rules; this.protocol = protocol; this.log = log; this.clientVersion = CLIENT_VERSION;
@@ -667,6 +668,20 @@ class Game {
   // ---------- local web pages ----------
   // The news ticker across the top of the screen: the client loads movingText.txt every 5 minutes and scrolls it
   // (nothing shows while it's empty). Set it from the debug menu, or edit data/movingText.txt.
+  // The web client's banner across the top (welcome.js): its line and the link after it (the Discord invite). The
+  // admin page sets it (kept in the world as db.banner); without that, config.json's welcomeText and welcomeLink.
+  banner(){ const b = this.db.banner; return b ? { text: String(b.text ?? ''), link: String(b.link ?? '') } : { ...this.welcome }; }
+  setBanner(text, link){
+    if (text == null && link == null){ delete this.db.banner; this.store.touch(); return this.banner(); }
+    const t = String(text ?? '').replace(/[\r\n]+/g, ' ').slice(0, 300), l = String(link ?? '').trim().slice(0, 300);
+    this.db.banner = { text: t && !/\s$/.test(t) && l ? t + ' ' : t, link: l };
+    this.store.touch(); return this.banner();
+  }
+  // welcome.js: the banner and the gold a coin is worth, read by the web client when it loads.
+  welcomeJs(){
+    const b = this.banner();
+    return `window.AOW_WELCOME=${JSON.stringify(b.text)};window.AOW_LINK=${JSON.stringify(b.link)};window.AOW_GOLD_PER_COIN=${Number(this.goldFinishRate?.()) || 0};`;
+  }
   tickerFile(){ return path.join(this.dataDir, 'movingText.txt'); }
   ticker(){ try { return fs.readFileSync(this.tickerFile(), 'utf8').replace(/[\r\n]+/g, '   ').trim(); } catch (e){ return String(this.rules.newsTicker || ''); } }
   setTicker(text){ const t = String(text || '').replace(/[\r\n]+/g, ' ').trim().slice(0, 500); fs.writeFileSync(this.tickerFile(), t); return t; }

@@ -74,7 +74,8 @@ function main(overrides = {}){
   if (rules.alliances?.quitPrestigeRate) log.warn(`data/rules.json has alliances.quitPrestigeRate ${rules.alliances.quitPrestigeRate}: leaving an alliance costs prestige. Remove it to turn that off.`);
   const faces = createFacePool(path.resolve(ROOT, cfg.cacheDir || 'cache'));
   const art = createArtLog(path.resolve(ROOT, cfg.cacheDir || 'cache'), log);
-  const game = new Game({ store, data, rules, version, speed: cfg.speed, protocol, log, logDir: dataDir, faces, art, perf, site: cfg.publicUrl || `http://${cfg.host}:${cfg.httpPort}` });
+  const game = new Game({ store, data, rules, version, speed: cfg.speed, protocol, log, logDir: dataDir, faces, art, perf, site: cfg.publicUrl || `http://${cfg.host}:${cfg.httpPort}`,
+    welcome: { text: cfg.welcomeText, link: cfg.welcomeLink } });
   log.info(`Placed ${game.historicCount.toLocaleString('en-US')} Historic Cities on the map`);
   game.legacyLogin = !!cfg.legacyLogin;
 
@@ -84,7 +85,10 @@ function main(overrides = {}){
   const onClose = conn => game.disconnect(conn);
   const gameSrv = cfg.flashClient ? startGameServer(cfg.gamePort, onMessage, onClose, log, perf) : null;
   const httpSrv = startHttp({ ...cfg, buildingQueue: rules.buildQueue?.enabled !== false }, ROOT, log, { '/coins': q => game.coinsPage(q), '/admin': q => game.adminPage(q),
-    '/welcome.js': () => ({ body: `window.AOW_WELCOME=${JSON.stringify(String(cfg.welcomeText ?? ''))};window.AOW_LINK=${JSON.stringify(String(cfg.welcomeLink ?? ''))};window.AOW_GOLD_PER_COIN=${Number(game.goldFinishRate?.()) || 0};`, type: 'text/javascript; charset=utf-8' }),
+    // The banner and coin rate (game.welcomeJs). The game page loads /welcome: the service worker keeps every .js it
+    // has seen (sw.js), so /welcome.js stayed what a browser first got; /welcome.js stays for pages from before 0.1.71.
+    '/welcome': () => ({ body: game.welcomeJs(), type: 'text/javascript; charset=utf-8' }),
+    '/welcome.js': () => ({ body: game.welcomeJs(), type: 'text/javascript; charset=utf-8' }),
     '/movingText.txt': () => ({ body: game.ticker(), type: 'text/plain; charset=utf-8' }), ...require('./pages')(game) }, faces, art, perf, { onMessage, onClose });
   const ticker = setInterval(() => { const t = perf.now(); try { game.tick(); } catch (e){ log.error('tick: ' + (e.stack || e.message)); } perf.record('tick', null, perf.now() - t); }, 1000);
   if (cfg.speed !== 1) log.info(`Game speed is ${cfg.speed}x`);

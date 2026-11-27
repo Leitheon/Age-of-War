@@ -34,8 +34,9 @@ The first start writes `server/config.json` with a random admin password.
 - `httpPort` — the port players connect to (8090).
 - `publicUrl` — the address players use, e.g. `http://203.0.113.5:8090` or a tunnel's address. Password reset
   links are made with it.
-- `welcomeText`, `welcomeLink` — the line across the top of the game screen, and a link after it. Left out, they're
-  "Welcome to Age of War! Join us on Discord: " and the server's Discord invite; `""` turns the link off.
+- `welcomeText`, `welcomeLink` — the line across the top of the game screen, and a link after it, until the admin
+  page's Banner box sets them. Left out, they're "Welcome to Age of War! Join us on Discord: " and the server's
+  Discord invite; `""` turns the link off.
 - `adminPassword` — the admin page's password (user name `admin`).
 - `assetCdn` — where Evony art the art folders don't have comes from.
 
@@ -144,8 +145,10 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   taking the city takes him as he is, and a city given up has him rule it again. The website's Heroes page shows where.
 - **Be an Evonian**: the quest window has its Add to favorites button.
 - **The Discord invite on the banner**: the line scrolling across the top of the game screen ends with the server's
-  Discord invite, a link that opens in a new tab (the line slows down while the mouse is over it). `welcomeText` and
-  `welcomeLink` in `server/config.json` change it.
+  Discord invite, a link that opens in a new tab (the line slows down while the mouse is over it). The admin page's
+  Banner box (on the overview) changes the line and the link; players see it the next time they load the game. The
+  game page loads it from `/welcome`, which the offline cache never keeps (it had kept `/welcome.js` like the art, so
+  a browser went on showing the line it first saw).
 - **Security and the admin page** (`server/src/game/security.js`, `admin.js`; `rules.security`):
   - One account per browser: each browser gets an id (the `aow_d` cookie), and a browser that already has an account
     can't sign up another, unless you allow it on the admin page (a household's shared computer).

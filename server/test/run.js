@@ -107,7 +107,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
     const swf = await get('/EvonyClient1921.swf');
     ok(swf.status === 200 && swf.body.subarray(0, 3).toString() === 'CWS', 'the client file is served');
     const home = (await get('/')).body.toString();
-    ok(/\/assets\/index-[\w]+\.js/.test(home) && home.includes('/welcome.js'), 'the home page is the web client');
+    ok(/\/assets\/index-[\w]+\.js/.test(home) && home.includes('<script src="/welcome"></script>'), 'the home page is the web client');
     {
       // The banner across the top: the Discord invite after the welcome line, unless config.json names another link.
       let own = {}; try { own = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config.json'), 'utf8')); } catch (e){}
@@ -3802,6 +3802,24 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       ok(Object.values(parts).every(Boolean),
         'the admin page shows the overview, a player\'s addresses, browsers and linked accounts; a form with the page\'s token bans (and his browsers), one without it does nothing; the ban is in the audit log' + (Object.values(parts).every(Boolean) ? '' : ` (off: ${Object.keys(parts).filter(k => !parts[k]).join(', ')}; ${home.status} ${page.status} ${acted.status} ${String(home.body).slice(0, 200)})`));
       S.unban(altAcc); S.unbanKey('device', DEV1);
+      {
+        // The banner from the admin page: saved in the world, served at /welcome (and /welcome.js) at once; a bad link
+        // is refused; "Use config.json's" goes back. The game page loads /welcome, which the service worker never keeps.
+        const run = js => { const w = {}; new Function('window', js)(w); return w; };
+        const before = run((await get('/welcome')).body.toString());
+        const set = await postAdmin({ t: G.adminToken, action: 'banner', text: 'Season 1 has begun! Discord:', link: 'https://discord.gg/abc123' });
+        const after = run((await get('/welcome')).body.toString()), afterJs = run((await get('/welcome.js')).body.toString());
+        const bad = await postAdmin({ t: G.adminToken, action: 'banner', text: 'x', link: 'javascript:alert(1)' }), keptLink = G.banner().link;
+        const shown = (await get('/admin')).body.toString();
+        const back = await postAdmin({ t: G.adminToken, action: 'banner', default: '1' });
+        const again = run((await get('/welcome')).body.toString()), sw = fs.readFileSync(path.join(__dirname, '..', 'public', 'sw.js'), 'utf8');
+        const parts = { set: set.status === 303 && after.AOW_WELCOME === 'Season 1 has begun! Discord: ' && after.AOW_LINK === 'https://discord.gg/abc123' && afterJs.AOW_LINK === after.AOW_LINK,
+          bad: /must start with https/.test(decodeURIComponent(bad.location || '').replace(/\+/g, ' ')) && keptLink === 'https://discord.gg/abc123',
+          shown: /<h2>Banner<\/h2>/.test(shown) && shown.includes('https://discord.gg/abc123'), audit: S.db.audit.some(x => x.action === 'set the banner to'),
+          back: back.status === 303 && again.AOW_LINK === before.AOW_LINK && !G.db.banner, sw: /pathname === '\/welcome\.js'\) return/.test(sw) };
+        ok(Object.values(parts).every(Boolean), 'the admin page sets the banner and its link (saved, served at once, a bad link refused, back to config.json\'s); the offline cache never keeps it'
+          + (Object.values(parts).every(Boolean) ? '' : ` (off: ${Object.keys(parts).filter(k => !parts[k]).join(', ')})`));
+      }
       // The WebSocket handshake: a browser without an id gets one; the address comes from the tunnel's header.
       const hand = cookie => new Promise(resolve => {
         const sk = net.connect(PORTS.httpPort, '127.0.0.1', () => sk.write(`GET /json HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${crypto.randomBytes(16).toString('base64')}\r\nSec-WebSocket-Version: 13\r\nCF-Connecting-IP: 198.51.100.99\r\n${cookie ? `Cookie: aow_d=${cookie}\r\n` : ''}\r\n`));

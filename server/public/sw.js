@@ -27,6 +27,8 @@ self.addEventListener('activate', (e) => {
       const keys = await caches.keys()
       await Promise.all(keys.filter((k) => k.startsWith('evony-assets-') && k !== CACHE).map((k) => caches.delete(k)))
     } catch { /* ignore */ }
+    // Age of War 0.1.71: welcome.js (the banner, changed from the admin page) was kept like art; drop the kept copy.
+    try { const c = await caches.open(CACHE); for (const r of await c.keys()) if (new URL(r.url).pathname === '/welcome.js') await c.delete(r) } catch { /* ignore */ }
     try { await self.clients.claim() } catch { /* ignore */ }
   })())
 })
@@ -46,6 +48,7 @@ self.addEventListener('fetch', (e) => {
   try { url = new URL(req.url) } catch { return }
   if (url.origin !== self.location.origin) return // cross-origin (e.g. CDN portraits) -> browser default
   if (!STATIC_RE.test(url.pathname)) return        // HTML shell, /json websocket, manifest, dynamic -> network
+  if (url.pathname === '/welcome.js') return       // Age of War: the banner and coin rate, made by the server each time
 
   e.respondWith((async () => {
     try {

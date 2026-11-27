@@ -7,6 +7,7 @@
 //   Linked accounts: groups sharing a browser or an address; a pair can be marked allowed (a household).
 //   Activity: the activity log, by kind and lord. Bans: address and browser bans, allowed browsers and pairs.
 //   Audit log: every admin action.
+//   Banner (on the overview): the line scrolling across the top of the game and its link (game.banner).
 // Actions are forms POSTed with the page's token (t); each one is in the audit log, then the page reloads (303).
 const world = require('./world');
 
@@ -147,6 +148,17 @@ class AdminPage {
         S.touch(); S.audit(action === 'allowpair' ? 'allowed the pair' : 'no longer allows the pair', `${x} & ${y}`, reason);
         return back(action === 'allowpair' ? `${x} and ${y} are allowed to share.` : `${x} and ${y} are linked again.`);
       }
+      case 'banner': {
+        if (q.get('default')){
+          g.setBanner(null, null); S.audit('set the banner back to config.json\'s', '');
+          return back('The banner is back to config.json\'s (welcomeText, welcomeLink). Players see it the next time they load the game.');
+        }
+        const link = String(q.get('link') || '').trim();
+        if (link && !/^https?:\/\/\S+$/i.test(link)) return back('The link must start with https:// (or http://), with no spaces.');
+        const b = g.setBanner(q.get('text'), link);
+        S.audit('set the banner to', b.text + b.link);
+        return back('Banner saved. Players see it the next time they load the game (or press F5).');
+      }
       case 'allowdevice': case 'disallowdevice': {
         const key = String(q.get('key') || ''), k = 'device:' + key;
         if (!/^[0-9a-f]{32}$/.test(key)) return back('That is not a browser id.');
@@ -177,7 +189,16 @@ class AdminPage {
         <ul>${groups.slice(0, 5).map(gr => `<li>${gr.browsers ? '<span class="b bad">same browser</span> ' : '<span class="b warn">same address</span> '}${gr.names.map(n => this.who(this.acct(n))).join(', ')}</li>`).join('')}</ul>` : '<p class="dim">No accounts share a browser or an address.</p>'}
       ${refused.length ? `<p><b>${refused.length}</b> sign-up${refused.length === 1 ? ' was' : 's were'} refused today for a browser that already has an account. ${this.link({ view: 'activity', type: 'signup-blocked' }, 'See them')}.</p>` : ''}
       ${noisy.length ? `<p class="bad">Many wrong passwords today from: ${noisy.map(([ip, n]) => `${esc(ip)} (${n})`).join(', ')}.</p>` : ''}
-      <h2>Newest accounts</h2>${this.accountsTable(newest, now)}`;
+      <h2>Newest accounts</h2>${this.accountsTable(newest, now)}
+      ${this.bannerForm()}`;
+  }
+  // The banner scrolling across the top of the game: its line and the link after it (game.banner).
+  bannerForm(){
+    const b = this.g.banner(), own = !!this.g.db.banner;
+    return `<h2>Banner</h2><p class="dim">The line that scrolls across the top of the game, and a link after it (your Discord invite). Players see a change the next time they load the game.</p>
+      <p>Now: ${esc(b.text)}${b.link ? `<a href="${esc(b.link)}" target="_blank" rel="noopener">${esc(b.link)}</a>` : ''}${b.text || b.link ? '' : '<span class="dim">(empty: no banner text)</span>'}${own ? '' : ' <span class="dim">(from config.json)</span>'}</p>
+      ${this.form('banner', {}, `<input name="text" value="${esc(b.text)}" placeholder="Welcome to Age of War! Join us on Discord:" size="52"> <input name="link" value="${esc(b.link)}" placeholder="https://discord.gg/..." size="32"> <button>Save banner</button>`)}
+      ${own ? this.form('banner', { default: 1 }, '<button class="ghost">Use config.json\'s banner</button>', { inline: true }) : ''}`;
   }
   accountsTable(accs, now){
     const S = this.S;
