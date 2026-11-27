@@ -1,10 +1,11 @@
 # Builds Age of War's sign-in page look into server/public (Fox, Nov 27 2026: "change the main webpage where players
-# log in and register to something generic that doesn't use DoA's assets"). Everything is made here or is free to
-# ship: the campaign map is drawn below, the fonts are Cinzel and Alegreya Sans (SIL Open Font License, fonts/).
-#   - assets/aow-map-*.svg: contour lines and the world's coordinate grid (100 fields a square), behind the page.
-#   - assets/aow-march-*.svg, aow-historic-*.svg: a lord's city, his army marching on an enemy city; a Historic City.
+# log in and register to something generic that doesn't use DoA's assets"; then "Use a screenshot of the game map with
+# the NPC Atlantis City visible as the background"). The background is art/login-map.jpg, a screenshot of the game's
+# map round Atlantis (game art, so in art/ and not in git; login.css says how it was taken); this script makes the rest,
+# all free to ship: the fonts are Cinzel and Alegreya Sans (SIL Open Font License, fonts/).
+#   - assets/aow-map-*.svg: contour lines and the world's coordinate grid, shown when art/login-map.jpg is missing.
 #   - assets/login-aow*.css from login.css, loaded after the client's own stylesheet (index.html).
-#   - The client bundle loses the login page's smoke, fire glow and embers (they belonged to the old painting).
+#   - The client bundle loses the login page's smoke, fire glow and embers (they belonged to DoA's painting).
 # Every file is named by its content, as the client's bundle is: the offline cache (sw.js) keeps a file forever.
 # Usage: python3 build.py [server/public]   (numpy and contourpy, which matplotlib brings)
 import os, re, sys, glob, math, hashlib, shutil
@@ -14,7 +15,7 @@ import contourpy
 HERE = os.path.dirname(os.path.abspath(__file__))
 PUB = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, '..', '..', 'public'))
 ASSETS = os.path.join(PUB, 'assets')
-BRASS, RED, PARCH = '#c9a14e', '#b54a34', '#efe4c8'
+BRASS = '#c9a14e'
 
 def h8(data): return hashlib.sha256(data).hexdigest()[:8]
 
@@ -64,39 +65,6 @@ def campaign_map():
             f'<path d="{" ".join(thick)}" stroke="#6a879a" stroke-opacity=".6" stroke-width="1.6"/>'
             f'</g></svg>')
 
-def march():
-    """A lord's city (brass) and his army's march, dotted, on an enemy city (red)."""
-    home, foe = (58, 286), (372, 64)
-    p0, c1, c2, p3 = (82, 270), (176, 246), (214, 130), (346, 80)
-    ang = math.atan2(p3[1] - c2[1], p3[0] - c2[0])
-    def rot(dx, dy): return (p3[0] + dx * math.cos(ang) - dy * math.sin(ang), p3[1] + dx * math.sin(ang) + dy * math.cos(ang))
-    chev = ' '.join(f'{x:.1f} {y:.1f}' for x, y in (rot(-11, -7), rot(0, 0), rot(-11, 7)))
-    hx, hy = home; fx, fy = foe
-    return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 340">'
-            f'<circle cx="{hx}" cy="{hy}" r="27" fill="none" stroke="{BRASS}" stroke-opacity=".35" stroke-width="1.5"/>'
-            f'<rect x="{hx - 12}" y="{hy - 12}" width="24" height="24" fill="#1c2933" stroke="{BRASS}" stroke-width="2.5"/>'
-            f'<rect x="{hx - 5}" y="{hy - 5}" width="10" height="10" fill="{BRASS}"/>'
-            f'<path d="M{p0[0]} {p0[1]}C{c1[0]} {c1[1]} {c2[0]} {c2[1]} {p3[0]} {p3[1]}" fill="none" stroke="{BRASS}" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="0.5 11"/>'
-            f'<path d="M{chev}" fill="none" stroke="{BRASS}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'
-            f'<circle cx="{fx}" cy="{fy}" r="27" fill="none" stroke="{RED}" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="4 5"/>'
-            f'<rect x="{fx - 11}" y="{fy - 11}" width="22" height="22" transform="rotate(45 {fx} {fy})" fill="#1c2933" stroke="{RED}" stroke-width="2.5"/>'
-            f'<circle cx="{fx}" cy="{fy}" r="4.5" fill="{RED}"/>'
-            '</svg>')
-
-def historic():
-    """A Historic City: a star in a double ring, with its four bearings."""
-    pts = []
-    for i in range(10):
-        r, a = (17 if i % 2 == 0 else 7.2), -math.pi / 2 + i * math.pi / 5
-        pts.append(f'{50 + r * math.cos(a):.1f} {50 + r * math.sin(a):.1f}')
-    ticks = 'M50 2V10M50 90V98M2 50H10M90 50H98'
-    return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
-            f'<circle cx="50" cy="50" r="36" fill="#1c2933" fill-opacity=".6" stroke="{BRASS}" stroke-width="1.6"/>'
-            f'<circle cx="50" cy="50" r="30" fill="none" stroke="{BRASS}" stroke-opacity=".55" stroke-width="1"/>'
-            f'<path d="{ticks}" stroke="{BRASS}" stroke-width="1.6" stroke-linecap="round"/>'
-            f'<path d="M{" ".join(pts)}Z" fill="{BRASS}"/>'
-            '</svg>')
-
 def put(prefix, ext, data):
     """Write assets/<prefix>-<hash>.<ext>, dropping the earlier builds of it; returns its address."""
     for old in glob.glob(os.path.join(ASSETS, f'{prefix}-*.{ext}')): os.remove(old)
@@ -105,10 +73,10 @@ def put(prefix, ext, data):
     return '/assets/' + name
 
 def main():
+    for gone in ('aow-march', 'aow-historic'):
+        for old in glob.glob(os.path.join(ASSETS, gone + '-*.svg')): os.remove(old)
     urls = {
         'map': put('aow-map', 'svg', campaign_map().encode()),
-        'march': put('aow-march', 'svg', march().encode()),
-        'historic': put('aow-historic', 'svg', historic().encode()),
     }
     for key, file in (('cinzel400', 'cinzel-latin-400-normal'), ('cinzel700', 'cinzel-latin-700-normal'),
                       ('sans400', 'alegreya-sans-latin-400-normal'), ('sans700', 'alegreya-sans-latin-700-normal')):

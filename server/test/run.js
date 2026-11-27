@@ -114,8 +114,8 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const cssUrl = (home.match(/href="(\/assets\/login-aow\w+\.css)"/) || [])[1], css = cssUrl ? (await get(cssUrl)).body.toString() : '';
       const urls = [...css.matchAll(/url\((\/assets\/[^)]+)\)/g)].map(m => m[1]), got = await Promise.all(urls.map(u => get(u)));
       const bundle = (await get(home.match(/\/assets\/index-aow\w+\.js/)[0])).body.toString();
-      ok(!!cssUrl && urls.length >= 7 && got.every(r => r.status === 200) && !/login-bg|Trajan/i.test(css) && !/className:"login-haze"\}\),t\.jsx\(\w+,\{\}\)/.test(bundle),
-        `the sign-in page draws its own campaign map with free fonts (${urls.length} files, all here), not DoA's background or Trajan Pro`);
+      ok(!!cssUrl && urls.length >= 5 && got.every(r => r.status === 200) && !/login-bg|Trajan/i.test(css) && /url\(\/login-map\.jpg\)/.test(css) && !/className:"login-haze"\}\),t\.jsx\(\w+,\{\}\)/.test(bundle),
+        `the sign-in page shows the map round Atlantis (art/login-map.jpg; else its own drawn map) with free fonts (${urls.length} files, all here), not DoA's background or Trajan Pro`);
     }
     {
       // The banner across the top: the Discord invite after the welcome line, unless config.json names another link.

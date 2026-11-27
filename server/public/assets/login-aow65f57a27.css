@@ -1,41 +1,34 @@
-/* Age of War's sign-in page (Fox, Nov 27 2026: "something generic that doesn't use DoA's assets"): a campaign map
-   drawn by build.py (contours, the world's coordinate grid, one army's march), Cinzel and Alegreya Sans (SIL Open Font
-   License, fonts/), and the game's own gold buttons. Loaded after the client's stylesheet, so these rules win; the
-   phone sizes are repeated in the media queries below for that reason. {name} is filled in by build.py. */
+/* Age of War's sign-in page. Its background (Fox, Nov 27 2026: "Use a screenshot of the game map with the NPC Atlantis
+   City visible") is art/login-map.jpg: the game's own map round Atlantis (0,0), 1920 x 1200, Atlantis at 23.4% across
+   and 54.2% down, taken from the client itself. Like all the game's art it lives in art/, not in git; without it the
+   page shows the campaign map build.py draws. Cinzel and Alegreya Sans (SIL Open Font License, fonts/); the game's own
+   gold buttons. Loaded after the client's stylesheet, so these rules win; the phone sizes are repeated in the media
+   queries below for that reason. {name} is filled in by build.py. */
 @font-face{font-family:AowCinzel;src:url(/assets/aow-cinzel-400-b873cdd9.woff2) format("woff2");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:AowCinzel;src:url(/assets/aow-cinzel-700-8efa224f.woff2) format("woff2");font-weight:700;font-style:normal;font-display:swap}
 @font-face{font-family:AowSans;src:url(/assets/aow-alegreya-sans-400-b2a5a35a.woff2) format("woff2");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:AowSans;src:url(/assets/aow-alegreya-sans-700-5acd19a5.woff2) format("woff2");font-weight:700;font-style:normal;font-display:swap}
 
 :root{
-  --aow-ink:#1c2933;      /* the map */
+  --aow-ink:#1c2933;      /* the drawn map */
   --aow-deep:#0f171d;     /* its edges */
-  --aow-brass:#c9a14e;    /* grid, frame, markers, rules */
+  --aow-brass:#c9a14e;    /* rules, focus rings */
   --aow-parch:#efe4c8;    /* text */
   --aow-muted:#a59c86;    /* help text */
-  --aow-red:#b54a34;      /* the enemy */
+  /* Dimming over the map: a band at the top for the links, a vignette, and a light veil so the panel stands out. */
+  --aow-veil:linear-gradient(180deg,rgba(8,12,16,.7) 0,rgba(8,12,16,0) 120px),
+    radial-gradient(ellipse 90% 85% at 50% 50%,rgba(8,12,16,0) 40%,rgba(8,12,16,.7) 100%),
+    linear-gradient(rgba(10,15,20,.3),rgba(10,15,20,.3));
 }
 
-/* The map: the sign-in page and the "Entering the realm" screen after it. */
+/* The map: the sign-in page and the "Entering the realm" screen after it. The screenshot is shown at its own size
+   up to 1920 pixels wide (larger screens scale it up), always covering the page; positioned at Atlantis' own place
+   in it, Atlantis stays at the same spot on any screen, left of the panel. */
 .stage{color-scheme:dark;background:radial-gradient(ellipse 80% 75% at 50% 44%,#243542 0%,var(--aow-ink) 52%,var(--aow-deep) 100%);color:var(--aow-parch);font-family:AowSans,Arial,sans-serif}
-.stage:before{background:radial-gradient(ellipse 85% 80% at 50% 45%,transparent 40%,rgba(9,14,18,.78) 100%),url(/assets/aow-map-c6ec3981.svg) no-repeat center center / cover}
-/* The frame round the map, with a tick every 24 pixels and a longer one every 120, like a chart's edge. */
-.stage:after{top:14px;right:14px;bottom:14px;left:14px;box-shadow:none;border:1px solid rgba(201,161,78,.34);
-  --t:rgba(201,161,78,.5);
-  background:
-    repeating-linear-gradient(90deg,var(--t) 0 1px,transparent 1px 120px) top left / 100% 10px no-repeat,
-    repeating-linear-gradient(90deg,var(--t) 0 1px,transparent 1px 24px) top left / 100% 5px no-repeat,
-    repeating-linear-gradient(90deg,var(--t) 0 1px,transparent 1px 120px) bottom left / 100% 10px no-repeat,
-    repeating-linear-gradient(90deg,var(--t) 0 1px,transparent 1px 24px) bottom left / 100% 5px no-repeat,
-    repeating-linear-gradient(180deg,var(--t) 0 1px,transparent 1px 120px) top left / 10px 100% no-repeat,
-    repeating-linear-gradient(180deg,var(--t) 0 1px,transparent 1px 24px) top left / 5px 100% no-repeat,
-    repeating-linear-gradient(180deg,var(--t) 0 1px,transparent 1px 120px) top right / 10px 100% no-repeat,
-    repeating-linear-gradient(180deg,var(--t) 0 1px,transparent 1px 24px) top right / 5px 100% no-repeat}
-/* On the map: a lord's city, its army's march to an enemy city, and a Historic City. (The client's fire glow and
-   embers are gone: build.py takes them out of the bundle.) */
-.login-stage .login-haze{top:0;height:auto;background:
-  url(/assets/aow-march-441a2f54.svg) no-repeat left 7% top 54% / min(29vw,420px) auto,
-  url(/assets/aow-historic-52e40e7b.svg) no-repeat right 9% top 22% / 86px auto}
+.stage:before{background:var(--aow-veil),
+  url(/login-map.jpg) no-repeat 23.4% 54.2% / max(1920px,100vw,160vh) auto,
+  url(/assets/aow-map-c6ec3981.svg) no-repeat center center / cover}
+.stage:after,.login-stage .login-haze{display:none}
 
 /* The panel: a dispatch case on the map table. Its rules name .login-panel: the game's windows use .tab, .lbl and
    the like too, and stay as they are. */
@@ -63,8 +56,8 @@
 .login-panel .status{font-family:AowSans,Arial,sans-serif;font-size:14px;color:#f0cf86;text-shadow:none}
 .login-panel .tab:focus-visible,.login-panel .btn-login:focus-visible,.login-panel .forgot:focus-visible,.login-links a:focus-visible,.login-panel .chk input:focus-visible{outline:2px solid var(--aow-brass);outline-offset:2px}
 
-/* The website's pages, top left. */
-.login-links{left:34px;top:30px;gap:10px}
+/* The website's pages, in a row at the top left. */
+.login-links{left:34px;top:24px;flex-direction:row;gap:30px}
 .login-links a{font-family:AowCinzel,Times New Roman,serif;font-size:15px;letter-spacing:.06em;color:#d9bd7c;text-shadow:0 1px 3px rgba(0,0,0,.8)}
 .login-links a:before{content:none}
 .login-links a:hover{color:var(--aow-parch);text-shadow:0 1px 3px rgba(0,0,0,.8)}
@@ -75,10 +68,11 @@
 .loadscreen-bar{border-color:rgba(201,161,78,.6)}
 .loadscreen-pct{font-family:AowSans,Arial,sans-serif;font-size:14px}
 
-/* Phones: the panel scrolls with the page, the march sits below it, no Historic City. */
+/* Phones: the panel scrolls with the page; Atlantis shows below it. */
 @media (max-width:560px){
-  .stage:after{top:8px;right:8px;bottom:8px;left:8px}
-  .login-stage .login-haze{background:url(/assets/aow-march-441a2f54.svg) no-repeat center bottom 5% / min(78vw,330px) auto}
+  .stage:before{background:var(--aow-veil),
+    url(/login-map.jpg) no-repeat 23.4% 5% / max(1920px,100vw,160vh) auto,
+    url(/assets/aow-map-c6ec3981.svg) no-repeat center center / cover}
   .login-links{left:0;top:18px;gap:8px 20px}
   .login-links a{font-size:14px}
   .login-game{font-size:24px}
