@@ -119,6 +119,10 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   full contents list, Speech Text, Civil Code, the Dream Truce (starts now), the Truce Agreement (no password check),
   the Pioneer Express Teleport and the Christmas Gift's healing and training bonuses work, and holiday treats whose
   descriptions say what they do but not how much get a day of it (`rules.eventItemBuffs`).
+- **Hero recruitment items in the shop** (`rules.webShop.prices`): Royal Guard, Leather Helm of Robinhood, Chain Helm of
+  Beowulf, Plate Helm of Lancelot, Ardee's Sigil of Recruitment, Holy Helm of Mars, Crystal of Attunement and the Gold
+  Helm of King and of Queen, from 100,000 to 2,000,000 gold (live gave them only from the Wheel of Fortune, so the
+  client's item table has no price). Not the Legendary Ring, or the Epic Hero item (a random historic hero).
 - **Farming valleys** (`rules.battle.rangedOverCounter`): the valley guide's archers take valleys without losing any:
   50 / 100 / 200 archers for levels 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with 1
   Cavalry for levels 4-10, against every mix of troops a valley has, with Archery 5 or more. Archers, ballistae and

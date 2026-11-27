@@ -64,6 +64,8 @@ class ItemUse {
     const rh = game.rules?.royalHero;
     if (rh?.base != null) for (const id of ['player.box.hero.king', 'player.box.hero.queen']) if (items[id])
       items[id].desc = `It offers a King or Queen (a Queen for a lord, a King for a lady) at level 1, with ${rh.base} in each attribute and leadership ${rh.leadership ?? 1}.`;
+    // (The game's own names say "Gold Hem of King/Queen"; the shop sells them now, 0.1.79.)
+    for (const id of ['player.box.hero.king', 'player.box.hero.queen']) if (items[id]) items[id].name = String(items[id].name).replace(/\bGold Hem\b/, 'Gold Helm');
     this.chests = new ChestReader(items);
     this.prizes = {};
     for (const [tier, list] of Object.entries(PRIZES)) this.prizes[tier] = list.filter(([id]) => items[id]);

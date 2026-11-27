@@ -8,11 +8,14 @@ const TABS = [['宝物', 'Items'], ['加速', 'Speed Up'], ['生产', 'Produce']
 
 module.exports = (game, H) => {
   const rate = () => Number(game.rules.webShop?.goldPerCoin) > 0 ? Number(game.rules.webShop.goldPerCoin) : 10000;
-  const priceOf = it => Math.round(it.price * rate());
+  // An item's coin price: rules.webShop.prices if it names the item (the hero recruitment items, which the client's
+  // table leaves at 0), else the table's.
+  const coins = it => { const o = game.rules.webShop?.prices?.[it.id]; return o != null ? Number(o) || 0 : it.price; };
+  const priceOf = it => Math.round(coins(it) * rate());
   const text = s => { const r = centsRate(game.rules); return r ? centsText(s, r) : s; };   // (no cents: nocents.js)
   const ware = it => ({ id: it.id, name: text(String(it.name || it.id).trim()), icon: it.icon || '', price: priceOf(it), desc: text(String(it.desc || '').trim()) });
   const hidden = () => new Set(game.rules.webShop?.hidden || []);
-  const sells = (it, off = hidden()) => !!it && it.price > 0 && !/^hero\.taskitem\./.test(it.id) && !off.has(it.id);
+  const sells = (it, off = hidden()) => !!it && coins(it) > 0 && !/^hero\.taskitem\./.test(it.id) && !off.has(it.id);
   const forSale = () => { const off = hidden(); return Object.values(game.data.items).filter(i => sells(i, off)); };
 
   H['shop.getCatalog'] = (conn, d, cmd) => {

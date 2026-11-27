@@ -506,7 +506,24 @@ const DEFAULTS = {
   // The web client's shop (handlers/webshop.js): gold per coin of an item's price in the client's item table.
   // goldFinish: the speed-up window's Pay with Gold, finishing work for its price in Guidelines at that rate (webspeed.js).
   // hidden: items the shop doesn't list or sell (Fox, Nov 2026); they still work wherever else they turn up.
-  webShop: { goldPerCoin: 10000, goldFinish: true, hidden: [
+  // prices: coin prices for items the client's table gives none (so the shop didn't sell them), or to change one.
+  //   The hero recruitment items (Fox, Nov 27 2026: "enable the hero recruitment items in the market. Everything
+  //   except for the Legendary Ring"): live gave the helms only from the Wheel of Fortune, so these are ours, rising
+  //   with the hero each gives (x goldPerCoin in gold: Royal Guard 100,000 ... Gold Helm of King or Queen 2,000,000).
+  //   The Epic Hero item (player.box.hero.npc, a random historic hero; its name is Chinese only) stays unsold.
+  webShop: { goldPerCoin: 10000, goldFinish: true,
+    prices: {
+      'player.box.hero.rg': 10,          // Royal Guard: a level 1 hero, every attribute 70
+      'player.box.hero.a': 15,           // Leather Helm of Robinhood: a level 10-15 hero
+      'player.box.hero.b': 30,           // Chain Helm of Beowulf: a level 16-25 hero
+      'player.box.hero.c': 60,           // Plate Helm of Lancelot: a level 26-35 hero, one attribute 70-80
+      'player.box.hero.f': 75,           // Ardee's Sigil of Recruitment: a level 5-10 hero, one base attribute 115-125
+      'player.box.hero.d': 100,          // Holy Helm of Mars: a level 36-50 hero, one attribute 81-90
+      'player.box.hero.e': 150,          // Crystal of Attunement: a level 51-70 hero, one attribute 101-110
+      'player.box.hero.king': 200,       // Gold Helm of King: the King, level 1 (the King and Queen's own base, 0.1.57)
+      'player.box.hero.queen': 200,      // Gold Helm of Queen: the Queen
+    },
+    hidden: [
       'alliance.ritual_of_pact.advanced',                           // Ritual of Pact (Advanced)
       'alliance.ritual_of_pact.premium',                            // Ritual of Pact (Premium)
       'alliance.ritual_of_pact.ultimate',                           // Ritual of Pact (Ultimate)

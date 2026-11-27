@@ -3811,6 +3811,22 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       ok(off.length === 76 && !listed.some(id => off.includes(id)) && listed.length > 50 && ['consume.1.a', 'player.box.present.money.43', 'hero.item.Lugui_Wine', 'player.item.stoneoffinding'].every(id => off.includes(id))
         && speaker.data.ok < 0 && !pw.items['consume.1.a'],
         `the shop leaves out the ${off.length} items Fox hid (Speakers, Rituals of Pact, Truce Agreements, holiday chests...) and won't sell them; ${listed.length} are listed`);
+      {
+        // The hero recruitment items (Fox, Nov 27 2026): sold at rules.webShop.prices (the client's table has them at
+        // 0), all but the Legendary Ring (hidden) and the Epic Hero item (unpriced); a helm bought gives its hero.
+        const HERO = ['player.box.hero.rg', 'player.box.hero.a', 'player.box.hero.b', 'player.box.hero.c', 'player.box.hero.f', 'player.box.hero.d', 'player.box.hero.e', 'player.box.hero.king', 'player.box.hero.queen'];
+        const wares = Object.fromEntries(cat.data.tabs.flatMap(x => x.items).map(x => [x.id, x])), rate = srv.game.rules.webShop.goldPerCoin;
+        const G = srv.game, rg = wares['player.box.hero.rg'];
+        G.logic.settle(home, pw, Date.now()); home.res.gold = rg.price; pw.boundGold = 0;
+        if (!G.heroes.vacancies(home)){ const plot = [...Array(40).keys()].map(i => i + 1).find(i => !home.buildings[i]); home.buildings[plot] = { typeId: 27, level: 5, status: 0, startTime: 0, endTime: 0 }; }
+        const hall = G.heroes.vacancies(home), before = G.heroes.list(home).length;
+        const bought = await call2('shop.buyPooled', { itemId: 'player.box.hero.rg', amount: 1 });
+        const used = hall ? G.itemUse.use(pw, home, 'player.box.hero.rg', Date.now()) : null;
+        const king = wares['player.box.hero.king'];
+        ok(HERO.every(id => wares[id] && wares[id].price === srv.game.rules.webShop.prices[id] * rate) && !wares['hero.gen.npc2'] && !wares['player.box.hero.npc']
+          && bought.data.ok === 1 && (!hall || (!Array.isArray(used) && G.heroes.list(home).length === before + 1)) && /101/.test(king.desc) && king.name === 'Gold Helm of King' && wares['player.box.hero.queen'].name === 'Gold Helm of Queen',
+          `the shop sells the 9 hero recruitment items (Royal Guard ${rg.price.toLocaleString('en-US')} gold ... Gold Helm of King ${king.price.toLocaleString('en-US')}), not the Legendary Ring or the Epic Hero item; a Royal Guard bought gives its hero${hall ? '' : ' (no Feasting Hall room to try it)'}`);
+      }
       const order = await call2('common.setCityOrder', { order: String(home.id) }), wrong = await call2('common.setCityOrder', { order: '1,2' });
       ok(order.data.ok === 1 && order.data.cityOrder === String(home.id) && wrong.data.ok < 0, 'the city order takes only the lord\'s own cities');
       ws2.close();
