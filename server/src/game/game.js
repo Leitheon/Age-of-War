@@ -239,6 +239,8 @@ class Game {
     // ... and wild ones still waiting in NPC cities.
     for (const st of Object.values(this.db.hh || {})) if (st?.alloc && this.hh.topUp(st.alloc)) this.store.touch?.();
     this.db.armies = this.db.armies || {}; this.db.npc = this.db.npc || {};
+    // 0.1.68: a Historic City a teleporter had moved goes back to its spot.
+    this.returnMovedHistoric();
     // A city that a Historic City now occupies would hide it; move nothing, just warn.
     for (const c of Object.values(this.db.castles)) if (world.historicAt(c.fieldId)) this.log.warn(`${c.name} sits on a Historic City tile (${world.xy(c.fieldId).x},${world.xy(c.fieldId).y}).`);
   }
@@ -362,6 +364,31 @@ class Game {
     else { level = Math.max(1, Math.min(10, c.flatLevel || world.naturalTile(this.db.seed, id, c.createdAt || now).level || 1)); this.db.tiles[id] = { type: world.T.NPC, level }; }
     this.store.touch();
     return { level };
+  }
+  // A Historic City never moves (handlers/city.js, 0.1.68), but before that a teleporter could move a lord's: each one
+  // away from a Historic City's spot goes back to one, the Historic City of its name or else the nearest of its size
+  // that no lord holds (the NPCs that took the spot again are gone), and the spot it leaves is as the map has it.
+  // Returns the cities put back.
+  returnMovedHistoric(){
+    const back = [], fold = s => String(s || '').replace(/^﻿/, '').trim().toLowerCase();
+    for (const c of Object.values(this.db.castles)){
+      if ((c.powerLevel ?? 4) >= 4 || world.historicAt(c.fieldId)) continue;
+      const held = new Set(Object.values(this.db.castles).map(o => o.fieldId)), at = world.xy(c.fieldId);
+      const dist = id => { const b = world.xy(id); return Math.hypot(b.x - at.x, b.y - at.y); };
+      const free = [...world.historicEntries()].filter(([id, h]) => h.powerLevel === c.powerLevel && !held.has(id)).sort((a, b) => dist(a[0]) - dist(b[0]));
+      const home = free.find(([, h]) => fold(h.name) === fold(c.name)) || free[0];
+      if (!home){ this.log.warn(`${c.name} (${at.x},${at.y}) is a Historic City away from its spot, and no free spot of its size is left to put it back on`); continue; }
+      const [to, h] = home, from = c.fieldId;
+      if (world.naturalTile(this.db.seed, from).type === world.T.FLAT) delete this.db.tiles[from];
+      else this.db.tiles[from] = { type: world.T.FLAT, level: c.flatLevel || 1 };
+      delete this.db.npc?.[to];
+      this.db.tiles[to] = { type: world.T.CASTLE, level: 1, castleId: c.id, playerId: c.playerId };
+      c.fieldId = to;
+      this.store.touch?.();
+      back.push(c);
+      this.log.info(`${c.name}, a Historic City a teleporter had moved to (${at.x},${at.y}), is back on ${String(h.name).trim()}'s spot (${h.x},${h.y})`);
+    }
+    return back;
   }
   // A city of p's that is out of food and eating more than it grows, or null.
   hungryCity(p, now = this.now()){

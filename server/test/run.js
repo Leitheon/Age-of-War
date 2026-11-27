@@ -1314,6 +1314,24 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const leftTile = world.tileAt(srv.store, npcSpot);
       ok(ontoFlat.ok < 0 && /barbarian city/.test(ontoFlat.errorMsg) && war.ok === 1 && landed && back2.ok === 1 && leftTile.type === world.T.FLAT,
         'a War Teleporter lands on a barbarian city, which is gone (Fox), and refuses anything else');
+      // A Historic City never moves (Fox, Nov 27 2026), whatever the teleporter, and keeps the item; one a teleporter
+      // had moved before 0.1.68 goes back onto a free Historic City spot of its size at startup.
+      {
+        const was = city.powerLevel, at = city.fieldId, items0 = ['player.more.castle.1.a', 'consume.move.1', 'player.more.castle.1.c'].map(id => (give(id), me.items[id]));
+        city.powerLevel = 2;   // (as if this city were a level 14 Historic City a lord holds)
+        const tries = [await c.call('city.advMoveCastle', { castleId: castle.id, targetId: oldField }), await c.call('city.moveCastle', { castleId: castle.id, zoneId: -1 }),
+          await c.call('city.WarMoveCastle', { castleId: castle.id, targetId: oldField })];
+        const kept = ['player.more.castle.1.a', 'consume.move.1', 'player.more.castle.1.c'].every((id, i) => me.items[id] === items0[i]);
+        ok(tries.every(r => r.ok < 0 && /Historic City/.test(r.errorMsg)) && city.fieldId === at && kept,
+          `a Historic City can't be teleported, by any teleporter, and the item is kept ("${tries[0].errorMsg}")`);
+        const put = G.returnMovedHistoric(), hc = world.historicAt(city.fieldId);
+        ok(put.includes(city) && hc && hc.powerLevel === 2 && srv.store.db.tiles[city.fieldId]?.castleId === city.id && !srv.store.db.tiles[at],
+          `a Historic City moved before goes back onto a Historic City's spot of its size at startup (${hc ? `${String(hc.name).trim()}, ${hc.x},${hc.y}` : 'none'}), and its old spot is a flat again`);
+        // (and back as it was, for the checks after)
+        delete srv.store.db.tiles[city.fieldId]; srv.store.db.tiles[at] = { type: world.T.CASTLE, level: 1, castleId: city.id, playerId: me.id };
+        city.fieldId = at; if (was === undefined) delete city.powerLevel; else city.powerLevel = was;
+        for (const id of ['player.more.castle.1.a', 'consume.move.1', 'player.more.castle.1.c']) me.items[id] -= 1;
+      }
 
       // Wheel of Fortune.
       give('player.box.gambling.3', 1);

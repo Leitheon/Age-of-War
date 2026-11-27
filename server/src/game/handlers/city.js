@@ -27,6 +27,9 @@ module.exports = (game, H) => {
   // Move the city to `to`. Valleys are given up (as on the live game) and armies must be home.
   const move = (c, to, onBarbarian = false) => {
     const p = game.playerOf(c), rules = game.rules.teleport || {};
+    // A Historic City stays where it stands, whoever holds it (Fox, Nov 27 2026: "Historic Cities should not be able
+    // to move. Ever. They are in fixed locations."). A lord's own city on a Historic City's spot can still move off it.
+    if ((c.powerLevel ?? 4) < 4) return [-13, `${c.name} is a Historic City: it stays where it stands and can't be teleported.`];
     if (to === c.fieldId) return [-13, 'Your city is already there.'];
     const err = onBarbarian ? barbarianError(to) : landError(to); if (err) return [-13, err];
     if (rules.needArmiesHome !== false){

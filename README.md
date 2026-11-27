@@ -143,6 +143,9 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   (attack, scout, transport) but never to reinforce or found another city, be dismissed or be captured; another lord
   taking the city takes him as he is, and a city given up has him rule it again. The website's Heroes page shows where.
 - **Be an Evonian**: the quest window has its Add to favorites button.
+- **Historic Cities never move**: no teleporter (Adv City, City, War or Pioneer Express) moves a Historic City a lord
+  holds, and the item is kept. One a teleporter had moved before goes back to its spot when the server starts (the
+  Historic City of its name, or else the nearest free one of its size).
 - **Battles as on CC2** (Fox's 24 live tests, Nov 26 2026): a defending city's Scouts stay inside
   (`rules.battle.scoutsStay`), so attackers meet its Cavalry, in the live number of rounds; traps don't go off against
   siege troops or Transporters; between two lords 20% of the attacker's losses and 40% of the defender's come back
