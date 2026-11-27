@@ -119,6 +119,9 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   full contents list, Speech Text, Civil Code, the Dream Truce (starts now), the Truce Agreement (no password check),
   the Pioneer Express Teleport and the Christmas Gift's healing and training bonuses work, and holiday treats whose
   descriptions say what they do but not how much get a day of it (`rules.eventItemBuffs`).
+- **Each Barracks trains what its own level allows**: a level 1 Barracks in a city with a level 10 one trains only
+  what level 1 allows (it trained every kind); its window shows the rest with their requirement. An order spread over
+  the barracks goes only to those high enough to train it.
 - **Hero recruitment items in the shop** (`rules.webShop.prices`): Royal Guard, Leather Helm of Robinhood, Chain Helm of
   Beowulf, Plate Helm of Lancelot, Ardee's Sigil of Recruitment, Holy Helm of Mars, Crystal of Attunement and the Gold
   Helm of King and of Queen, from 100,000 to 2,000,000 gold (live gave them only from the Wheel of Fortune, so the

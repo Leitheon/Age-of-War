@@ -14,10 +14,13 @@ const MECHANICS = new Set([8, 11, 12, 13]);
 class TroopLogic {
   constructor(data, rules, castleLogic){ this.data = data; this.rules = rules; this.castle = castleLogic; this.speed = castleLogic.speed; }
 
-  deps(c, p, list){
-    const buildings = [], techs = [];
+  // pos: the barracks the troops would be trained in. Each barracks trains only what its own level allows (Fox,
+  // Nov 27 2026: a level 1 Barracks trained every kind because the city had a level 10 one); without pos, the city's
+  // highest (what the city could train somewhere).
+  deps(c, p, list, pos = 0){
+    const buildings = [], techs = [], at = pos && c.buildings[pos]?.typeId === TYPE.BARRACKS ? c.buildings[pos].level : null;
     for (const [kind, id, level] of list || []){
-      if (kind === 'b'){ const cur = this.castle.level(c, id); buildings.push({ typeId: id, level, curLevel: cur, successFlag: cur >= level }); }
+      if (kind === 'b'){ const cur = id === TYPE.BARRACKS && at != null ? at : this.castle.level(c, id); buildings.push({ typeId: id, level, curLevel: cur, successFlag: cur >= level }); }
       else { const cur = this.castle.techLevel(p, id); techs.push({ id, level, curLevel: cur, successFlag: cur >= level }); }
     }
     return { buildings, techs };
@@ -40,17 +43,17 @@ class TroopLogic {
     const item = this.castle.hooks?.trainBonus?.(p, Date.now()) || 0;   // (Christmas Gift: +10% speed)
     return t.time / this.speed * science * mayor / (1 + barracksBonus + item);
   }
-  condition(c, p, typeId, num = 1){
+  condition(c, p, typeId, num = 1, pos = 0){
     const t = this.data.troops[typeId];
-    const { buildings, techs } = this.deps(c, p, this.rules.troopUnlock[typeId]);
+    const { buildings, techs } = this.deps(c, p, this.rules.troopUnlock[typeId], pos);
     const cut = 1 - (this.costCut?.(p, typeId) || 0) / 100;   // the achievements' infantry, cavalry and mechanics bonuses
     return { buildings, techs, items: [], food: Math.round(t.food * cut) * num, wood: Math.round(t.wood * cut) * num, stone: Math.round(t.stone * cut) * num, iron: Math.round(t.iron * cut) * num, gold: 0,
       population: t.population * num, time: Math.max(1, Math.floor(this.unitSeconds(c, p, typeId) + 1e-9) * num), destructTime: 0 };
   }
   unlocked(cond){ return cond.buildings.every(b => b.successFlag) && cond.techs.every(t => t.successFlag); }
-  produceList(c, p){
+  produceList(c, p, pos = 0){
     return Object.keys(this.data.troops).map(Number).sort((a, b) => a - b).map(typeId => {
-      const cond = this.condition(c, p, typeId, 1);
+      const cond = this.condition(c, p, typeId, 1, pos);
       return { typeId, permition: this.unlocked(cond), conditionBean: cond };
     });
   }
@@ -70,21 +73,27 @@ class TroopLogic {
     const all = this.barracks(c);
     if (!all.length) return [-30, 'You need a Barracks to train troops.'];
     const queued = b => (this.queues(c)[b.pos] || []).length;
+    // The Barracks level this troop needs: only a barracks of that level or higher trains it.
+    const need = (this.rules.troopUnlock[typeId] || []).filter(([k, id]) => k === 'b' && id === TYPE.BARRACKS).reduce((m, [, , L]) => Math.max(m, L), 0);
     let targets;
     if (!pos){
-      targets = all.filter(b => toIdle ? queued(b) === 0 : queued(b) < this.queueLimit(c, b.pos))
+      // Spread evenly (or to the idle ones) over the barracks that can train it.
+      const able = all.filter(b => b.level >= need);
+      if (!able.length) return [-8, `Requires ${this.castle.typeName(TYPE.BARRACKS)} level ${need}.`];
+      targets = able.filter(b => toIdle ? queued(b) === 0 : queued(b) < this.queueLimit(c, b.pos))
         .sort((a, b) => queued(a) - queued(b) || a.pos - b.pos);
-      if (!targets.length) return toIdle ? [-1, 'Every Barracks is busy.'] : [-51, "Every Barracks' queue is full."];
+      if (!targets.length) return toIdle ? [-1, `Every ${this.castle.typeName(TYPE.BARRACKS)} of level ${need} or higher is busy.`] : [-51, `Every ${this.castle.typeName(TYPE.BARRACKS)} of level ${need} or higher has a full queue.`];
     } else {
       const b = c.buildings[pos];
       if (!b || b.typeId !== TYPE.BARRACKS || b.level === 0) return [-30, 'There is no Barracks there.'];
+      if (b.level < need){ const B = this.castle.typeName(TYPE.BARRACKS); return [-8, `Requires ${B} level ${need}: this ${B} is level ${b.level}. Upgrade it, or train ${this.data.troops[typeId].name} in a higher one.`]; }
       const limit = this.queueLimit(c, pos);
       if (queued({ pos }) >= limit) return [-51, `This Barracks can queue ${limit} batch${limit > 1 ? 'es' : ''}. Upgrade it to queue more.`];
       targets = [{ pos }];
     }
     // (A city holds at most TROOP_MAX of a type: 9,999,999,999. Live let a count wrap negative; not here.)
     if ((c.troops[t.field] || 0) + num > TROOP_MAX) return [-1, `A city can hold at most ${TROOP_MAX.toLocaleString('en-US')} of each troop type.`];
-    const cond = this.condition(c, p, typeId, num);
+    const cond = this.condition(c, p, typeId, num, targets[0].pos);
     const missB = cond.buildings.find(x => !x.successFlag), missT = cond.techs.find(x => !x.successFlag);
     if (missB) return [-8, `Requires ${this.castle.typeName(missB.typeId)} level ${missB.level}.`];
     if (missT) return [-9, `Requires ${this.data.techs[missT.id]?.name || 'research'} level ${missT.level}.`];

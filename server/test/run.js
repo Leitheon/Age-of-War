@@ -522,6 +522,30 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const s5 = four(); for (const i of [1, 2, 3, 4]) T.produce(s5, lord, i, 3, 5, T0); const busy = T.produce(s5, lord, 0, 3, 90, T0, true);
       ok(nums(s4) === '100 30 30 30' && busy && /busy/.test(busy[1]), `"only to idle barracks" skips the busy one (${nums(s4)}) and says so when none is idle`);
     }
+    {
+      // Each barracks trains what its own level allows (Fox, Nov 27 2026: a level 1 Barracks trained every kind because
+      // the city had a level 10 one). Catapults need Barracks 10: the level 1 one's list and orders refuse them, the
+      // level 10 one takes them, and an order shared out goes only to barracks high enough; Warriors go to both.
+      const T = srv.game.troops, lord = srv.game.createPlayer({ name: 'Drillmaster' }, { userName: 'Drillmaster' }), city = srv.game.castlesOf(lord)[0];
+      lord.techs = Object.fromEntries(Object.keys(srv.game.data.techs).map(id => [id, 10]));
+      city.buildings[41] = { typeId: 2, level: 1, status: 0, startTime: 0, endTime: 0 }; city.buildings[42] = { typeId: 2, level: 10, status: 0, startTime: 0, endTime: 0 };
+      for (const pos of Object.keys(city.buildings)) if (city.buildings[pos].typeId === 2 && ![41, 42].includes(Number(pos))) delete city.buildings[pos];
+      Object.assign(city.res, { food: 1e12, wood: 1e12, stone: 1e12, iron: 1e12 }); city.pop = 1e9;
+      const perm = pos => Object.fromEntries(T.produceList(city, lord, pos).map(x => [x.typeId, x.permition]));
+      const low = perm(41), high = perm(42), any = perm(0);
+      const inLow = T.produce(city, lord, 41, 13, 10, Date.now()), inHigh = T.produce(city, lord, 42, 13, 10, Date.now());
+      city.trainQ = {};
+      const shared = T.produce(city, lord, 0, 13, 20, Date.now()), q1 = { ...city.trainQ };
+      city.trainQ = {};
+      const warriors = T.produce(city, lord, 0, 3, 20, Date.now()), q2 = city.trainQ;
+      city.buildings[42].level = 9; city.trainQ = {};
+      const none = T.produce(city, lord, 0, 13, 20, Date.now());
+      const parts = { list: low[3] && !low[7] && !low[13] && high[13] && any[13], low: Array.isArray(inLow) && /Requires Barracks level 10: this Barracks is level 1/.test(inLow[1]), high: inHigh === null,
+        shared: shared === null && !q1[41] && q1[42]?.[0]?.num === 20, warriors: warriors === null && q2[41]?.[0]?.num === 10 && q2[42]?.[0]?.num === 10, none: Array.isArray(none) && /Requires Barracks level 10/.test(none[1]) };
+      ok(Object.values(parts).every(Boolean), 'each Barracks trains only what its own level allows: a level 1 one beside a level 10 one lists and refuses Catapults, a shared order goes only to barracks high enough'
+        + (Object.values(parts).every(Boolean) ? '' : ` (off: ${Object.keys(parts).filter(k => !parts[k]).join(', ')})`));
+      srv.game.abandonCastle?.(lord, city);
+    }
     const locked = await c.call('troop.produceTroop', { castleId: castle.id, positionId: 5, troopType: 4, num: 1, isShare: false, toIdle: false });
     ok(locked.ok < 0 && /Requires/.test(locked.errorMsg), 'locked troops are refused with the requirement');
 

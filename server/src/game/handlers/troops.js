@@ -2,7 +2,8 @@
 // Barracks: what can be trained, recruiting, the training queue and speed-ups.
 module.exports = (game, H) => {
   const { troops } = game;
-  H['troop.getTroopProduceList'] = (conn, d, cmd) => { const c = game.castleOr(conn, cmd, d.castleId); if (c) game.reply(conn, cmd, { troopList: troops.produceList(c, conn.player) }); };
+  // (positionId: the barracks whose window asks; its own level decides what it can train)
+  H['troop.getTroopProduceList'] = (conn, d, cmd) => { const c = game.castleOr(conn, cmd, d.castleId); if (c) game.reply(conn, cmd, { troopList: troops.produceList(c, conn.player, Number(d.positionId) || 0) }); };
   H['troop.getProduceQueue'] = (conn, d, cmd) => { const c = game.castleOr(conn, cmd, d.castleId); if (c) game.reply(conn, cmd, { allProduceQueue: troops.queueBeans(c) }); };
   H['troop.produceTroop'] = (conn, d, cmd) => {
     const c = game.castleOr(conn, cmd, d.castleId); if (!c) return;
