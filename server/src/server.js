@@ -15,8 +15,8 @@ const DEFAULT_CONFIG = {
   host: '127.0.0.1', httpPort: 8090, gamePort: 9443, policyPort: 843,
   assetCdn: 'http://e2.eimg.us', speed: 1, clientFile: 'client/EvonyClient1921.swf',
   dataDir: 'data', cacheDir: 'cache', logLevel: 'info', serverName: 'Age of War',
-  // The line across the top of the game screen, and the link after it (a Discord invite, say).
-  welcomeText: 'Welcome to Age of War! ', welcomeLink: '',
+  // The line across the top of the game screen, and the link after it: the server's Discord (Fox, Nov 27 2026).
+  welcomeText: 'Welcome to Age of War! Join us on Discord: ', welcomeLink: 'https://discord.gg/cdCAFYTwxZ',
 };
 
 function makeLog(level, file){

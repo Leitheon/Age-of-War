@@ -108,6 +108,13 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
     ok(swf.status === 200 && swf.body.subarray(0, 3).toString() === 'CWS', 'the client file is served');
     const home = (await get('/')).body.toString();
     ok(/\/assets\/index-[\w]+\.js/.test(home) && home.includes('/welcome.js'), 'the home page is the web client');
+    {
+      // The banner across the top: the Discord invite after the welcome line, unless config.json names another link.
+      let own = {}; try { own = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config.json'), 'utf8')); } catch (e){}
+      const want = own.welcomeLink ?? 'https://discord.gg/cdCAFYTwxZ', js = (await get('/welcome.js')).body.toString();
+      const win = {}; new Function('window', js)(win);
+      ok(win.AOW_LINK === want && typeof win.AOW_WELCOME === 'string', 'the banner at the top carries the Discord invite');
+    }
     ok((await get('/coins?user=Tester')).status === 200 && (await new Promise(r => http.get(`http://127.0.0.1:${PORTS.httpPort}/admin`, res => { res.resume(); r(res.statusCode); }))) === 401, 'the admin pages need the admin password');
 
     const c = new FakeClient(PORTS.gamePort); await c.ready();
