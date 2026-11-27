@@ -143,6 +143,21 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   (attack, scout, transport) but never to reinforce or found another city, be dismissed or be captured; another lord
   taking the city takes him as he is, and a city given up has him rule it again. The website's Heroes page shows where.
 - **Be an Evonian**: the quest window has its Add to favorites button.
+- **Security and the admin page** (`server/src/game/security.js`, `admin.js`; `rules.security`):
+  - One account per browser: each browser gets an id (the `aow_d` cookie), and a browser that already has an account
+    can't sign up another, unless you allow it on the admin page (a household's shared computer).
+  - Every sign-in records the account's address (the real one behind the Cloudflare Tunnel, from `CF-Connecting-IP`)
+    and browser. Accounts sharing a browser, or an address within 30 days, are linked on the admin page.
+  - E-mail aliases (`name+tag@`, dots in a Gmail name) count as the same address. Sign-ups are limited to 3 an address
+    a day; 10 wrong passwords in 15 minutes stop sign-ins from that address, and to that account, for 15 minutes.
+    The server's own computer is exempt.
+  - The admin page (`/admin`): an overview of what needs a look; every account; a player's sign-ins, addresses,
+    browsers, linked accounts, cities and activity; bans (an account, an address or a browser; for a time or for
+    good, with a reason the player is shown), chat mutes, freezes (no transports, reinforcements or market trades
+    with other lords), signing out, taking back resources, troops and items, password reset links and notes.
+  - The activity log (`data/activity/YYYY-MM.jsonl`): sign-ups, sign-ins, wrong passwords, refused sign-ups,
+    transports, reinforcements, market trades and policies between lords, and battles between lords. Every admin
+    action is in the audit log.
 - **Historic Cities never move**: no teleporter (Adv City, City, War or Pioneer Express) moves a Historic City a lord
   holds, and the item is kept. One a teleporter had moved before goes back to its spot when the server starts (the
   Historic City of its name, or else the nearest free one of its size).

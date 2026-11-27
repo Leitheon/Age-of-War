@@ -35,6 +35,8 @@ const { Chat } = require('./chat');
 const { Effort } = require('./effort');
 const { Stratagems } = require('./stratagems');
 const { Alliances } = require('./alliances');
+const { Security } = require('./security');
+const { AdminPage } = require('./admin');
 const { CLASS } = require('./combat');
 
 const CLIENT_VERSION = '091103_11';
@@ -126,6 +128,8 @@ class Game {
     this.items.extraBuffs = (p, now) => { const c = this.hungryCity(p, now); return [...this.effort.buffs(p, now), ...(c ? [{ typeId: 'HungerBuff', endTime: now + 86400000, descName: `Hunger: ${c.name} has run out of food. Its troops can't march without food for the road.` }] : [])]; };
     this.hungerShown = new Map();
     this.chat = new Chat(this);
+    this.security = new Security(this);   // accounts, bans, mutes, freezes, the activity and audit logs (0.1.69)
+    this.admin = new AdminPage(this);         // the admin page (/admin)
     this.effort = new Effort(this);
     this.stratagems = new Stratagems(this);
     this.alliances = new Alliances(this);
@@ -498,6 +502,9 @@ class Game {
     } else if (account.pwd !== this.pwdHash(pwd)){
       return this.fail(conn, 'server.LoginResponse', LOGIN.BAD_USER, 'Wrong password for that account.');
     }
+    const no = this.security.refusal(conn, account);   // (banned: security.js)
+    if (no) return this.fail(conn, 'server.LoginResponse', LOGIN.BAD_USER, no);
+    this.security.seen(account, conn, 'signin');
     const p = account.playerId ? this.db.players[account.playerId] : this.createPlayer(account);
     // On vacation (account.js): the client shows its Holiday window with the time left, and may call it off.
     if (this.account.vacation(p, this.now())){
@@ -690,43 +697,8 @@ class Game {
   }
   // "Get More Coins" in the client opens <addFund>&user=NAME. On this server that page is a small
   // owner's panel: add coins, or fill every city's resources. Turn it off with coinsPage: false.
-  // The admin page (/admin, behind the admin password): every account, a password reset link for one, closing
-  // or reopening one, and the debug menu for a lord. Changes need the page's token (t).
-  adminPage(query){
-    const esc = s => String(s ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
-    const when = t => t ? new Date(t).toISOString().slice(0, 16).replace('T', ' ') : '';
-    const tok = this.adminToken, ok = query.get('t') === tok;
-    const find = n => this.db.accounts[String(n || '').toLowerCase()] || null;
-    let note = '';
-    if (ok && query.get('reset')){
-      const a = find(query.get('reset'));
-      if (a){ const t = require('./handlers/auth').makeReset(this, a); const url = `${this.siteUrl()}/reset?token=${t}`;
-        note = `<p class="ok">Reset link for <b>${esc(a.name)}</b>, good for a day. Send it to the player:<br><input readonly value="${esc(url)}" style="width:100%" onclick="this.select()"></p>`;
-        this.log.info(`Admin: made a password reset link for ${a.name}`); }
-    }
-    for (const [key, ban] of [['close', true], ['reopen', false]]){
-      if (!ok || !query.get(key)) continue;
-      const a = find(query.get(key)), p = a?.playerId ? this.db.players[a.playerId] : null;
-      if (!a) continue;
-      a.closed = ban; if (p) p.banned = ban;
-      if (ban){ for (const [k, x] of Object.entries(this.db.sessions || {})) if (x.account === a.name.toLowerCase()) delete this.db.sessions[k];
-        const conn = p && this.online.get(p.id); if (conn){ conn.send('kickout', { reason: 'This account has been closed.' }); conn.close(); } }
-      this.store.touch();
-      note = `<p class="ok">${esc(a.name)} is ${ban ? 'closed: signed out, and can\'t sign in' : 'open again'}.</p>`;
-      this.log.info(`Admin: ${ban ? 'closed' : 'reopened'} ${a.name}`);
-    }
-    const rows = Object.values(this.db.accounts).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map(a => {
-      const p = a.playerId ? this.db.players[a.playerId] : null, on = p && this.online.has(p.id), u = encodeURIComponent(a.name);
-      return `<tr><td>${esc(a.name)}${on ? ' <span class="ok">●</span>' : ''}</td><td>${esc(p?.name || '')}</td><td>${esc(a.email || '')}</td><td>${when(a.createdAt)}</td><td>${when(p?.lastLoginAt)}</td>
-        <td><a class="btn" href="?t=${tok}&reset=${u}">Reset link</a>${a.closed ? `<a class="btn" href="?t=${tok}&reopen=${u}">Reopen</a>` : `<a class="btn" href="?t=${tok}&close=${u}" onclick="return confirm('Close ${esc(a.name)}?')">Close</a>`}${p ? `<a class="btn" href="/coins?user=${u}">Debug tools</a>` : ''}</td></tr>`;
-    }).join('');
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Server admin</title><style>body{font:15px Arial,sans-serif;background:#1d1a16;color:#eee;padding:30px}
-      h1{margin-top:0}input{padding:7px;border-radius:4px;border:1px solid #666;background:#2b2722;color:#eee}.ok{color:#9be29b}
-      .btn{display:inline-block;background:#b8860b;color:#111;padding:4px 9px;border-radius:4px;text-decoration:none;font-weight:bold;margin:2px 4px 2px 0;font-size:13px}
-      table{border-collapse:collapse;font-size:14px}th,td{padding:6px 12px 6px 0;text-align:left;vertical-align:middle;border-bottom:1px solid #3a342c}th{color:#e6c27a}</style></head>
-      <body><h1>Server admin</h1><p>Age of War ${esc(this.version || '?')}${this.rules.battlePrestige?.losses ? ' <span style="color:#f29b9b">(data/rules.json turns prestige losses on)</span>' : ''}</p>${note}<p>${Object.keys(this.db.accounts).length} accounts, ${this.online.size} online (●).</p>
-      <table><tr><th>User name</th><th>Lord</th><th>E-mail</th><th>Made (UTC)</th><th>Last in (UTC)</th><th></th></tr>${rows}</table></body></html>`;
-  }
+  // The admin page (/admin, behind the admin password): admin.js.
+  adminPage(query){ return this.admin.page(query); }
   coinsPage(query){
     const esc = s => String(s).replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
     const n = v => Math.floor(v).toLocaleString('en-US');

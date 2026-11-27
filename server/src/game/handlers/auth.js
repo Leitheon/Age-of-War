@@ -6,10 +6,11 @@
 // holds nothing that signs anyone in. A local server sends no e-mail: a reset request writes a one-day reset link
 // in the server window for the admin to pass on, and `node tools/reset-link.js <name>` makes one on request.
 const crypto = require('crypto');
+const { emailKey } = require('../security');
 
 const NAME = /^[A-Za-z0-9_][A-Za-z0-9_ .-]{1,14}[A-Za-z0-9_.]$/;          // 3 to 16 characters
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const DAY = 24 * 3600 * 1000;
+const DAY = 24 * 3600 * 1000, MIN15 = 15 * 60 * 1000;
 
 const sha = t => crypto.createHash('sha256').update(String(t)).digest('hex');
 const hashPwd = (pwd, salt) => crypto.scryptSync(String(pwd), salt, 32).toString('hex');
@@ -37,9 +38,13 @@ module.exports = (game, H) => {
   // Into the game as account a: the lord is made on the first sign-in. The reply carries the lord and his first city
   // (with his id and name on top too: the chat tells the lord's own lines by player.name). conn.web marks the
   // connection as this client's, which some pushes are shaped for (chat.js).
-  const enter = (conn, cmd, a, extra = {}) => {
+  // A banned account, or a banned address or browser, is refused with the reason and how long (security.js); every
+  // sign-in is recorded (how: 'signin', or 'resume' for a reload).
+  const enter = (conn, cmd, a, extra = {}, how = 'signin') => {
+    const no = game.security.refusal(conn, a);
+    if (no) return game.fail(conn, cmd, -2, no);
+    game.security.seen(a, conn, how);
     const p = a.playerId ? game.db.players[a.playerId] : game.createPlayer(a);
-    if (a.closed || p.banned) return game.fail(conn, cmd, -2, 'This account is closed.');
     conn.web = true;
     game.enter(conn, p);
     const castles = game.castlesOf(p), now = game.now();
@@ -55,26 +60,58 @@ module.exports = (game, H) => {
     return t;
   };
 
+  // Sign-ups (security.js): none from a banned address or browser, rules.security.signupsPerDay an address a day, one
+  // e-mail box an account however it's written (name+tag@, Gmail's dots), and one account a browser.
   H['auth.register'] = (conn, d, cmd) => {
+    const S = game.security, R = game.rules.security || {}, now = game.now();
     const name = String(d.username || '').trim(), email = String(d.email || '').trim().toLowerCase();
     if (!NAME.test(name)) return game.fail(conn, cmd, -11, 'User names are 3 to 16 letters, digits, spaces, dots, dashes or underscores.');
     if (!EMAIL.test(email) || email.length > 120) return game.fail(conn, cmd, -11, 'Enter a valid e-mail address.');
     const bad = pwdProblem(d.password);
     if (bad) return game.fail(conn, cmd, -11, bad);
+    const no = S.refusal(conn, null, now);
+    if (no) return game.fail(conn, cmd, -2, no);
+    const perDay = R.signupsPerDay ?? 3, ipKey = `signup:${conn.ip}`;
+    if (!conn.local && perDay > 0 && S.attempts(ipKey, DAY, now) >= perDay) return game.fail(conn, cmd, -11, 'Too many accounts have been made from your network today. Try again tomorrow.');
     if (findByName(name)) return game.fail(conn, cmd, -11, 'That user name is taken.');
-    if (Object.values(accounts()).some(a => a.email === email)) return game.fail(conn, cmd, -11, 'That e-mail address already has an account.');
-    const a = accounts()[name.toLowerCase()] = { name, email, createdAt: game.now(), playerId: null };
+    const key = emailKey(email);
+    if (Object.values(accounts()).some(a => a.email === email || (a.email && emailKey(a.email) === key))) return game.fail(conn, cmd, -11, 'That e-mail address already has an account.');
+    if (R.oneAccountPerBrowser !== false && !conn.local && conn.device && !S.db.allow['device:' + conn.device]){
+      const others = S.othersOn(conn.device);
+      if (others.length){
+        S.activity({ type: 'signup-blocked', account: name, ids: others.map(n => accounts()[n]?.playerId).filter(Boolean), ip: conn.ip, device: conn.device, others }, now);
+        game.log.info(`Sign-up of ${name} refused: this browser already has ${others.join(', ')}`);
+        return game.fail(conn, cmd, -11, 'This browser already has an account on this server. One account per player: sign in with that one.');
+      }
+    }
+    const a = accounts()[name.toLowerCase()] = { name, email, createdAt: now, playerId: null };
     setPwd(a, d.password);
+    if (!conn.local) S.attempts(ipKey, DAY, now, true);
+    S.seen(a, conn, 'signup', now);
     game.store.touch();
-    game.log.info(`New account ${name}`);
+    game.log.info(`New account ${name}${conn.local ? '' : ` from ${conn.ip}`}`);
     game.reply(conn, cmd, {});
   };
 
   // (the sign-in box takes the user name or the e-mail address)
+  // Wrong passwords: rules.security.failsPer15Min an address, and an account, in 15 minutes; after that sign-ins
+  // stop for the rest of the 15 minutes (each is in the activity log).
   H['auth.login'] = (conn, d, cmd) => {
+    const S = game.security, now = game.now(), limit = game.rules.security?.failsPer15Min ?? 10;
     const typed = String(d.username || '').trim().toLowerCase();
     const a = findByName(typed) || (typed.includes('@') ? Object.values(accounts()).find(x => x.email === typed) : null);
-    if (!a || !checkPwd(a, d.password)) return game.fail(conn, cmd, -1, 'Wrong user name or password.');
+    const ipKey = `fail:${conn.ip}`, acctKey = `failacct:${a ? a.name.toLowerCase() : typed}`;
+    if (limit > 0 && ((!conn.local && S.attempts(ipKey, MIN15, now) >= limit) || S.attempts(acctKey, MIN15, now) >= limit))
+      return game.fail(conn, cmd, -1, 'Too many wrong passwords. Try again in 15 minutes.');
+    if (!a || !checkPwd(a, d.password)){
+      if (!conn.local) S.attempts(ipKey, MIN15, now, true);
+      S.attempts(acctKey, MIN15, now, true);
+      const p = a?.playerId ? game.db.players[a.playerId] : null;
+      S.activity({ type: 'signin-fail', account: a ? a.name : typed.slice(0, 40), ids: p ? [p.id] : [], ip: conn.ip, local: conn.local || undefined, device: conn.device || undefined }, now);
+      return game.fail(conn, cmd, -1, 'Wrong user name or password.');
+    }
+    const no = S.refusal(conn, a, now);   // (no session for a banned account)
+    if (no) return game.fail(conn, cmd, -2, no);
     enter(conn, cmd, a, { sessionToken: newSession(conn, a) });
   };
 
@@ -82,7 +119,7 @@ module.exports = (game, H) => {
     const s = sessions()[sha(d.sessionToken)], a = s && findByName(s.account);
     if (!a) return game.fail(conn, cmd, -1, 'Please sign in again.');
     s.at = game.now(); conn.sessionKey = sha(d.sessionToken);
-    enter(conn, cmd, a);
+    enter(conn, cmd, a, {}, 'resume');
   };
 
   H['auth.logout'] = (conn, d, cmd) => {

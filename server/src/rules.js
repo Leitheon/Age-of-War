@@ -805,6 +805,12 @@ const DEFAULTS = {
   // an alliance you dont see a notification in world chat/system for the entire server to see. The server should also
   // see historic city captures"): an alliance setting another hostile, a Historic City taken (from the NPCs or a lord).
   announce: { allianceWar: true, historicCity: true },
+  // Accounts (security.js; Fox, Nov 27 2026: no alt accounts, and an admin page to investigate and punish):
+  // oneAccountPerBrowser: a browser that already has an account can't sign up another (the admin can allow one);
+  // signupsPerDay: sign-ups an address may make a day; failsPer15Min: wrong passwords an address, or an account, may
+  // have in 15 minutes before sign-ins stop for the rest of them (0 turns either off); linkDays: accounts that used
+  // the same address within this many days are linked on the admin page; auditMax: admin actions kept.
+  security: { oneAccountPerBrowser: true, signupsPerDay: 3, failsPer15Min: 10, linkDays: 30, auditMax: 5000 },
   // announceStar: a lord raising gear to this many stars or more is announced to everyone online and on the Newsboard
   // (Fox, Nov 25 2026: "a system message viewable to everyone logged in whenever a player gets a star level to level 11
   // or higher on gear"); 0 announces nothing.

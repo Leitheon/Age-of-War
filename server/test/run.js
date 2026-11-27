@@ -3705,6 +3705,113 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       ws2.close();
     }
     {
+      // 0.1.69: security (Fox, Nov 27 2026: no alt accounts; an admin page to investigate people and punish them).
+      const G = srv.game, S = G.security, now = () => G.now();
+      const DEV1 = 'a1'.repeat(16), DEV2 = 'b2'.repeat(16), DEV3 = 'c3'.repeat(16);
+      const fake = (ip, device, local = false) => ({ id: 'sec' + Math.random(), ip, device, ua: 'TestBrowser/1.0', local, web: true, got: [], send(cmd, d){ this.got.push({ cmd, d }); }, close(){ this.closed = true; } });
+      const call = (conn, cmd, data) => { conn.got.length = 0; G.handle(conn, cmd, data); return conn.got.find(m => m.cmd === cmd)?.d || {}; };
+      const reg = (conn, name, email) => call(conn, 'auth.register', { username: name, email, password: 'secret12' });
+      const login = (conn, name, pwd = 'secret12') => call(conn, 'auth.login', { username: name, password: pwd });
+      const c1 = fake('203.0.113.10', DEV1), c2 = fake('203.0.113.11', DEV1);
+      const r1 = reg(c1, 'SecMain', 'secmain@gmail.com'), r2 = reg(c2, 'SecAlt', 'secalt@example.test');
+      ok(r1.ok === 1 && r2.ok < 0 && /already has an account/.test(r2.errorMsg) && S.events({ types: ['signup-blocked'] }).some(e => e.account === 'SecAlt' && e.others?.includes('secmain')),
+        `a browser that already has an account can't sign up another ("${r2.errorMsg}"), and the refusal is in the activity log`);
+      S.db.allow['device:' + DEV1] = { at: now() };
+      const r3 = reg(c2, 'SecAlt', 'secalt@example.test');
+      delete S.db.allow['device:' + DEV1];
+      const local = reg(fake('127.0.0.1', DEV1, true), 'SecLocal', 'seclocal@example.test');
+      ok(r3.ok === 1 && local.ok === 1, 'a browser the admin allowed (a household) can sign up more, and so can the server\'s own computer');
+      const alias = reg(fake('203.0.113.12', DEV2), 'SecGmail', 'Sec.Main+second@googlemail.com');
+      ok(alias.ok < 0 && /e-mail address already has an account/.test(alias.errorMsg), 'e-mail aliases (a +tag, Gmail\'s dots, googlemail.com) count as the same address');
+      const many = ['SecA1', 'SecA2', 'SecA3', 'SecA4'].map((n, i) => reg(fake('198.51.100.20', 'd' + String(i).repeat(31)), n, `${n.toLowerCase()}@example.test`));
+      ok(many.slice(0, 3).every(r => r.ok === 1) && many[3].ok < 0 && /Too many accounts/.test(many[3].errorMsg), `an address can make ${G.rules.security.signupsPerDay} accounts a day ("${many[3].errorMsg}")`);
+      // Sign-ins: recorded with the address and browser; wrong passwords throttled.
+      const li = login(fake('203.0.113.10', DEV1), 'SecMain'), main = G.db.accounts.secmain;
+      ok(li.ok === 1 && main.seen.ips['203.0.113.10'] && main.seen.devices[DEV1] && S.events({ accounts: ['SecMain'], types: ['signin'] }).length >= 1,
+        'a sign-in records the account\'s address and browser, and is in the activity log');
+      const bad = fake('198.51.100.7', DEV3), tries = [];
+      for (let i = 0; i < 11; i++) tries.push(login(bad, 'SecMain', 'wrong-' + i));
+      const blocked = login(fake('198.51.100.8', DEV3), 'SecMain');
+      ok(tries.slice(0, 10).every(r => /Wrong user name/.test(r.errorMsg)) && /Too many wrong passwords/.test(tries[10].errorMsg) && /Too many wrong passwords/.test(blocked.errorMsg)
+        && S.events({ types: ['signin-fail'] }).filter(e => e.account === 'SecMain').length >= 10, 'after 10 wrong passwords in 15 minutes an address and the account are stopped, and each try is logged');
+      S.tries.clear();
+      // Bans: the account, an address, a browser; the player is told why and for how long.
+      S.ban(main, now() + 3600e3, 'Running alts');
+      const nb = login(fake('203.0.113.10', DEV1), 'SecMain');
+      S.unban(main);
+      S.banKey('ip', '203.0.113.66', null, 'Alt farm');
+      const ni = login(fake('203.0.113.66', 'e5'.repeat(16)), 'SecMain'), nl = login(fake('127.0.0.1', null, true), 'SecMain');
+      S.unbanKey('ip', '203.0.113.66');
+      S.banKey('device', DEV3, now() + 86400e3, 'Ban evasion');
+      const nd = login(fake('203.0.113.70', DEV3), 'SecMain'), ndr = reg(fake('203.0.113.71', DEV3), 'SecEvade', 'evade@example.test');
+      S.unbanKey('device', DEV3);
+      ok(nb.ok < 0 && /This account is banned until .* UTC\. Reason: Running alts/.test(nb.errorMsg) && /Your network address is banned permanently\. Reason: Alt farm/.test(ni.errorMsg) && nl.ok === 1
+        && /This browser is banned until/.test(nd.errorMsg) && /This browser is banned/.test(ndr.errorMsg) && login(fake('203.0.113.10', DEV1), 'SecMain').ok === 1,
+        `bans: an account (${nb.errorMsg}), an address (not the server's own computer), a browser (sign-ins and sign-ups); lifted, he's back in`);
+      // Mutes and freezes.
+      const mp = G.db.players[main.playerId], mc = G.castlesOf(mp)[0];
+      S.mute(mp, null, 'Spam');
+      const said = G.chat.world(mp, 'hello', 0, now()), said2 = G.chat.alliance(mp, 'hi', 0, now());
+      S.unmute(mp);
+      ok(Array.isArray(said) && /You are muted permanently\. Reason: Spam/.test(said[1]) && Array.isArray(said2) && !Array.isArray(G.chat.world(mp, 'hello again', 0, now())),
+        `a muted lord can't chat ("${said[1]}"), and can again once unmuted`);
+      const trader = Object.values(G.db.players).find(x => x.name === 'Trader');
+      S.freeze(mp, now() + 86400e3, 'Feeding');
+      const fz = S.frozenWhy(mp, trader), fz2 = trader && S.frozenWhy(trader, mp);
+      mc.buildings[31] = mc.buildings[31] || { ...mc.buildings['-1'], typeId: 23, level: 1 };
+      mc.res.gold = 1000;
+      const posted = G.market.post(mc, mp, 0, 0, 10, '1');
+      S.unfreeze(mp);
+      ok(/Your account is frozen until/.test(fz) && /can't receive transports or reinforcements/.test(fz2 || '') && Array.isArray(posted) && /frozen/.test(posted[1]) && !S.frozenWhy(mp, trader),
+        'a frozen lord can\'t send or receive transports and reinforcements, or trade on the market');
+      // Taking back.
+      mc.res.food = 5000; mp.items = mp.items || {}; mp.items['consume.1.a'] = 3;
+      const took = S.takeBack(mp, mc, { res: { food: 1200 }, items: { 'consume.1.a': 5 } });
+      ok(took.res.food === 1200 && Math.abs(mc.res.food - 3800) < 5 && took.items['consume.1.a'] === 3 && !mp.items['consume.1.a'], 'taking back removes resources and items, never more than he has');
+      // Linked accounts: SecMain and SecAlt share a browser; an allowed pair is marked and leaves the groups.
+      const links = S.links(main), alt = links.find(l => l.account.name === 'SecAlt');
+      const grouped = S.groups().some(gr => gr.names.includes('secmain') && gr.names.includes('secalt') && gr.browsers);
+      S.db.allow[S.pairKey('SecMain', 'SecAlt')] = { at: now() };
+      const after = S.groups().some(gr => gr.edges.some(e => [e.a, e.b].sort().join() === 'secalt,secmain'));
+      delete S.db.allow[S.pairKey('SecMain', 'SecAlt')];
+      ok(alt?.browsers.includes(DEV1) && grouped && !after && S.links(main).find(l => l.account.name === 'SecAlt') && !S.links(main).find(l => l.account.name === 'SecLocal' && l.addresses.length),
+        'accounts sharing a browser are linked and grouped; an allowed pair leaves the groups; the server\'s own computer links nobody by address');
+      ok(S.events({ types: ['market'] }).some(e => e.buyer === 'Trader') && S.events({ types: ['battle'] }).length > 0,
+        `trades and battles between lords are in the activity log (${S.events({ types: ['market'] }).length} trades, ${S.events({ types: ['battle'] }).length} battles)`);
+      // The admin page: the overview, a player's page, and an action (with the page's token only).
+      const home = await get('/admin'), page = await get('/admin?view=player&name=SecMain'), alts = await get('/admin?view=alts');
+      const postAdmin = fields => new Promise((resolve, reject) => {
+        const body = new URLSearchParams(fields).toString();
+        const rq = http.request({ host: '127.0.0.1', port: PORTS.httpPort, path: '/admin', method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body), Authorization: 'Basic ' + Buffer.from('admin:' + ADMIN.pw).toString('base64') } },
+          res => { const c = []; res.on('data', d => c.push(d)); res.on('end', () => resolve({ status: res.statusCode, location: res.headers.location, body: Buffer.concat(c).toString() })); });
+        rq.on('error', reject); rq.end(body);
+      });
+      const forged = await postAdmin({ t: 'wrong', action: 'ban', name: 'SecAlt', dur: '1d', reason: 'x' });
+      const acted = await postAdmin({ t: G.adminToken, action: 'ban', name: 'SecAlt', dur: '1d', reason: 'Alt of SecMain', devices: '1' });
+      const altAcc = G.db.accounts.secalt, banned = S.banOf(altAcc), devBan = S.db.bans.device[DEV1];
+      const parts = { home: home.status === 200 && /Needs a look/.test(home.body) && /same browser/.test(home.body), page: page.status === 200 && /Linked accounts/.test(page.body) && /SecAlt/.test(page.body) && /203\.0\.113\.10/.test(page.body),
+        alts: /SecAlt/.test(alts.body), forged: /expired/.test(forged.body) && forged.status === 200, acted: acted.status === 303 && /view=player/.test(acted.location || ''), banned: banned?.reason === 'Alt of SecMain' && !!devBan,
+        audit: S.db.audit.some(x => x.action === 'banned' && x.target === 'SecAlt') };
+      ok(Object.values(parts).every(Boolean),
+        'the admin page shows the overview, a player\'s addresses, browsers and linked accounts; a form with the page\'s token bans (and his browsers), one without it does nothing; the ban is in the audit log' + (Object.values(parts).every(Boolean) ? '' : ` (off: ${Object.keys(parts).filter(k => !parts[k]).join(', ')}; ${home.status} ${page.status} ${acted.status} ${String(home.body).slice(0, 200)})`));
+      S.unban(altAcc); S.unbanKey('device', DEV1);
+      // The WebSocket handshake: a browser without an id gets one; the address comes from the tunnel's header.
+      const hand = cookie => new Promise(resolve => {
+        const sk = net.connect(PORTS.httpPort, '127.0.0.1', () => sk.write(`GET /json HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${crypto.randomBytes(16).toString('base64')}\r\nSec-WebSocket-Version: 13\r\nCF-Connecting-IP: 198.51.100.99\r\n${cookie ? `Cookie: aow_d=${cookie}\r\n` : ''}\r\n`));
+        let head = '';
+        sk.on('data', d => { head += d.toString('latin1'); if (head.includes('\r\n\r\n')){
+          const set = (head.match(/Set-Cookie: aow_d=([0-9a-f]{32})/) || [])[1] || null;
+          const json = JSON.stringify({ cmd: 'auth.register', data: { username: 'SecTunnel' + (cookie ? 'B' : 'A'), email: `sectunnel${cookie ? 'b' : 'a'}@example.test`, password: 'secret12' } }), pl = Buffer.from(json), mask = crypto.randomBytes(4);
+          const frame = Buffer.concat([Buffer.from([0x81, 0x80 | pl.length]), mask, Buffer.from(pl.map((b, i) => b ^ mask[i % 4]))]);
+          sk.write(frame); setTimeout(() => { sk.destroy(); resolve(set); }, 300);
+        } });
+      });
+      const given = await hand(null), kept = await hand(given || DEV2);
+      const tunnelA = G.db.accounts.sectunnela, tunnelB = G.db.accounts.sectunnelb;
+      ok(/^[0-9a-f]{32}$/.test(given || '') && kept === null && tunnelA?.seen?.ips['198.51.100.99'] && tunnelA.seen.devices[given] && !tunnelB,
+        'the game\'s WebSocket gives a browser without one its id (Set-Cookie), the address comes from the Cloudflare Tunnel\'s header, and the same browser can\'t sign up a second account');
+    }
+    {
       // Age of War: the web client's chat. It shows only what the server sends, its own lines included.
       const open = async () => {
         const ws = new WebSocket(`ws://127.0.0.1:${PORTS.httpPort}/json`), waiting = new Map(), pushes = [];

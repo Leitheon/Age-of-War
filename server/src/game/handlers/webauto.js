@@ -200,9 +200,10 @@ module.exports = (game, H) => {
   game.webTick = now => {
     if (now >= last && now - last < (Number(cfg().tickMs) || 5000)) return;   // (and if the clock went back, carry on)
     last = now;
+    const banned = game.security.bannedIds(now);   // (a banned lord's cities don't train or attack on their own)
     for (const c of Object.values(game.db.castles)){
       const p = game.db.players[c.playerId];
-      if (!p || p.banned) continue;
+      if (!p || banned.has(p.id)) continue;
       try { trainTick(c, p, now); attackTick(c, p, now); }
       catch (e){ game.log.error(`automation in ${c.name}: ${e.stack || e.message}`); }
     }

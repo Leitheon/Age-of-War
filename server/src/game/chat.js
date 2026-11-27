@@ -63,6 +63,13 @@ class Chat {
     if (where !== 'world') this.g.push(conn.player.id, 'server.AllianceChatMsg', line);
   }
   muted(p, now = this.g.now()){ return (p.mutedUntil || 0) > now ? p.mutedUntil : 0; }
+  // Why p can't talk, or null: the admin's mute (security.js: for a time or for good, with a reason), or the Governor's.
+  mutedWhy(p, now = this.g.now()){
+    const S = this.g.security, m = S?.muteOf(p, now);
+    if (m) return `You are muted ${S.span(m)}${m.reason ? `. Reason: ${m.reason}` : '.'}`;
+    const until = this.muted(p, now);
+    return until ? `You have been muted for ${Math.ceil((until - now) / 60000)} more minutes.` : null;
+  }
   // A lord by the name the chat shows (the Governor's carries "Governor "/"Governess " in front).
   byName(name){
     const m = this.g.mail;
@@ -70,8 +77,7 @@ class Chat {
   }
   // Why p can't talk in the World or Beginners' channel, or null; takes the Speaker when he can.
   speak(p, channel, now){
-    const until = this.muted(p, now);
-    if (until) return [-1, `You have been muted for ${Math.ceil((until - now) / 60000)} more minutes.`];
+    const mw = this.mutedWhy(p, now); if (mw) return [-1, mw];
     if (this.web(p.id) && this.rules.webFree !== false) return null;
     if (channel === 'world' && this.g.war.beginner(p, now) && this.rules.beginnersInWorld !== true) return [-1, "You cannot speak in world chat until the Beginner's Protection expires."];
     if (this.g.fame.isGovernor(p, now) || this.rules.speakers === false) return null;
@@ -104,7 +110,7 @@ class Chat {
   alliance(p, msg, lang, now){
     const a = this.g.alliances.of(p); if (!a) return [-1, 'You are not in an alliance.'];
     const text = this.clean(msg); if (!text) return [-1, 'You cannot send a blank message.'];
-    const until = this.muted(p, now); if (until) return [-1, `You have been muted for ${Math.ceil((until - now) / 60000)} more minutes.`];
+    const mw = this.mutedWhy(p, now); if (mw) return [-1, mw];
     const line = { fromUser: this.g.fame.chatName(p), msg: text, languageType: Number(lang) || 0, ownitemid: this.badge(p, now) };
     const ids = a.members.filter(id => id === p.id || (this.g.online.has(id) && !this.g.friends.blocked(this.g.db.players[id], p)));
     this.deliver(ids, p.id, ['server.AllianceChatMsg', line], ['server.AllianceChatMsg', { ...line, time: now }]);
@@ -117,7 +123,7 @@ class Chat {
     if (!to) return [-3, `There is no lord called ${String(name || '').trim()}.`];
     if (to.id === p.id) return [-1, 'Unable talk to yourself'];
     const text = this.clean(msg); if (!text) return [-1, 'You cannot send a blank message.'];
-    const until = this.muted(p, now); if (until) return [-1, `You have been muted for ${Math.ceil((until - now) / 60000)} more minutes.`];
+    const mw = this.mutedWhy(p, now); if (mw) return [-1, mw];
     if (!this.g.online.has(to.id)) return [-3, `${to.name} is not online. Send a letter instead.`];
     const line = { fromUser: p.name, msg: text, chatType: 0, ownitemid: this.badge(p, now) };
     const ids = this.g.friends.blocked(to, p) ? [p.id] : [to.id, p.id];   // (on his blocklist: it never reaches him)

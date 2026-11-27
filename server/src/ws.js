@@ -7,6 +7,7 @@
 //   /json the new JavaScript client (/play): the same {cmd, data} messages as the Flash client's AMF3, one JSON text
 //         frame each, handled by the same game code (JsonConnection stands in for net.js's Connection).
 const crypto = require('crypto');
+const { clientOf, newDevice, deviceCookie } = require('./game/security');
 const net = require('net');
 
 const GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
@@ -76,9 +77,14 @@ function attachSocketBridge(httpSrv, host, port, log, json = null){
       sock.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n'); return;
     }
     const accept = crypto.createHash('sha1').update(key + GUID).digest('base64');
-    sock.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + accept + '\r\n\r\n');
+    // A /json client: who it is (its address, through the Cloudflare Tunnel too, and its browser), and a browser id
+    // for a browser that has none yet, set on this handshake (security.js).
+    const who = isJson ? clientOf(req, req.socket?.remoteAddress || sock.remoteAddress) : null;
+    let cookie = '';
+    if (who && !who.device){ who.device = newDevice(); cookie = 'Set-Cookie: ' + deviceCookie(who.device, who.https) + '\r\n'; }
+    sock.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + accept + '\r\n' + cookie + '\r\n');
     sock.setNoDelay(true);
-    if (isJson) return jsonSocket(sock, first, req, log, json);
+    if (isJson) return jsonSocket(sock, first, req, log, json, who);
     // (Live mode: to the official server, directly or through a proxy, upstream.js.)
     const game = json?.upstream ? json.upstream.open() : net.connect(port, host);
     game.setNoDelay(true);
@@ -116,11 +122,13 @@ function attachSocketBridge(httpSrv, host, port, log, json = null){
 }
 
 // A /json client: JSON {cmd, data} text frames to and from the game.
-function jsonSocket(sock, first, req, log, json){
-  const conn = new JsonConnection(sock, req.socket?.remoteAddress || sock.remoteAddress, json.onMessage, json.onClose, log, json.perf);
+function jsonSocket(sock, first, req, log, json, who = clientOf(req, req.socket?.remoteAddress || sock.remoteAddress)){
+  const conn = new JsonConnection(sock, who.ip, json.onMessage, json.onClose, log, json.perf);
+  conn.local = who.local; conn.device = who.device; conn.ua = who.ua;
   let buf = Buffer.alloc(0);
   const close = () => { if (!sock.destroyed) try { sock.end(frame(0x8, Buffer.alloc(0))); } catch (e){} conn.closed_(); };
   sock.on('close', () => conn.closed_()); sock.on('error', close);
+  sock.on('end', close);   // (a browser gone without a close frame: the http server keeps half-open sockets, so end ours)
   const onData = d => {
     buf = buf.length ? Buffer.concat([buf, d]) : d;
     if (buf.length > MAX_BUFFER){ close(); return; }

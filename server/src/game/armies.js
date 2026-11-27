@@ -139,6 +139,9 @@ class ArmyLogic {
       // Send to another lord's city only reinforces a colonization of it (the troops stay there with the
       // colonizing army until the Stabilization battle).
       const dest = this.db.castles[tile.castleId];
+      // A frozen lord (security.js) neither sends nor receives transports and reinforcements from other lords.
+      const to = dest && dest.playerId !== p.id ? this.db.players[dest.playerId] : null;
+      if (to){ const fz = g.security.frozenWhy(p, to, now); if (fz) return [-13, fz]; }
       // Or stations them in an ally's city (allied troops: the Embassy).
       if (mission === MISSION.SEND && dest?.playerId !== p.id && !(dest && g.colonies.canReinforce(p, dest))){ const why = this.cantStation(p, dest); if (why) return why; }
     }
@@ -296,6 +299,8 @@ class ArmyLogic {
     const g = this.g;
     Object.assign(a, { direction: DIR.STAY, stationedAt: dc.id, startTime: now, reachTime: now });
     const what = Object.entries(a.carry || {}).filter(([, v]) => v > 0);
+    g.security.activity({ type: 'reinforce', ids: [p.id, host.id], from: p.name, fromCity: this.db.castles[a.castleId]?.name, to: host.name, toCity: dc.name, toCityId: dc.id, at: here,
+      troops: Object.fromEntries(Object.entries(a.troops || {}).filter(([, v]) => v > 0)), res: Object.fromEntries(what) }, now);
     if (what.length){ g.logic.settle(dc, host, now); for (const [k, v] of what) dc.res[k] += v; a.carry = {}; g.pushResources(dc); }
     const until = 'They stay until you call them back (the city feeds them meanwhile).';
     report(p, { type: REPORT_TYPE.OTHER, title: `Your troops are stationed in ${here}`, content: `Your troops arrived in ${dc.name} to help ${host.name} defend it. ${until}` });
@@ -381,14 +386,24 @@ class ArmyLogic {
       if (dest && a.mission === MISSION.SEND && dest.playerId !== p.id){
         // Reinforcing a colonization: the troops (and what they carry) stay with the stationed army.
         if (g.colonies.reinforce(a, p, dest, now)){ if (g.rules.reports?.reinforcements !== false) report(p, { type: REPORT_TYPE.OTHER, title: `Reinforcements joined the colonizing army at ${here}`, content: '' }); return; }
-        const host = this.db.players[dest.playerId], ally = g.alliances.same(p, host), why = ally ? this.cantStation(p, dest, a) : null;
+        const host = this.db.players[dest.playerId], ally = g.alliances.same(p, host), frozen = g.security.frozenWhy(p, host, now);
+        const why = frozen ? [-13, frozen] : ally ? this.cantStation(p, dest, a) : null;
         if (ally && !why){ this.station(a, p, dest, host, here, report, now); return; }
         report(p, { type: REPORT_TYPE.OTHER, title: `Reinforcements couldn't stay at ${here}`, content: why ? `${why[1]} Your troops are heading home.` : `The colonization of ${dest.name} is over. Your troops are heading home.` });
         Object.assign(a, { direction: DIR.BACK, startTime: now, reachTime: now + a.oneWay });
         return;
       }
+      const owner = dest && dest.playerId !== p.id ? this.db.players[dest.playerId] : null;
+      const frozen = owner ? g.security.frozenWhy(p, owner, now) : null;
+      if (frozen){
+        report(p, { type: REPORT_TYPE.OTHER, title: `Transport couldn't be delivered to ${here}`, content: `${frozen} Your transport is heading home with its load.` });
+        Object.assign(a, { direction: DIR.BACK, startTime: now, reachTime: now + a.oneWay });
+        return;
+      }
       if (dest){
         g.logic.settle(dest, this.db.players[dest.playerId], now);
+        if (owner) g.security.activity({ type: 'transport', ids: [p.id, owner.id], from: p.name, fromCity: c?.name, to: owner.name, toCity: dest.name, toCityId: dest.id, at: here,
+          res: Object.fromEntries(Object.entries(a.carry || {}).filter(([, v]) => v > 0)) }, now);
         for (const [k, v] of Object.entries(a.carry || {})) dest.res[k] += v;
         const what = Object.entries(a.carry || {}).map(([k, v]) => `${v.toLocaleString('en-US')} ${k === 'wood' ? 'lumber' : k}`).join(', ') || 'no resources';
         if (a.mission === MISSION.SEND && dest.playerId === p.id){
@@ -751,6 +766,7 @@ class ArmyLogic {
     }
     if (guests.length) g.pushFriends(dp);
     if (dp) report(dp, { type: REPORT_TYPE.ARMY, attack: false, title: (out ? theirs + ': ' : '') + (won ? `${p.name} conquered ${dc.name}` : parked ? `${p.name} is colonizing ${dc.name}` : colony ? `${p.name} suppressed ${dc.name}'s uprising` : heroSeized ? `${p.name} attacked ${dc.name}; you captured ${hero.name}` : `${p.name} attacked ${dc.name}`), content: battleXml({ ...body, injuredPer: defInjuredPer, autoHeal: this.healXml(defHeal, dc), isAttack: false, won: r.attackerWon, back: null, honor: hon?.def }) });
+    if (dp) this.logBattle(a.mission === MISSION.COLONIZE ? 'colonize' : 'attack', p, c, dp, dc, r, before, { loot: loot || undefined, conquered: won ? true : undefined }, now);
     g.log.info(`${p.name} attacked ${here}: ${r.attackerWon ? 'won' : 'lost'} in ${r.round} round${r.round > 1 ? 's' : ''}${loot ? `, loot ${Object.values(loot).reduce((x, y) => x + y, 0)}` : ''}${captured ? ', valley taken' : ''}${conquest ? `, loyalty ${conquest.loyalty}` : ''}${found.length ? `, found ${foundText}` : ''}`);
     // Live (Fox): a lost attack doesn't march home; what is left of the army is home at once (arrive()).
     if (!r.attackerWon) a.lost = true;
@@ -833,12 +849,20 @@ class ArmyLogic {
       attacker: { king: p.name, hero, pos: home ? this.placeName(home.fieldId) : '', units: units(r.att) },
       defender: { king: dp.name, hero: defHero, pos: this.placeName(dc.fieldId), units: units(r.def) }, loot: null, back: null };
     g.log.info(`${p.name} fought at ${this.placeName(dc.fieldId)}: ${r.attackerWon ? 'won' : 'lost'} in ${r.round} round${r.round > 1 ? 's' : ''}`);
+    this.logBattle('colony', p, home, dp, dc, r, before, {}, now);
     const honor = this.honor(p, dp, r.def, r.att, r.attackerWon);
     const pLoss = r.attackerWon ? 0 : this.lostPrestige(p, this.dead(lostOf(before, left), p, home, now, attBase));
     const dLoss = r.attackerWon ? this.lostPrestige(dp, this.dead(lostOf(defBefore, r.defLeft), dp, dc, now, defBase)) : 0;
     if (pLoss){ p.prestige = Math.max(0, (p.prestige || 0) - pLoss); g.pushPlayerInfo(p); }
     if (dLoss){ dp.prestige = Math.max(0, (dp.prestige || 0) - dLoss); g.pushPlayerInfo(dp); }
     return { won: r.attackerWon, left, body, attHeal, defHeal, honor, injuredPer: this.injuredPer(true, 'attack'), defInjuredPer: this.injuredPer(true, 'defence') };
+  }
+  // A battle between two lords, in the activity log (security.js): who attacked whom, what each lost, the loot.
+  logBattle(kind, p, home, dp, dc, r, sent, extra = {}, now = this.g.now()){
+    const lost = rows => Object.fromEntries((rows || []).filter(u => u.lose > 0).map(u => [u.field, u.lose]));
+    this.g.security.activity({ type: 'battle', kind, ids: [p.id, dp.id], attacker: p.name, attackerCity: home?.name, defender: dp.name, defenderCity: dc?.name,
+      defenderCityId: dc?.id, at: dc ? this.placeName(dc.fieldId) : undefined, won: !!r.attackerWon, rounds: r.round,
+      sent: Object.fromEntries(Object.entries(sent || {}).filter(([, n]) => n > 0)), attLost: lost(r.att), defLost: lost(r.def), ...extra }, now);
   }
   // ---------- wounded troops (rules.wounded) ----------
   // The wounded resting in a city's Rally Spot, after the ones left too long have died.

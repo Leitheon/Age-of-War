@@ -6,6 +6,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
+const { clientOf, newDevice, deviceCookie } = require('./game/security');
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.xml': 'text/xml; charset=utf-8', '.swf': 'application/x-shockwave-flash', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.js': 'text/javascript', '.css': 'text/css', '.txt': 'text/plain', '.mp3': 'audio/mpeg', '.json': 'application/json', '.wasm': 'application/wasm', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.map': 'application/json' };
 const typeOf = p => TYPES[path.extname(p).toLowerCase()] || 'application/octet-stream';
@@ -146,7 +147,9 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
   const send = (res, code, body, type) => { res.writeHead(code, { 'Content-Type': type, 'Content-Length': Buffer.byteLength(body), 'Cache-Control': 'no-cache' }); res.end(body); };
   // (the client's /assets/ files have the build's hash in their names, so they never change; art changes rarely)
   const cacheFor = file => file.includes(path.sep + 'assets' + path.sep) ? 'public, max-age=31536000, immutable' : file.startsWith(artDir + path.sep) ? 'public, max-age=86400' : 'no-cache';
-  const sendFile = (res, file) => fs.readFile(file, (e, b) => e ? send(res, 404, 'Not found', 'text/plain') : (res.writeHead(200, { 'Content-Type': typeOf(file), 'Content-Length': b.length, 'Cache-Control': cacheFor(file) }), res.end(b)));
+  const sendFile = (res, file, extra = {}) => fs.readFile(file, (e, b) => e ? send(res, 404, 'Not found', 'text/plain') : (res.writeHead(200, { 'Content-Type': typeOf(file), 'Content-Length': b.length, 'Cache-Control': cacheFor(file), ...extra }), res.end(b)));
+  // The game page gives a browser without one its browser id (security.js; the WebSocket handshake does too).
+  const withDevice = req => { const who = clientOf(req, req.socket?.remoteAddress); return who.device ? {} : { 'Set-Cookie': deviceCookie(newDevice(), who.https) }; };
   // Historic heroes' portraits, images/icon/hero/N.png (Fox, Nov 2026: "the original Evony portraits whenever
   // possible, and the DoA portraits as backup"): Evony's own from the cache, else from the Evony art server (kept in
   // the cache); else DoA's (art/flash/images/icon/hero/, art/heroes/N.png, the only ones the heroes DoA added have);
@@ -250,9 +253,16 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
     try { const u = new URL(req.url, 'http://x'); p = decodeURIComponent(u.pathname); query = u.searchParams; } catch (e){ return send(res, 400, 'Bad path', 'text/plain'); }
     // Flex's HTTPService turns a GET with an XML content type into a POST, so RoboEvony POSTs for config.xml.
     if (p === '/config.xml' && req.method === 'POST'){ req.resume(); return send(res, 200, botConfig(cfg, req.headers.host), TYPES['.xml']); }
-    if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed', 'text/plain');
+    // The admin page's forms (its actions) come as POSTs: their fields join the query, with _post set.
+    if (req.method === 'POST' && ADMIN_PAGES.has(p)){
+      if (!adminOk(cfg, req)){ req.resume(); res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Server admin", charset="UTF-8"', 'Content-Type': 'text/plain' }); return res.end('Admin password needed.'); }
+      const body = await new Promise(done => { let b = ''; req.setEncoding('utf8'); req.on('data', d => { b += d; if (b.length > 200000){ b = null; req.destroy(); } }); req.on('end', () => done(b)); req.on('error', () => done(null)); });
+      if (body == null) return send(res, 413, 'Too much.', 'text/plain');
+      for (const [k, v] of new URLSearchParams(body)) query.set(k, v);
+      query.set('_post', '1');
+    } else if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed', 'text/plain');
     // The game. /reset?token=... is the password reset form, which the client draws from the same page.
-    if (p === '/' || p === '/index.html' || p === '/reset' || p === '/reset/') return sendFile(res, path.join(pub, 'index.html'));
+    if (p === '/' || p === '/index.html' || p === '/reset' || p === '/reset/') return sendFile(res, path.join(pub, 'index.html'), withDevice(req));
     // The new JavaScript client (client-js, built into public/play): no Flash needed.
     if (p === '/play' || p === '/play/') return fs.existsSync(path.join(pub, 'play', 'index.html')) ? sendFile(res, path.join(pub, 'play', 'index.html'))
       : send(res, 404, 'The new client is not built yet (public/play is missing).', 'text/plain');
@@ -262,7 +272,7 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
       return res.end(cfg.adminPassword ? 'The admin password is in config.json (adminPassword); the user name is admin.' : 'Set adminPassword in config.json first.');
     }
     // (a page returns its HTML, or { body, type })
-    if (pages[p]){ try { const r = pages[p](query); return typeof r === 'string' ? send(res, 200, r, TYPES['.html']) : send(res, 200, r.body, r.type); } catch (e){ log.error(`${p}: ${e.message}`); return send(res, 500, 'Server error', 'text/plain'); } }
+    if (pages[p]){ try { const r = pages[p](query); if (r?.redirect){ res.writeHead(303, { Location: r.redirect, 'Cache-Control': 'no-cache' }); return res.end(); } return typeof r === 'string' ? send(res, 200, r, TYPES['.html']) : send(res, 200, r.body, r.type); } catch (e){ log.error(`${p}: ${e.message}`); return send(res, 500, 'Server error', 'text/plain'); } }
     if (p === '/config2.xml') return send(res, 200, config2(cfg), TYPES['.xml']);
     // Battle report links. The official site's battle*.evony.com/default.html?logfile/<date>/<xx>/<xx>/<hash>.xml
     // needs Flash; here the same address (only the host changes) is the new client drawing the report, and

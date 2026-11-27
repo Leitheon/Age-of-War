@@ -134,6 +134,8 @@ class Policies {
     if (key) this.markTarget(key, now);
     if (st) g.npc.save(g.db, tile, st, now);
     const here = g.armies.placeName(target), what = this.what(kind, amount, armyType);
+    if (dc && dp) g.security.activity({ type: 'policy', ids: [p.id, dp.id], from: dp.name, fromCity: dc.name, fromCityId: dc.id, to: p.name, toCity: c.name, toCityId: c.id,
+      policy: k.name, amount, what: kind === 'tax' ? 'gold' : kind === 'food' ? 'food' : kind === 'population' ? 'population' : armyType }, now);
     if (dc){
       g.pushResources(dc); g.pushTroops(dc);
       g.reports.add(dp, { type: REPORT_TYPE.OTHER, startPos: g.armies.placeName(c.fieldId), targetPos: here, title: `${p.name} used ${k.name} on ${dc.name}`,

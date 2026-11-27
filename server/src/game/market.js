@@ -53,6 +53,7 @@ class Market {
   post(c, p, resType, tradeType, amount, priceText, now = this.g.now()){
     const g = this.g, L = this.level(c), t = Number(resType), type = Number(tradeType), n = Math.floor(Number(amount)), price = Math.round(Number(priceText) * 1000) / 1000;
     if (!L) return [-1, 'Build a Marketplace to trade.'];
+    const fz = g.security.frozenWhy(p, null, now); if (fz) return [-1, fz];   // (a frozen lord doesn't trade: security.js)
     if (!(t >= 0 && t < 4) || ![BUY, SELL].includes(type)) return [-1, 'Choose a resource and whether to buy or sell.'];
     if (!(n > 0)) return [-1, 'Enter how much to trade.'];
     const max = this.rules.maxPrice ?? 150;
@@ -93,6 +94,12 @@ class Market {
   fill(buy, sell, q, price, reserved, now){
     const g = this.g, total = round2(q * price);
     for (const o of [buy, sell]){ o.dealed += q; o.dealedTotal = round2((o.dealedTotal || 0) + total); }
+    // Trades between two lords go in the activity log (security.js): an alt feeds his main at silly prices.
+    if (buy.playerId !== sell.playerId){
+      const bp = g.db.players[buy.playerId], sp = g.db.players[sell.playerId];
+      g.security.activity({ type: 'market', ids: [buy.playerId, sell.playerId], buyer: bp?.name, seller: sp?.name, buyerCity: g.db.castles[buy.castleId]?.name,
+        sellerCity: g.db.castles[sell.castleId]?.name, res: RES[buy.resType], amount: q, price, total }, now);
+    }
     const bc = g.db.castles[buy.castleId], sc = g.db.castles[sell.castleId];
     if (sc){ sc.res.gold += total; g.pushResources(sc); }
     if (bc && reserved > price){ bc.res.gold += round2(q * (reserved - price)); g.pushResources(bc); }
