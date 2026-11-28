@@ -127,11 +127,18 @@ module.exports = (game, H) => {
     // (a city update makes the web client's map fetch its cities again, so the new flag shows at once)
     const c = game.castlesOf(p)[0]; if (c) game.pushCastle(c, 2);
   };
-  // New ID: change the lord's name.
+  // New ID: change the lord's name. (security review, Nov 28 2026) Only a New ID does it: any item the lord had used to
+  // be taken instead. A lord name keeps to an account name's letters (A-Z, digits, spaces, dots, dashes, underscores,
+  // 3 to 20 of them), so nobody takes on another's name with look-alike letters, and it can't be another lord's
+  // name or another player's account name.
+  const LORD_NAME = /^[A-Za-z0-9_][A-Za-z0-9_ .-]{1,18}[A-Za-z0-9_.]$/, NEW_ID = /^player\.name\.\d+\.[a-z]$/;
   H['city.modifyUserName'] = (conn, d, cmd) => {
-    const p = conn.player, name = cleanName(d.userName, 20), itemId = d.itemId || 'player.name.1.a';
-    if (!name) return game.fail(conn, cmd, -1, 'Lord names must be 1 to 20 characters.');
-    if (Object.values(game.db.players).some(o => o !== p && o.name.toLowerCase() === name.toLowerCase())) return game.fail(conn, cmd, -1, 'Another lord already has that name.');
+    const p = conn.player, name = String(d.userName || '').trim().replace(/\s+/g, ' '), itemId = String(d.itemId || 'player.name.1.a');
+    if (!NEW_ID.test(itemId)) return game.fail(conn, cmd, -44, 'You need a New ID to change your name.');
+    if (!LORD_NAME.test(name)) return game.fail(conn, cmd, -1, 'Lord names are 3 to 20 letters, digits, spaces, dots, dashes or underscores.');
+    const low = name.toLowerCase(), mine = Object.values(game.db.accounts || {}).find(a => a.playerId === p.id);
+    if (Object.values(game.db.players).some(o => o !== p && o.name.toLowerCase() === low)) return game.fail(conn, cmd, -1, 'Another lord already has that name.');
+    if (game.db.accounts?.[low] && game.db.accounts[low] !== mine) return game.fail(conn, cmd, -1, "That is another player's account name.");
     if (!items.take(p, itemId)) return game.fail(conn, cmd, -44, 'You need a New ID to change your name.');
     const old = p.name; p.name = name; game.store.touch();
     game.reply(conn, cmd, {}); game.pushItems(p, [itemId]); game.pushPlayerInfo(p);

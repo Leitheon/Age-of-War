@@ -49,6 +49,25 @@ const READ_VERB = /^(get|receive|read|query|list|search|check|view|load|has|map|
 // Writes that only record a preference or tutorial step; acknowledging them is harmless.
 // (Every command this client sends now has a handler; these stay for safety.)
 const HARMLESS = new Set(['common.step', 'common.setEventDone', 'common.addToFavorites', 'common.setReturnReport', 'common.setAutoHeal']);
+// The front door (security review, Nov 28 2026, after a scanner's visit):
+//  - JavaScript's own names (__proto__, constructor, toString...) as a key or a value anywhere in a message: the
+//    commands look ids up in plain tables (data.items[itemId], c.buildings[positionId]...), where such a name finds
+//    something built in instead of nothing. None of them did harm, but only by luck; no client sends these, so such a
+//    message (or one absurdly deep or large) is refused before any command sees it.
+//  - Speed: each connection may send RATE_BURST commands at once and RATE_PER_SEC a second after that (a busy
+//    client sends a few); beyond it a command is refused, and a connection that keeps it up is closed.
+const BUILT_IN = new Set(Object.getOwnPropertyNames(Object.prototype));
+function poisoned(v, depth = 0, seen = { n: 0 }){
+  if (++seen.n > 20000 || depth > 16) return true;
+  if (typeof v === 'string') return BUILT_IN.has(v);
+  if (!v || typeof v !== 'object') return false;
+  for (const k of Object.keys(v)) if (BUILT_IN.has(k) || poisoned(v[k], depth + 1, seen)) return true;
+  return false;
+}
+const RATE_BURST = 200, RATE_PER_SEC = 50, RATE_CLOSE = 2000;
+// Commands no window sends get one line in unhandled.log each (UNHANDLED_MAX at most a run, their data cut short),
+// and only from a signed-in lord: before, anyone could fill the disk with made-up command names.
+const UNHANDLED_MAX = 300, UNHANDLED_DATA = 1000, CMD_NAME = /^[A-Za-z][A-Za-z0-9_]{0,40}(\.[A-Za-z][A-Za-z0-9_]{0,60})?$/;
 const HANDLER_FILES = ['account', 'castle', 'map', 'troops', 'shop', 'research', 'info', 'heroes', 'army', 'reports', 'field', 'forts', 'interior', 'npchero', 'city', 'equipment', 'quests', 'mail', 'market', 'capital', 'colony', 'war', 'fame', 'profile', 'signs', 'chat', 'effort', 'stratagem', 'alliance', 'commission', 'friends', 'common',
   // the web client's own commands (after the rest: they replace any of the same name)
   'auth', 'webmap', 'webstate', 'webshop', 'webreports', 'webauto', 'webmarket', 'webcalc', 'webmisc', 'webspeed'];
@@ -673,7 +692,10 @@ class Game {
 
   // ---------- dispatch ----------
   handle(conn, cmd, data){
-    const h = this.handlers[cmd];
+    cmd = String(cmd);
+    if (!CMD_NAME.test(cmd) || BUILT_IN.has(cmd) || poisoned(data)) return this.fail(conn, cmd.slice(0, 80), -1, 'That request was refused.');
+    if (this.overLimit(conn)) return this.fail(conn, cmd, -1, 'Too many requests at once. Slow down.');
+    const h = Object.hasOwn(this.handlers, cmd) ? this.handlers[cmd] : null;
     this.notePackage(conn, cmd, data);
     const open = cmd === 'gameClient.version' || cmd === 'login' || cmd === 'register' || cmd.startsWith('login.') || cmd.startsWith('auth.') || (cmd === 'furlough.cancelFurlought' && conn.holidayPlayer);
     if (!open && !conn.player) return this.fail(conn, cmd, -1, 'Please log in first.');
@@ -698,12 +720,34 @@ class Game {
       if (this.perf) this.perf.record('cmd', cmd, this.perf.now() - started);
     }
   }
+  // A lord's own limit for one kind of thing (chat lines, mails, bug reports): true when he has done it max times in
+  // the last ms. Kept in memory: a restart lets him start over.
+  limited(p, key, max, ms, now = Date.now()){
+    const all = (this.limits ??= new Map()), k = `${p?.id}:${key}`, list = (all.get(k) || []).filter(t => t > now - ms);
+    if (list.length >= max){ all.set(k, list); return true; }
+    list.push(now); all.set(k, list);
+    if (all.size > 20000) for (const [x, v] of all) if (!v.length || v[v.length - 1] < now - 3600e3) all.delete(x);
+    return false;
+  }
+  // The speed limit (see RATE_BURST): true when conn has sent too much too fast. Wall-clock time, not the game's.
+  // (rules.security.rateBurst and ratePerSec change them)
+  overLimit(conn, now = Date.now()){
+    const R = this.rules.security || {}, burst = R.rateBurst ?? RATE_BURST, perSec = R.ratePerSec ?? RATE_PER_SEC;
+    const b = (conn.rate ??= { t: now, n: burst, dropped: 0 });
+    b.n = Math.min(burst, b.n + Math.max(0, now - b.t) / 1000 * perSec); b.t = now;
+    if (b.n >= 1){ b.n -= 1; if (b.n >= burst / 2) b.dropped = 0; return false; }
+    b.dropped++;
+    if (b.dropped === 1) this.log.warn(`Too many requests from ${conn.player?.name || 'a connection'} (${conn.ip || '?'}): refusing them`);
+    if (b.dropped >= RATE_CLOSE){ this.log.warn(`Closed the connection of ${conn.player?.name || 'a connection'} (${conn.ip || '?'}): it kept sending too many requests`); try { conn.close(); } catch (e){} }
+    return true;
+  }
   unhandled(conn, cmd, data){
-    // Logged once per command per run, so polling requests don't flood the file.
-    if (!this.seenUnhandled.has(cmd)){
+    // Logged once per command per run, so polling requests don't flood the file (see UNHANDLED_MAX).
+    if (conn.player && !this.seenUnhandled.has(cmd) && this.seenUnhandled.size < UNHANDLED_MAX){
       this.seenUnhandled.add(cmd);
-      this.log.warn(`Not implemented yet: ${cmd} ${JSON.stringify(data)?.slice(0, 300)}`);
-      try { fs.appendFileSync(this.unhandledFile, JSON.stringify({ at: new Date().toISOString(), cmd, data }) + '\n'); } catch (e){}
+      const text = (JSON.stringify(data) || '').slice(0, UNHANDLED_DATA);
+      this.log.warn(`Not implemented yet: ${cmd} ${text.slice(0, 300)}`);
+      try { fs.appendFileSync(this.unhandledFile, JSON.stringify({ at: new Date().toISOString(), cmd, data: text }) + '\n'); } catch (e){}
     }
     const verb = cmd.split('.').pop();
     if (HARMLESS.has(cmd) || READ_VERB.test(verb) || IS_VERB.test(verb)) return this.reply(conn, cmd, this.emptyReply(cmd));

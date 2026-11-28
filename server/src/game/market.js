@@ -54,7 +54,7 @@ class Market {
     const g = this.g, L = this.level(c), t = Number(resType), type = Number(tradeType), n = Math.floor(Number(amount)), price = Math.round(Number(priceText) * 1000) / 1000;
     if (!L) return [-1, 'Build a Marketplace to trade.'];
     const fz = g.security.frozenWhy(p, null, now); if (fz) return [-1, fz];   // (a frozen lord doesn't trade: security.js)
-    if (!(t >= 0 && t < 4) || ![BUY, SELL].includes(type)) return [-1, 'Choose a resource and whether to buy or sell.'];
+    if (!Number.isInteger(t) || !(t >= 0 && t < 4) || ![BUY, SELL].includes(type)) return [-1, 'Choose a resource and whether to buy or sell.'];
     if (!(n > 0)) return [-1, 'Enter how much to trade.'];
     const max = this.rules.maxPrice ?? 150;
     if (!(price > 0) || price > max) return [-1, `The unit price must be above 0 and at most ${max} gold.`];

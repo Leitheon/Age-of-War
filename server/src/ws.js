@@ -7,11 +7,16 @@
 //   /json the new JavaScript client (/play): the same {cmd, data} messages as the Flash client's AMF3, one JSON text
 //         frame each, handled by the same game code (JsonConnection stands in for net.js's Connection).
 const crypto = require('crypto');
-const { clientOf, newDevice, deviceCookie } = require('./game/security');
+const { clientOf, newDevice, deviceCookie, netOf } = require('./game/security');
 const net = require('net');
 
 const GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const MAX_BUFFER = 4 * 1048576;
+// (security review, Nov 28 2026) A /json message may be at most MAX_MESSAGE however many pieces it comes in (a
+// message sent as endless pieces used to be gathered without limit, until the server ran out of memory; the client's
+// are a few KB), and one network (an IPv6 /64 counts as one) may hold MAX_PER_NET connections at once.
+const MAX_MESSAGE = 1048576, MAX_PER_NET = 30;
+const perNet = new Map();
 
 function frame(opcode, payload){
   const n = payload.length;
@@ -44,14 +49,15 @@ let jsonSeq = 0;
 class JsonConnection {
   constructor(sock, ip, onMessage, onClose, log, perf){
     this.id = 'j' + (++jsonSeq); this.sock = sock; this.ip = ip; this.log = log; this.perf = perf; this.player = null; this.closed = false;
-    this.onMessage = onMessage; this.onCloseCb = onClose; this.parts = [];
+    this.onMessage = onMessage; this.onCloseCb = onClose; this.parts = []; this.partBytes = 0;
   }
   receive(f){
     // Text or binary frames, possibly split into a first frame and continuations (opcode 0) ending with fin.
-    if (f.opcode !== 0) this.parts = [];
-    this.parts.push(f.data);
+    if (f.opcode !== 0){ this.parts = []; this.partBytes = 0; }
+    this.parts.push(f.data); this.partBytes += f.data.length;
+    if (this.partBytes > MAX_MESSAGE){ this.log?.warn?.(`conn ${this.id} (${this.ip}) sent a message over ${MAX_MESSAGE} bytes: closed`); this.parts = []; this.partBytes = 0; this.close(); try { this.sock.destroy(); } catch (e){} return; }
     if (!f.fin) return;
-    const text = Buffer.concat(this.parts).toString('utf8'); this.parts = [];
+    const text = Buffer.concat(this.parts).toString('utf8'); this.parts = []; this.partBytes = 0;
     let msg;
     try { msg = JSON.parse(text); } catch (e){ this.log?.warn?.(`conn ${this.id} sent unreadable JSON`); return; }
     if (!msg || typeof msg.cmd !== 'string'){ this.log?.warn?.(`conn ${this.id} sent a message without cmd`); return; }
@@ -72,7 +78,8 @@ class JsonConnection {
 function attachSocketBridge(httpSrv, host, port, log, json = null){
   httpSrv.on('upgrade', (req, sock, first) => {
     const key = req.headers['sec-websocket-key'], url = req.url || '';
-    const isWs = /^\/ws\/?(\?.*)?$/.test(url), isJson = !!json && /^\/json\/?(\?.*)?$/.test(url);
+    // (/ws, the Flash client's bridge, only when that client is on, or in live mode: json.flashBridge)
+    const isWs = (!json || json.flashBridge !== false) && /^\/ws\/?(\?.*)?$/.test(url), isJson = !!json && /^\/json\/?(\?.*)?$/.test(url);
     if ((!isWs && !isJson) || String(req.headers.upgrade || '').toLowerCase() !== 'websocket' || !key){
       sock.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n'); return;
     }
@@ -80,6 +87,12 @@ function attachSocketBridge(httpSrv, host, port, log, json = null){
     // A /json client: who it is (its address, through the Cloudflare Tunnel too, and its browser), and a browser id
     // for a browser that has none yet, set on this handshake (security.js).
     const who = isJson ? clientOf(req, req.socket?.remoteAddress || sock.remoteAddress) : null;
+    const block = who && !who.local ? netOf(who.ip) : null;
+    if (block && (perNet.get(block) || 0) >= MAX_PER_NET){
+      log?.warn?.(`Refused a connection from ${who.ip}: its network already has ${MAX_PER_NET} open`);
+      sock.end('HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\n\r\n'); return;
+    }
+    if (block){ perNet.set(block, (perNet.get(block) || 0) + 1); let gone = false; sock.once('close', () => { if (gone) return; gone = true; const n = (perNet.get(block) || 1) - 1; if (n > 0) perNet.set(block, n); else perNet.delete(block); }); }
     let cookie = '';
     if (who && !who.device){ who.device = newDevice(); cookie = 'Set-Cookie: ' + deviceCookie(who.device, who.https) + '\r\n'; }
     sock.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + accept + '\r\n' + cookie + '\r\n');

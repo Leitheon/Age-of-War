@@ -170,6 +170,7 @@ module.exports = (game, H) => {
     const p = conn.player, name = String(d.heroname || '').trim(), face = String(d.faceurl || '');
     if (!game.items.has(p, RING)) return game.fail(conn, cmd, -44, noRing);
     if (!name || name.length > 20) return game.fail(conn, cmd, -1, 'Hero names must be 1 to 20 characters.');
+    if (/[<>&"\u0000-\u001f\u007f]/.test(name)) return game.fail(conn, cmd, -1, 'Hero names can\'t use < > & or ".');
     if (!heroes.vacancies(c)) return game.fail(conn, cmd, -1, `The Feasting Hall in ${c.name} has no free seat.`);
     const s = pending(p), now = game.now();
     const h = { id: game.store.id(), name, level: ring().level ?? 1, exp: 0, base: { pol: s.management, atk: s.power, int: s.stratagem }, added: { pol: 0, atk: 0, int: 0 }, points: 0,

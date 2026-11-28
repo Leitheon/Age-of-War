@@ -31,6 +31,17 @@ function config2(cfg){
 }
 const CROSSDOMAIN = '<?xml version="1.0"?>\n<cross-domain-policy>\n  <allow-access-from domain="*"/>\n</cross-domain-policy>\n';
 
+// (security review, Nov 28 2026) The missing-art lists below could be grown without end by asking for made-up file
+// names, each one rewriting its file: now each keeps at most MAX_REMEMBERED names and is written at most every
+// WRITE_EVERY ms, only names that look like art (ART_EXT) are asked of the art server, and at most MAX_FETCHES at once.
+const MAX_REMEMBERED = 20000, WRITE_EVERY = 5000, MAX_FETCHES = 12, ART_EXT = /\.(png|jpe?g|gif|swf|mp3|xml|json|txt|css|js|svg|ttf|woff2?)$/i;
+const pending = new Map();
+function later(file, body, dir){
+  if (pending.has(file)){ pending.get(file).body = body; return; }
+  const job = { body };
+  pending.set(file, job);
+  setTimeout(() => { pending.delete(file); try { fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(file, JSON.stringify(job.body(), null, 1)); } catch (e){} }, WRITE_EVERY).unref?.();
+}
 // Hero portraits are images/icon/hero/N.png on the art server. Which numbers exist isn't known up front, so
 // numbers that turn out to be missing are remembered (cache/hero-faces.json) and the hero generator skips them;
 // meanwhile a missing portrait is answered with the "portrait unknown" picture (public/images/hero-unknown.png:
@@ -44,7 +55,8 @@ function createFacePool(cacheDir){
   const known = () => { try { return fs.readdirSync(dir).map(f => /^(\d+)\.png$/.exec(f)).filter(Boolean).map(m => Number(m[1])); } catch (e){ return []; } };
   return {
     missing: n => missing.has(n),
-    markMissing(n){ if (missing.has(n)) return; missing.add(n); try { fs.mkdirSync(cacheDir, { recursive: true }); fs.writeFileSync(file, JSON.stringify({ missing: [...missing].sort((a, b) => a - b) })); } catch (e){} },
+    // (at most MAX_REMEMBERED numbers, the file written at most every few seconds: security review, Nov 28 2026)
+    markMissing(n){ if (missing.has(n) || missing.size >= MAX_REMEMBERED) return; missing.add(n); later(file, () => ({ missing: [...missing].sort((a, b) => a - b) }), cacheDir); },
     anyKnown(){ const k = known(); return k.length ? k[Math.floor(Math.random() * k.length)] : null; },
     fallbackFile(n){ if (fs.existsSync(UNKNOWN_FACE)) return UNKNOWN_FACE; const k = known().filter(x => x !== n); return k.length ? path.join(dir, `${k[n % k.length]}.png`) : null; },
   };
@@ -119,9 +131,10 @@ function createArtLog(cacheDir, log){
       const k = key(rel);
       if (gone.has(k) || failedNow(k)) return;
       if (/HTTP 404|not cached/.test(why)){
+        if (gone.size >= MAX_REMEMBERED) return;
         gone.add(k);
-        try { fs.mkdirSync(cacheDir, { recursive: true }); fs.writeFileSync(file, JSON.stringify({ missing: [...gone].sort() }, null, 1)); } catch (e){}
-      } else failed.set(k, Date.now());
+        later(file, () => ({ missing: [...gone].sort() }), cacheDir);
+      } else { if (failed.size >= MAX_REMEMBERED) failed.clear(); failed.set(k, Date.now()); }
       log.info(`Missing art: ${k} (${why})`);
     },
   };
@@ -201,7 +214,7 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
       if (!f) return send(res, 404, 'Not found', 'text/plain');
       fs.readFile(f, (e, b) => e ? send(res, 404, 'Not found', 'text/plain') : (res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': b.length, 'Cache-Control': 'no-store' }), res.end(b)));
     };
-    if (!cfg.assetCdn || faces?.missing(n) || Date.now() < faceServerDown || fs.existsSync(cached)) return backup();
+    if (!cfg.assetCdn || faces?.missing(n) || Date.now() < faceServerDown || fs.existsSync(cached) || (!inflight.has(rel) && inflight.size >= MAX_FETCHES)) return backup();
     const fetchStart = perf?.now();
     try {
       if (!inflight.has(rel)){
@@ -320,7 +333,8 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
     // kept in cache/logfile.
     if (p === '/default.html') return fs.existsSync(path.join(pub, 'play', 'index.html')) ? sendFile(res, path.join(pub, 'play', 'index.html'))
       : send(res, 404, 'The new client is not built yet (public/play is missing).', 'text/plain');
-    if (/^\/logfile\//i.test(p)) return reportXml(res, p, query);
+    // (live mode only, or with reportHost set: security review, Nov 28 2026)
+    if (/^\/logfile\//i.test(p)) return cfg.live || cfg.reportHost ? reportXml(res, p, query) : send(res, 404, 'Not found', 'text/plain');
     // Live mode: the recorder (recorder.js): its page and its files, an hour each.
     if (json?.recorder){
       if (p === '/recordings') return send(res, 200, require('./recorder').recordingsPage(json.recorder, json.upstream), TYPES['.html']);
@@ -354,7 +368,7 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
     if (local.startsWith(pub + path.sep) && fs.existsSync(local) && fs.statSync(local).isFile()) return sendFile(res, local);
     if (/^login-map(\.jpg)?$/i.test(rel)){ const f = findLoginMap(artDir, root); return f ? sendFile(res, f, { 'Cache-Control': 'public, max-age=86400' }) : send(res, 404, 'Not found', 'text/plain'); }
     // A historic hero's portrait (images/icon/hero/N.png): Evony's own first, then DoA's, then "portrait unknown".
-    const face = /^(?:flash[\\/])?images[\\/]icon[\\/]hero[\\/](\d+)\.png$/.exec(rel);
+    const face = /^(?:flash[\\/])?images[\\/]icon[\\/]hero[\\/](\d{1,6})\.png$/.exec(rel);
     if (face) return heroPortrait(res, Number(face[1]));
     const artFile = path.join(artDir, rel);
     if (artFile.startsWith(artDir + path.sep) && fs.existsSync(artFile) && fs.statSync(artFile).isFile()) return sendFile(res, artFile);
@@ -382,6 +396,8 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
     // instead of asking it again every time the client wants that file.
     if (art?.has(rel)){ if (perf) perf.art.missing++; return standIn ? sendStandIn() : send(res, 404, 'Not found', 'text/plain'); }
     if (!cfg.assetCdn){ art?.mark(rel, 'not cached, and no assetCdn is set'); if (perf) perf.art.missing++; return standIn ? sendStandIn() : send(res, 404, 'Not found', 'text/plain'); }
+    if (!ART_EXT.test(rel) || rel.length > 200) return standIn ? sendStandIn() : send(res, 404, 'Not found', 'text/plain');
+    if (!inflight.has(rel) && inflight.size >= MAX_FETCHES) return standIn ? sendStandIn() : send(res, 503, 'Busy: try again in a moment.', 'text/plain');
     const fetchStart = perf?.now();
     try {
       if (!inflight.has(rel)){
@@ -402,7 +418,8 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
   srv.on('error', e => { log.error(`Web server could not listen on port ${cfg.httpPort}: ${e.code || e.message}`); process.exitCode = 1; });
   // Ruffle (no Flash needed): /ruffle.html runs the client in any modern browser, its game socket over /ws.
   // (in live mode the Ruffle bridge goes to the official server too)
-  require('./ws').attachSocketBridge(srv, cfg.bridge?.host || '127.0.0.1', cfg.bridge?.port || cfg.gamePort, log, json ? { ...json, perf } : null);
+  // (security review, Nov 28 2026: the bridge only when the Flash client is on, or in live mode)
+  require('./ws').attachSocketBridge(srv, cfg.bridge?.host || '127.0.0.1', cfg.bridge?.port || cfg.gamePort, log, json ? { ...json, perf, flashBridge: !!(cfg.flashClient || cfg.live || cfg.mode === 'live') } : null);
   srv.listen(cfg.httpPort, () => log.info(`${cfg.serverName || 'Age of War'} is running: players open ${cfg.publicUrl || `http://${cfg.host}:${cfg.httpPort}`}/ in a browser; the admin page is /admin (user admin, password in config.json)`));
   return srv;
 }

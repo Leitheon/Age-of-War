@@ -177,6 +177,21 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   names that don't exist within 15 minutes is banned for 7 days by itself, with any account made from it in the last
   day (`rules.security.autoBan`); it's in the audit log, the activity log (Automatic bans) and the overview. A banned
   network can't try passwords at all.
+- **Security review** (Nov 28 2026, after a scanner's visit): every command and web address was checked. No way was
+  found into another account, or to another player's mail, reports or cities, or to resources, troops or items for
+  nothing; what was fixed is keeping the server up and two small cheats:
+  - The front door refuses any message carrying JavaScript's own names (`__proto__`, `constructor`, `toString`...),
+    which the commands' lookups could have mistaken for something real, and odd command names.
+  - Speed limits: a connection may send 200 requests at once and 50 a second (the game sends a few;
+    `rules.security.rateBurst`, `ratePerSec`); a lord 8 chat lines in 10 seconds, 20 mails in 10 minutes, 5 alliance
+    mails and 10 bug reports an hour. One network holds 30 connections at once.
+  - Nothing outside can fill the disk or the memory: a message is at most 1 MB however many pieces it comes in;
+    commands nobody sends are logged once each, cut short, only for signed-in lords; made-up art file names are no
+    longer each remembered and written to a file, and only art is asked of the art server, a few at a time; a
+    password reset link replaces the last (5 asks an hour from a network); an account keeps its 10 newest sign-ins,
+    for 60 days unused. The official battle-report fetcher and the Flash bridge run only where they're used.
+  - Renaming a lord takes a New ID and nothing else (any item used to do), with an account name's letters (no
+    look-alikes), and not another player's name. Hero names can't hold `< > & "`.
 - **Farming valleys** (`rules.battle.rangedOverCounter`): the valley guide's archers take valleys without losing any:
   50 / 100 / 200 archers for levels 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with 1
   Cavalry for levels 4-10, against every mix of troops a valley has, with research 10 (or Archery 7 and a hero of 300

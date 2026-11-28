@@ -83,7 +83,9 @@ module.exports = (game, H) => {
   H['alliance.kickOutMemberfromAlliance'] = (conn, d, cmd) => ok(conn, cmd, A.kick(conn.player, d.userName, game.now()));
   H['alliance.sayByetoAlliance'] = (conn, d, cmd) => ok(conn, cmd, A.quit(conn.player, game.now()));
   H['alliance.setAllInfoForAlliance'] = (conn, d, cmd) => ok(conn, cmd, A.setInfo(conn.player, d.infoText, d.noteText));
-  H['alliance.messagesForAllianceMember'] = (conn, d, cmd) => ok(conn, cmd, A.mailAll(conn.player, d.title, d.message, game.now()));
+  // (security review, Nov 28 2026: at most 5 an hour)
+  H['alliance.messagesForAllianceMember'] = (conn, d, cmd) => game.limited(conn.player, 'allianceMail', 5, 3600e3)
+    ? game.fail(conn, cmd, -1, 'You can mail the whole alliance 5 times an hour.') : ok(conn, cmd, A.mailAll(conn.player, d.title, d.message, game.now()));
 
   // ---------- diplomacy ----------
   H['alliance.setAllianceFriendship'] = (conn, d, cmd) => ok(conn, cmd, A.setRelation(conn.player, d.targetAllianceName, d.type, game.now()));

@@ -309,8 +309,9 @@ class HeroLogic {
   rename(c, id, name){
     const h = this.find(c, id); if (!h) return [-1, 'No such hero.'];
     if (h.historic) return [-1, 'A historic hero keeps his own name.'];
-    name = String(name || '').trim();
+    name = String(name || '').replace(/[\u0000-\u001f\u007f]/g, '').trim();
     if (!name || name.length > 20) return [-1, 'Hero names must be 1 to 20 characters.'];
+    if (/[<>&"]/.test(name)) return [-1, 'Hero names can\'t use < > & or ".'];   // (as city names: security review, Nov 28 2026)
     h.name = name; return { hero: h };
   }
   gainExp(h, xp){ if (h.ringHero || h.historic || h.level < this.maxLevel(h)) h.exp += Math.max(0, Math.round(xp)); this.autoLevel(h); }

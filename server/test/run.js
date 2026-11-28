@@ -4052,6 +4052,58 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           `a network trying 5 account names that don't exist in 15 minutes is banned for 7 days by itself (not at 4), with the account it made (ProbeSix); it's in the audit log, the activity log and the overview ("${after?.[1].reason}")`);
         S.db.bans.ip = JSON.parse(saved); S.unban(pa); S.tries.clear(); S.db.tries = {}; S.db.guesses = {};
       }
+      // (Nov 28 2026) The security review's fixes: the front door, speed limits, sign-ins and reset links, the rename.
+      {
+        const R = G.rules, keep = { sec: { ...R.security } };
+        const lord = (name, ip) => { const c0 = fake(ip, crypto.createHash('md5').update(name).digest('hex')); reg(c0, name, name.toLowerCase() + '@example.test'); const li = login(c0, name); return { conn: c0, ok: li.ok === 1, p: c0.player }; };
+        S.tries.clear(); S.db.tries = {};
+        const A1 = lord('Review1', '192.0.2.31'), A2 = lord('Review2', '192.0.2.32');
+        if (!A1.ok || !A2.ok) ok(false, 'the review test lords sign in');
+        // Built-in names and odd command names never reach a command; a name nobody sends is logged once, cut short,
+        // and only for a signed-in lord.
+        const proto = JSON.parse('{"castleId":1,"__proto__":{"admin":true}}');
+        const r1 = call(A1.conn, 'shop.useGoods', proto), r2 = call(A1.conn, 'troop.produceTroop', { castleId: 1, troopType: 'constructor', num: 1 });
+        const r3 = call(A1.conn, 'toString', {}), r4 = call(A1.conn, 'a/b.c', {});
+        const before = G.seenUnhandled.size, anon = fake('192.0.2.33', 'ab'.repeat(16)); call(anon, 'auth.made' + 'Up1', { junk: 'x'.repeat(5000) });
+        const afterAnon = G.seenUnhandled.size; call(A1.conn, 'zz.madeUp2', { junk: 'y'.repeat(5000) });
+        const line = (fs.readFileSync(G.unhandledFile, 'utf8').trim().split('\n').pop() || '');
+        ok([r1, r2, r3, r4].every(r => r.ok < 0 || r.ok === undefined) && ({}).admin === undefined && afterAnon === before && G.seenUnhandled.has('zz.madeUp2') && line.length < 1300,
+          `a message with JavaScript's own names in it (__proto__, constructor, toString) is refused before any command sees it; a command nobody sends is logged once, cut short (${line.length} characters), and not at all before sign-in`);
+        // The speed limit: a burst, then so many a second; the rest are refused, and later ones go through again.
+        R.security = { ...keep.sec, rateBurst: 5, ratePerSec: 1 };
+        const fast = fake('192.0.2.34', 'ac'.repeat(16)); fast.player = A1.p;
+        const burst = Array.from({ length: 8 }, () => call(fast, 'common.getPackageNumber', {}));
+        fast.rate.t -= 3000;
+        const later = call(fast, 'common.getPackageNumber', {});
+        R.security = { ...keep.sec };
+        ok(burst.slice(0, 5).every(r => r.ok !== -1) && burst.slice(5).every(r => /Too many requests/.test(r.errorMsg)) && later.ok !== -1,
+          'a connection sending faster than the speed limit (here 5 at once, 1 a second) has the rest refused, and is let through again once it slows down');
+        // Chat, mail and bug reports: each lord's own limits.
+        const lines = Array.from({ length: 9 }, (_, i) => call(A1.conn, 'common.privateChat', { targetName: 'Review2', msg: 'hi ' + i }));
+        const mails = Array.from({ length: 21 }, (_, i) => call(A2.conn, 'mail.sendMail', { username: 'Review1', title: 't' + i, content: 'c' }));
+        const bugs = Array.from({ length: 11 }, (_, i) => call(A2.conn, 'mail.reportBug', { subject: 's' + i, content: 'c' }));
+        ok(lines.slice(0, 8).every(r => r.ok !== -1 || !/too fast/.test(r.errorMsg)) && /too fast/.test(lines[8].errorMsg) && mails.slice(0, 20).every(r => r.ok === 1) && /20 mails in 10 minutes/.test(mails[20].errorMsg)
+          && bugs.slice(0, 10).every(r => r.ok === 1) && /lot of reports/.test(bugs[10].errorMsg),
+          'a lord sends at most 8 chat lines in 10 seconds, 20 mails in 10 minutes and 10 bug reports an hour');
+        // Reset links: one live a account, at most 5 asks an hour from a network. Sign-ins kept: 10 an account.
+        S.tries.clear(); S.db.tries = {};
+        const asker = fake('192.0.2.35', 'ad'.repeat(16)), resetsBefore = Object.keys(G.db.resets || {}).length;
+        for (let i = 0; i < 8; i++) call(asker, 'auth.requestReset', { email: 'review1@example.test' });
+        const mine = Object.values(G.db.resets || {}).filter(r => r.account === 'review1').length;
+        for (let i = 0; i < 12; i++) login(fake('192.0.2.36', 'ae'.repeat(16)), 'Review1');
+        const kept = Object.values(G.db.sessions || {}).filter(x => x.account === 'review1').length;
+        ok(mine === 1 && S.attempts('reset:192.0.2.35', 3600e3) === 5 && kept === 10, `a player has one password reset link at a time and a network can ask 5 times an hour (${mine}); an account keeps its 10 newest sign-ins (${kept})`);
+        // The rename: only a New ID, an account name's letters, not another player's name.
+        const p1 = A1.p; G.items.add(p1, 'player.name.1.a', 3); G.items.add(p1, 'consume.1.a', 3);
+        const any = call(A1.conn, 'city.modifyUserName', { userName: 'Cheater', itemId: 'consume.1.a' }), look = call(A1.conn, 'city.modifyUserName', { userName: 'Rеview2' });
+        const other = call(A1.conn, 'city.modifyUserName', { userName: 'secmain' }), good = call(A1.conn, 'city.modifyUserName', { userName: 'Lord Review' });
+        ok(any.ok < 0 && look.ok < 0 && other.ok < 0 && good.ok === 1 && p1.name === 'Lord Review' && p1.items['consume.1.a'] === 3 && p1.items['player.name.1.a'] === 2,
+          `renaming a lord takes a New ID and nothing else ("${any.errorMsg}"), no look-alike letters ("${look.errorMsg}"), not another player's account name ("${other.errorMsg}")`);
+        // The market's resource type is a whole number.
+        const odd = G.market.post(G.castlesOf(p1)[0], p1, 1.5, 0, 10, 1);
+        ok(Array.isArray(odd), 'a market order for resource type 1.5 is refused');
+        S.tries.clear(); S.db.tries = {};
+      }
       // The admin page: the overview, a player's page, and an action (with the page's token only).
       const home = await get('/admin'), page = await get('/admin?view=player&name=SecMain'), alts = await get('/admin?view=alts');
       const postAdmin = fields => new Promise((resolve, reject) => {
@@ -4090,8 +4142,8 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       // The WebSocket handshake: a browser without an id gets one; the address comes from the tunnel's header.
       const hand = cookie => new Promise(resolve => {
         const sk = net.connect(PORTS.httpPort, '127.0.0.1', () => sk.write(`GET /json HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${crypto.randomBytes(16).toString('base64')}\r\nSec-WebSocket-Version: 13\r\nCF-Connecting-IP: 198.51.100.99\r\n${cookie ? `Cookie: aow_d=${cookie}\r\n` : ''}\r\n`));
-        let head = '';
-        sk.on('data', d => { head += d.toString('latin1'); if (head.includes('\r\n\r\n')){
+        let head = '', sent = false;
+        sk.on('data', d => { head += d.toString('latin1'); if (!sent && head.includes('\r\n\r\n')){ sent = true;
           const set = (head.match(/Set-Cookie: aow_d=([0-9a-f]{32})/) || [])[1] || null;
           const json = JSON.stringify({ cmd: 'auth.register', data: { username: 'SecTunnel' + (cookie ? 'B' : 'A'), email: `sectunnel${cookie ? 'b' : 'a'}@example.test`, password: 'secret12' } }), pl = Buffer.from(json), mask = crypto.randomBytes(4);
           const frame = Buffer.concat([Buffer.from([0x81, 0x80 | pl.length]), mask, Buffer.from(pl.map((b, i) => b ^ mask[i % 4]))]);
@@ -4102,6 +4154,28 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const tunnelA = G.db.accounts.sectunnela, tunnelB = G.db.accounts.sectunnelb;
       ok(/^[0-9a-f]{32}$/.test(given || '') && kept === null && tunnelA?.seen?.ips['198.51.100.99'] && tunnelA.seen.devices[given] && !tunnelB,
         'the game\'s WebSocket gives a browser without one its id (Set-Cookie), the address comes from the Cloudflare Tunnel\'s header, and the same browser can\'t sign up a second account');
+      // (Nov 28 2026, security review) A /json message over 1 MB, however many pieces it comes in, closes the
+      // connection (it used to be gathered without limit); one network (an IPv6 /64) holds 30 connections at once.
+      {
+        const open = ip => new Promise(resolve => {
+          const sk = net.connect(PORTS.httpPort, '127.0.0.1', () => sk.write(`GET /json HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${crypto.randomBytes(16).toString('base64')}\r\nSec-WebSocket-Version: 13\r\nCF-Connecting-IP: ${ip}\r\n\r\n`));
+          let head = '', done = false; const end = status => { if (!done){ done = true; resolve({ sk, status }); } };
+          sk.on('data', d => { head += d.toString('latin1'); if (head.includes('\r\n\r\n')) end(head.split(' ')[1]); });
+          sk.on('error', () => {}); sk.on('close', () => end('closed'));
+        });
+        const frameOf = (fin, op, payload) => { const mask = crypto.randomBytes(4), n = payload.length;
+          const head = n < 126 ? Buffer.from([(fin ? 0x80 : 0) | op, 0x80 | n]) : Buffer.from([(fin ? 0x80 : 0) | op, 0x80 | 126, n >> 8, n & 255]);
+          return Buffer.concat([head, mask, Buffer.from(payload.map((x, i) => x ^ mask[i % 4]))]); };
+        const big = await open('192.0.2.40'), closed = new Promise(r => big.sk.on('close', () => r(true))), chunk = Buffer.alloc(60000, 0x20);
+        big.sk.write(frameOf(false, 1, chunk)); for (let i = 0; i < 20; i++) big.sk.write(frameOf(false, 0, chunk));
+        const wasClosed = await Promise.race([closed, new Promise(r => setTimeout(() => r(false), 3000))]);
+        const socks = []; for (let i = 0; i < 31; i++) socks.push(await open('2001:db8:77:88::' + (i + 1).toString(16)));
+        const statuses = socks.map(x => x.status); for (const x of socks) x.sk.destroy();
+        await new Promise(r => setTimeout(r, 200));
+        const again = await open('2001:db8:77:88::99'); again.sk.destroy();
+        ok(wasClosed && statuses.slice(0, 30).every(x => x === '101') && statuses[30] === '429' && again.status === '101',
+          `a /json message sent as pieces past 1 MB closes the connection; one network holds 30 connections at once (the 31st: ${statuses[30]}), and can connect again once some close`);
+      }
     }
     {
       // Age of War: the web client's chat. It shows only what the server sends, its own lines included.
@@ -4609,8 +4683,10 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const rp = 'logfile/20261103/c2/3e/c23ecd68c16f29a002bd240bfecc6c8d.xml', rf = path.join(dataDir, 'cache', ...rp.split('/'));
       fs.mkdirSync(path.dirname(rf), { recursive: true }); fs.writeFileSync(rf, '<reportData><battleReport round="3"/></reportData>');
       const page = await get('/default.html?' + rp), kept = await get('/' + rp), evil = await get('/' + rp + '?host=evil.example.com'), odd = await get('/logfile/x/../../rules.json');
-      ok((page.status === 404 || /<html/i.test(page.body.toString())) && kept.status === 200 && /round="3"/.test(kept.body.toString()) && evil.status === 400 && odd.status === 404,
-        `a battle report link's page and its kept XML are served here; only battle*.evony.com hosts are asked, only for report paths (${page.status} ${kept.status} ${evil.status} ${odd.status})`);
+      // (security review, Nov 28 2026: the official reports are fetched only in live mode, or with reportHost set; the
+      // game server answers them not found, and asks no other host)
+      ok((page.status === 404 || /<html/i.test(page.body.toString())) && kept.status === 404 && evil.status === 404 && odd.status === 404,
+        `the game server doesn't fetch official battle reports (live mode does): ${page.status} ${kept.status} ${evil.status} ${odd.status}`);
       // m3.107: the official viewer, WarReport.swf, which the page takes its look from: a copy in the client folder, else
       // fetched once from the official download host; without one the page uses the game's report view.
       const wr = await get('/WarReport.swf');

@@ -16,9 +16,12 @@ const sha = t => crypto.createHash('sha256').update(String(t)).digest('hex');
 const hashPwd = (pwd, salt) => crypto.scryptSync(String(pwd), salt, 32).toString('hex');
 const token = () => crypto.randomBytes(32).toString('hex');
 
+// (security review, Nov 28 2026) One live link an account: a new one replaces the last, and expired ones go, so asking
+// again and again doesn't grow the world file.
 function makeReset(game, account, now = game.now()){
-  const t = token();
-  (game.db.resets ??= {})[sha(t)] = { account: account.name.toLowerCase(), until: now + DAY };
+  const t = token(), resets = (game.db.resets ??= {}), name = account.name.toLowerCase();
+  for (const [k, r] of Object.entries(resets)) if (r.account === name || !(r.until > now)) delete resets[k];
+  resets[sha(t)] = { account: name, until: now + DAY };
   game.store.touch();
   return t;
 }
@@ -52,9 +55,15 @@ module.exports = (game, H) => {
     const player = { ...bean, ...game.skinFields(p), id: p.id, playerId: p.id, name: p.name, userName: p.name, faceUrl: bean.playerInfo.faceUrl };
     game.reply(conn, cmd, { ...extra, player, castle: player.castles?.[0] ?? null, viewingLive: false });
   };
+  // Sign-ins kept (security review, Nov 28 2026): at most SESSIONS_EACH an account (the oldest go), and none unused for
+  // SESSION_DAYS. Before, each sign-in added one for good.
+  const SESSIONS_EACH = 10, SESSION_DAYS = 60;
   const newSession = (conn, a) => {
-    const t = token();
-    sessions()[sha(t)] = { account: a.name.toLowerCase(), at: game.now() };
+    const t = token(), all = sessions(), name = a.name.toLowerCase(), now = game.now(), old = now - SESSION_DAYS * DAY;
+    const mine = Object.entries(all).filter(([k, x]) => x.account === name).sort((x, y) => (y[1].at || 0) - (x[1].at || 0));
+    for (const [k] of mine.slice(SESSIONS_EACH - 1)) delete all[k];
+    if (Math.random() < 0.05) for (const [k, x] of Object.entries(all)) if (!((x.at || 0) > old)) delete all[k];
+    all[sha(t)] = { account: name, at: now };
     conn.sessionKey = sha(t);
     game.store.touch();
     return t;
@@ -121,7 +130,7 @@ module.exports = (game, H) => {
 
   H['auth.resume'] = (conn, d, cmd) => {
     const s = sessions()[sha(d.sessionToken)], a = s && findByName(s.account);
-    if (!a) return game.fail(conn, cmd, -1, 'Please sign in again.');
+    if (!a || !((s.at || 0) > game.now() - SESSION_DAYS * DAY)) return game.fail(conn, cmd, -1, 'Please sign in again.');
     s.at = game.now(); conn.sessionKey = sha(d.sessionToken);
     enter(conn, cmd, a, {}, 'resume');
   };
@@ -134,7 +143,12 @@ module.exports = (game, H) => {
 
   // No e-mail from a local server: the reset link goes to the server window for the admin to pass on. The client
   // says the same thing whether or not the address has an account.
+  // (security review, Nov 28 2026: RESETS_PER_HOUR asks a network an hour; more are answered the same, and do nothing)
+  const RESETS_PER_HOUR = 5;
   H['auth.requestReset'] = (conn, d, cmd) => {
+    const S = game.security, key = `reset:${netOf(conn.ip)}`;
+    if (!conn.local && S.attempts(key, 3600e3, game.now()) >= RESETS_PER_HOUR) return game.reply(conn, cmd, {});
+    if (!conn.local) S.attempts(key, 3600e3, game.now(), true);
     const email = String(d.email || '').trim().toLowerCase();
     const a = email && Object.values(accounts()).find(x => x.email === email);
     if (a){
