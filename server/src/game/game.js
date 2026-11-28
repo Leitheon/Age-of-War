@@ -502,7 +502,7 @@ class Game {
   // autostart (run-server.bat) starts it again on the new world. Returns the backup's path.
   wipeWorld({ newMap = false } = {}){
     const now = this.now(), fs = require('fs'), path = require('path');
-    const dir = path.join(path.dirname(this.store.file), 'backups');
+    const dir = this.backups?.dir || path.join(path.dirname(this.store.file), 'backups');
     fs.mkdirSync(dir, { recursive: true });
     const backup = path.join(dir, `world-before-wipe-${new Date(now).toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`);
     fs.writeFileSync(backup, JSON.stringify(this.db));

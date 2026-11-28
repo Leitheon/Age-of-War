@@ -7,6 +7,7 @@
 //   Linked accounts: groups sharing a browser or an address; a pair can be marked allowed (a household).
 //   Activity: the activity log, by kind and lord. Bans: address and browser bans, allowed browsers and pairs.
 //   Audit log: every admin action.
+//   Backups: the automatic copies of the world (backups.js) and the ones made before a fresh start.
 //   Fresh start: wipe the world and keep the accounts (game.wipeWorld), with a copy of the old world kept.
 //   Banner (on the overview): the line scrolling across the top of the game and its link (game.banner).
 // Actions are forms POSTed with the page's token (t); each one is in the audit log, then the page reloads (303).
@@ -357,14 +358,23 @@ class AdminPage {
         return `<tr><td>${what}</td><td>${when(v.at)}</td><td>${esc(v.note || '')}</td><td>${undo}</td></tr>`;
       }).join('')}</table>` : '<p class="dim">Nothing allowed yet: households sharing a computer or a network can be allowed from a player\'s page.</p>'}`;
   }
-  // ---------- the fresh start ----------
-  backups(){
-    const fs = require('fs'), path = require('path'), dir = path.join(path.dirname(this.g.store.file), 'backups');
-    let files = []; try { files = fs.readdirSync(dir).filter(n => /^world-before-wipe-.*\.json$/.test(n)).sort().reverse(); } catch (e){}
-    return { dir, files: files.map(n => { let kb = 0; try { kb = Math.round(fs.statSync(path.join(dir, n)).size / 1024); } catch (e){} return { name: n, kb }; }) };
+  // ---------- backups (backups.js) ----------
+  backupDir(){ return this.g.backups?.dir || require('path').join(require('path').dirname(this.g.store.file), 'backups'); }
+  backupsView(){
+    const B = this.g.backups, list = B ? B.list() : [], world = require('path').join(require('path').dirname(this.g.store.file), 'world.json');
+    const every = B?.every ? B.every / 3600e3 : 0, keep = B ? B.keep / 86400e3 : 0;
+    const total = list.reduce((s, b) => s + b.kb, 0);
+    return `<h2>Backups</h2>
+      <p>${every ? `Every ${num(every)} hour${every === 1 ? '' : 's'} a copy of the world goes in <b>${esc(B.dir)}</b>, and copies older than ${num(keep)} day${keep === 1 ? '' : 's'} are deleted (rules.backups in data/rules.json). Last: ${B.last ? when(B.last) + ' UTC' : 'none yet'}. Next: ${when(B.next())} UTC.`
+        : '<span class="bad">Automatic backups are off (rules.backups.everyHours is 0).</span>'} Copies made by a Fresh start stay until you delete them.</p>
+      <p>To go back to a copy: stop the server, put the copy in place of <b>${esc(world)}</b> (renamed to world.json), and start the server again. Everything since that copy is lost.</p>
+      ${list.length ? `<table><tr><th>Made (UTC)</th><th>Kind</th><th>File</th><th>Size</th></tr>${list.map(b => `<tr><td class="nw">${when(b.at)}</td><td>${b.auto ? 'Automatic' : 'Before a fresh start'}</td><td>${esc(b.name)}</td><td class="nw">${num(b.kb)} KB</td></tr>`).join('')}</table>
+        <p class="dim">${num(list.length)} cop${list.length === 1 ? 'y' : 'ies'}, ${total < 1024 ? `${num(total)} KB` : `${num(Math.round(total / 1024))} MB`} in all.</p>`
+        : '<p class="dim">None yet. The first is made a few seconds after the server starts.</p>'}`;
   }
+  // ---------- the fresh start ----------
   wipe(){
-    const db = this.g.db, n = (x, one, many = one + 's') => { const k = Object.keys(x || {}).length; return `<b>${num(k)}</b> ${k === 1 ? one : many}`; }, path = require('path'), world = path.join(path.dirname(this.g.store.file), 'world.json'), b = this.backups();
+    const db = this.g.db, n = (x, one, many = one + 's') => { const k = Object.keys(x || {}).length; return `<b>${num(k)}</b> ${k === 1 ? one : many}`; }, path = require('path'), world = path.join(path.dirname(this.g.store.file), 'world.json'), b = { dir: this.backupDir() };
     const armies = Object.keys(db.armies || {}).length, colonies = Object.keys(db.colonies || {}).length;
     return `<h2>Fresh start</h2>
       <p>Wipes the world for a new beginning and keeps every account. Players sign in with the same name and password as before and found a new lord and city, as on their first day.</p>
@@ -376,7 +386,7 @@ class AdminPage {
       </table>
       ${this.form('wipe', {}, `<label><input type="checkbox" name="newMap" value="1"> Draw a new map too (the NPC cities, valleys and flats in new places)</label><br>
         <input name="confirm" placeholder="Type WIPE to confirm" size="22" autocomplete="off"> <button class="red">Wipe the world</button>`, { confirm: 'Wipe the world and keep only the accounts? Every lord and city goes. A backup is kept.' })}
-      <h3>Backups from earlier wipes</h3>${b.files.length ? `<table><tr><th>File</th><th>Size</th></tr>${b.files.map(f => `<tr><td>${esc(f.name)}</td><td>${num(f.kb)} KB</td></tr>`).join('')}</table>` : '<p class="dim">None yet.</p>'}`;
+      <p class="dim">Every copy, from wipes and the automatic ones, is on the ${this.link({ view: 'backups' }, 'Backups')} tab.</p>`;
   }
   // What the admin sees after the wipe, while the server restarts: it opens the admin page once the server is back.
   wipedPage(backup, restarts){
@@ -411,8 +421,8 @@ class AdminPage {
     }
     const view = q.get('view') || 'home';
     const body = view === 'accounts' ? this.accounts(q, now) : view === 'player' ? this.player(q, now) : view === 'alts' ? this.alts(now)
-      : view === 'activity' ? this.activity(q) : view === 'bans' ? this.bans(now) : view === 'audit' ? this.audit() : view === 'wipe' ? this.wipe() : this.home(now);
-    const nav = [['home', 'Overview'], ['accounts', 'Accounts'], ['alts', 'Linked accounts'], ['activity', 'Activity'], ['bans', 'Bans'], ['audit', 'Audit log'], ['wipe', 'Fresh start']]
+      : view === 'activity' ? this.activity(q) : view === 'bans' ? this.bans(now) : view === 'audit' ? this.audit() : view === 'wipe' ? this.wipe() : view === 'backups' ? this.backupsView() : this.home(now);
+    const nav = [['home', 'Overview'], ['accounts', 'Accounts'], ['alts', 'Linked accounts'], ['activity', 'Activity'], ['bans', 'Bans'], ['audit', 'Audit log'], ['backups', 'Backups'], ['wipe', 'Fresh start']]
       .map(([v, l]) => this.link({ view: v }, l, v === view ? 'tab on' : 'tab')).join('');
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Server admin</title><style>
       body{font:14px Arial,sans-serif;background:#1d1a16;color:#eee;margin:0;padding:20px 24px 60px}h1{margin:0 0 4px;font-size:22px}h2{color:#e6c27a;font-size:18px;margin:26px 0 10px}h3{color:#e6c27a;font-size:15px;margin:22px 0 8px}

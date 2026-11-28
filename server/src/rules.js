@@ -882,6 +882,9 @@ const DEFAULTS = {
   // have in 15 minutes before sign-ins stop for the rest of them (0 turns either off); linkDays: accounts that used
   // the same address within this many days are linked on the admin page; auditMax: admin actions kept.
   security: { oneAccountPerBrowser: true, signupsPerDay: 3, failsPer15Min: 10, linkDays: 30, auditMax: 5000 },
+  // Automatic backups (backups.js; Fox, Nov 28 2026: "backup every 3 hours, and save 3 days of backups"): a copy of
+  // the world in data/backups every everyHours, those older than keepDays deleted. everyHours 0 turns them off.
+  backups: { everyHours: 3, keepDays: 3 },
   // announceStar: a lord raising gear to this many stars or more is announced to everyone online and on the Newsboard
   // (Fox, Nov 25 2026: "a system message viewable to everyone logged in whenever a player gets a star level to level 11
   // or higher on gear"); 0 announces nothing.

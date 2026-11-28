@@ -167,6 +167,10 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   map if you tick it). Bans, notes, the audit log and the banner stay, and a muted or frozen lord's next lord is too.
   The old world is copied to `data/backups` first (put it back as `data/world.json` to undo), and the server restarts
   on the new one (by itself under the autostart). Only with WIPE typed in the box.
+- **Automatic backups** (`rules.backups`): every 3 hours the world is saved and a copy goes in `data/backups`
+  (`world-auto-<date>-<time>.json`, UTC), and copies older than 3 days are deleted (a fresh start's copy stays). A
+  restart doesn't start the count over, and a server that was off longer makes one as it starts. The admin page's
+  **Backups** tab lists them, with the next one due and how to go back to one. `everyHours: 0` turns them off.
 - **Farming valleys** (`rules.battle.rangedOverCounter`): the valley guide's archers take valleys without losing any:
   50 / 100 / 200 archers for levels 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with 1
   Cavalry for levels 4-10, against every mix of troops a valley has, with research 10 (or Archery 7 and a hero of 300

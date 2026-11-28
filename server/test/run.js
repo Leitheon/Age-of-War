@@ -4898,6 +4898,30 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       ok(!!(sent[0].readUInt32BE(0) & 0x80000000), 'only a message over the 1 MB limit is compressed');
     }
     {
+      // Automatic backups (backups.js; Fox, Nov 28 2026: "backup every 3 hours, and save 3 days of backups"), on a
+      // clock of the test's own: the world is saved and copied to data/backups every 3 hours, those older than 3 days
+      // deleted (not a fresh start's copy); a restart goes on from the newest copy. And the admin page's Backups tab.
+      const { Backups } = require('../src/backups'), { Store } = require('../src/store');
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aow-bk-')), quiet = { info(){}, warn(){}, error(){} };
+      const st = new Store(dir, quiet); clearInterval(st.timer); st.db.mark = 1; st.touch();
+      let t = Date.UTC(2026, 10, 28, 0, 0);
+      const B = new Backups(st, { everyHours: 3, keepDays: 3 }, quiet, () => t);
+      const first = B.tick(), firstMark = first && JSON.parse(fs.readFileSync(first, 'utf8')).mark;
+      t += 2 * 3600e3; const early = B.tick();
+      t += 3600e3; const second = B.tick();
+      fs.writeFileSync(path.join(B.dir, 'world-before-wipe-2026-11-28-00-30.json'), '{}');
+      for (let i = 0; i < 30; i++){ t += 3 * 3600e3; B.tick(); }
+      const list = B.list(), autos = list.filter(b => b.auto);
+      const B2 = new Backups(st, { everyHours: 3, keepDays: 3 }, quiet, () => t + 3600e3), again = B2.tick();
+      const off = new Backups(st, { everyHours: 0 }, quiet, () => t + 99 * 3600e3);
+      fs.rmSync(dir, { recursive: true, force: true });
+      const tab = await get('/admin?view=backups'), body = String(tab.body);
+      ok(firstMark === 1 && early === null && !!second && autos.length === 25 && autos.every(b => t - b.at <= 3 * 86400e3) && list.some(b => !b.auto)
+        && B2.last === t && again === null && B2.next() === t + 3 * 3600e3 && off.tick() === null && off.next() === null
+        && /Every 3 hours a copy of the world/.test(body) && /world-auto-\d{4}/.test(body) && /<td>Automatic<\/td>/.test(body),
+        `backups: the world saved and copied at once on a new server, then every 3 hours (not after 2); ${autos.length} kept after 4 days, none older than 3 (a fresh start's copy stays); after a restart the next is 3 hours after the newest; off with everyHours 0; the admin page's Backups tab lists them`);
+    }
+    {
       // The fresh start (the admin page's Fresh start tab; Fox, Nov 28 2026: "wipe the server (keeping player
       // accounts) and prepare for official release"). Last: the world isn't saved after it (the server restarts).
       const G = srv.game, S = G.security, db = G.db, seed = db.seed;
@@ -4914,7 +4938,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const kept = !G.store.held && Object.keys(G.db.players).length === lords;
       const done = await post({ t: G.adminToken, action: 'wipe', confirm: 'WIPE' });
       const fresh = JSON.parse(fs.readFileSync(path.join(dataDir, 'world.json'), 'utf8')), bdir = path.join(dataDir, 'backups');
-      const bfiles = fs.existsSync(bdir) ? fs.readdirSync(bdir) : [], old = bfiles.length === 1 ? JSON.parse(fs.readFileSync(path.join(bdir, bfiles[0]), 'utf8')) : null;
+      const bfiles = fs.existsSync(bdir) ? fs.readdirSync(bdir).filter(n => /^world-before-wipe-/.test(n)) : [], old = bfiles.length === 1 ? JSON.parse(fs.readFileSync(path.join(bdir, bfiles[0]), 'utf8')) : null;
       const ma = fresh.accounts[withLord.name.toLowerCase()];
       ok(/Fresh start/.test(tab.body) && /Wipe the world/.test(tab.body) && unsure.status === 303 && /Nothing was wiped/.test(new URLSearchParams(unsure.location.split('?')[1]).get('note')) && kept
         && done.status === 200 && /The world is wiped/.test(done.body)
