@@ -4897,6 +4897,41 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       sent.length = 0; conn.send('server.Big', { filler: crypto.randomBytes(800000).toString('base64') });
       ok(!!(sent[0].readUInt32BE(0) & 0x80000000), 'only a message over the 1 MB limit is compressed');
     }
+    {
+      // The fresh start (the admin page's Fresh start tab; Fox, Nov 28 2026: "wipe the server (keeping player
+      // accounts) and prepare for official release"). Last: the world isn't saved after it (the server restarts).
+      const G = srv.game, S = G.security, db = G.db, seed = db.seed;
+      const accs = Object.keys(db.accounts).length, lords = Object.keys(db.players).length, cities = Object.keys(db.castles).length;
+      const withLord = Object.values(db.accounts).find(a => a.playerId && db.players[a.playerId] && !S.banOf(a));
+      S.mute(db.players[withLord.playerId], null, 'Spam'); S.banKey('ip', '198.51.100.7', null, 'Scanner');
+      const post = fields => new Promise((resolve, reject) => {
+        const body = new URLSearchParams(fields).toString();
+        const rq = http.request({ host: '127.0.0.1', port: PORTS.httpPort, path: '/admin', method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body), Authorization: 'Basic ' + Buffer.from('admin:' + ADMIN.pw).toString('base64') } },
+          res => { const c = []; res.on('data', d => c.push(d)); res.on('end', () => resolve({ status: res.statusCode, location: res.headers.location || '', body: Buffer.concat(c).toString() })); });
+        rq.on('error', reject); rq.end(body);
+      });
+      const tab = await get('/admin?view=wipe'), unsure = await post({ t: G.adminToken, action: 'wipe', confirm: 'wipe' });
+      const kept = !G.store.held && Object.keys(G.db.players).length === lords;
+      const done = await post({ t: G.adminToken, action: 'wipe', confirm: 'WIPE' });
+      const fresh = JSON.parse(fs.readFileSync(path.join(dataDir, 'world.json'), 'utf8')), bdir = path.join(dataDir, 'backups');
+      const bfiles = fs.existsSync(bdir) ? fs.readdirSync(bdir) : [], old = bfiles.length === 1 ? JSON.parse(fs.readFileSync(path.join(bdir, bfiles[0]), 'utf8')) : null;
+      const ma = fresh.accounts[withLord.name.toLowerCase()];
+      ok(/Fresh start/.test(tab.body) && /Wipe the world/.test(tab.body) && unsure.status === 303 && /Nothing was wiped/.test(new URLSearchParams(unsure.location.split('?')[1]).get('note')) && kept
+        && done.status === 200 && /The world is wiped/.test(done.body)
+        && Object.keys(fresh.accounts).length === accs && Object.values(fresh.accounts).every(a => a.playerId === null) && ma.scrypt?.hash === withLord.scrypt?.hash && ma.email === withLord.email
+        && !Object.keys(fresh.players).length && !Object.keys(fresh.castles).length && !Object.keys(fresh.tiles).length && ['alliances', 'armies', 'hh', 'npc', 'market', 'webMarket', 'votes', 'fame', 'chatLog', 'newsboard'].every(k => fresh[k] == null)
+        && fresh.seed === seed && fresh.security.bans.ip['198.51.100.7']?.reason === 'Scanner' && /wiped the world/.test(fresh.security.audit.at(-1).action) && ma.carry?.adminMute?.reason === 'Spam'
+        && old && Object.keys(old.players).length === lords && Object.keys(old.castles).length === cities && G.store.held,
+        `Fresh start: only with WIPE typed; the world (${lords} lords, ${cities} cities) is copied to data/backups, then the new world keeps the ${accs} accounts (passwords, e-mails), the bans and the audit log, the same map, and nothing else; a muted lord's mute waits for his next lord`);
+      // A server started on the new world (as after the restart): the map is set up again, and a player signing in
+      // founds a new lord and city, still muted.
+      const srv2 = main({ httpPort: PORTS.httpPort + 30, gamePort: PORTS.gamePort + 30, policyPort: PORTS.policyPort + 30, dataDir, cacheDir: path.join(dataDir, 'cache'), speed: 600, logLevel: 'error', embedded: true, assetCdn: '', adminPassword: ADMIN.pw });
+      try {
+        const G2 = srv2.game, a2 = G2.db.accounts[withLord.name.toLowerCase()], p2 = G2.createPlayer(a2);
+        ok(Object.keys(G2.db.players).length === 1 && G2.castlesOf(p2).length === 1 && p2.name === withLord.name && G2.security.muteOf(p2)?.reason === 'Spam' && !a2.carry && Object.keys(G2.db.hh || {}).length > 0,
+          `after the restart a returning player founds a new lord and city (${G2.castlesOf(p2)[0]?.name}), muted as before; the Historic Cities' heroes are placed again`);
+      } finally { srv2.close(); }
+    }
   } catch (e){
     failures++; console.log('FAIL ' + e.stack);
   } finally {

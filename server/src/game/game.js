@@ -463,6 +463,8 @@ class Game {
       prestigeBackfill: 1, starterPacks: 1,
     };
     for (const id of STARTER_PACKS) p.items[id] = 1;
+    // A mute or freeze the admin had put on the lord before a fresh start (wipeWorld) carries over to the new one.
+    if (account.carry){ Object.assign(p, account.carry); delete account.carry; }
     this.db.players[p.id] = p;
     // The client always asks for "City Name" (EvonyClient's createNewPlayer), and the live game keeps it.
     const c = this.createCastle(p, { name: opts.castleName || 'City Name', now });
@@ -470,6 +472,45 @@ class Game {
     this.store.touch();
     this.log.info(`New lord ${p.name} founded ${c.name} at (${world.xy(c.fieldId).x}, ${world.xy(c.fieldId).y})`);
     return p;
+  }
+  // ---------- the fresh start ----------
+  // The admin page's Fresh start (Fox, Nov 28 2026: "how can I wipe the server (keeping player accounts) and prepare
+  // for official release"): every account stays (its name, password, e-mail, sign-ins and any ban), so players sign
+  // in as before and found a new lord and city, as on their first day. Everything in the world goes: lords, cities,
+  // heroes, troops, items and coins, alliances and their war reports, mail and reports, armies, colonies, the market,
+  // the Hall of Fame and its votes, chat and the newsboard, valleys, NPC and Historic Cities (back as they started).
+  // Kept besides the accounts: the admin's side (bans of addresses and browsers, allowed pairs, notes, the audit log,
+  // the sign-up and password counts), the banner, sign-ins (sessions) and password reset links; and a lord's mute or
+  // freeze goes to his next lord. newMap: a new map (the NPC cities, valleys and flats elsewhere); else the same one.
+  freshWorld(db = this.db, { newMap = false, now = this.now() } = {}){
+    const clone = x => x == null ? x : JSON.parse(JSON.stringify(x));
+    const accounts = {};
+    for (const [k, a0] of Object.entries(db.accounts || {})){
+      const a = clone(a0), p = a.playerId != null ? db.players?.[a.playerId] : null, carry = {};
+      for (const f of ['adminMute', 'frozen']) if (p && this.security.live(p[f], now)) carry[f] = clone(p[f]);
+      delete a.playerId; a.playerId = null;
+      if (Object.keys(carry).length) a.carry = carry; else delete a.carry;
+      accounts[k] = a;
+    }
+    const fresh = { version: db.version ?? 1, seq: db.seq ?? 100, seed: newMap ? (Math.random() * 2 ** 31) | 0 : db.seed, accounts, players: {}, castles: {}, tiles: {},
+      wipedAt: now, wipes: [...(db.wipes || []), { at: now, newMap: !!newMap, accounts: Object.keys(accounts).length, lords: Object.keys(db.players || {}).length }] };
+    for (const k of ['security', 'sessions', 'resets', 'banner']) if (db[k] != null) fresh[k] = clone(db[k]);
+    return fresh;
+  }
+  // Fresh start for real: the world as it was is saved in data/backups (world-before-wipe-<date>.json), the fresh
+  // one written as world.json, and nothing more is saved; this.restart (server.js) then ends the program so the
+  // autostart (run-server.bat) starts it again on the new world. Returns the backup's path.
+  wipeWorld({ newMap = false } = {}){
+    const now = this.now(), fs = require('fs'), path = require('path');
+    const dir = path.join(path.dirname(this.store.file), 'backups');
+    fs.mkdirSync(dir, { recursive: true });
+    const backup = path.join(dir, `world-before-wipe-${new Date(now).toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`);
+    fs.writeFileSync(backup, JSON.stringify(this.db));
+    const fresh = this.freshWorld(this.db, { newMap, now });
+    this.store.replaceAndHold(fresh);
+    this.log.warn(`Fresh start: the world was wiped (${Object.keys(fresh.accounts).length} accounts kept${newMap ? ', a new map' : ''}); the old one is in ${backup}`);
+    for (const conn of [...this.online.values()]) try { conn.send('kickout', { reason: 'The server is starting a fresh world. Sign in again in a minute to found your new city.' }); conn.close(); } catch (e){}
+    return backup;
   }
   // A new city for a lord on a free flat tile, with the starting buildings and resources.
   // `start` overrides the first city's starting state (rules.start), as a city built on a flat does.

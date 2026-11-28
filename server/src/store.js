@@ -22,13 +22,21 @@ class Store {
   id(){ this.dirty = true; return ++this.db.seq; }
   touch(){ this.dirty = true; }
   flush(){
-    if (!this.dirty) return;
+    if (!this.dirty || this.held) return;
     const tmp = this.file + '.tmp', t = this.perf?.now();
     const text = JSON.stringify(this.db);
     fs.writeFileSync(tmp, text);
     fs.renameSync(tmp, this.file);
     this.dirty = false;
     if (this.perf){ this.perf.saveBytes = text.length; this.perf.record('save', null, this.perf.now() - t); }
+  }
+  // Write `db` as the world now and save nothing more (the admin page's fresh start, game.wipeWorld: the server
+  // restarts on the new file, and what's still in memory is thrown away).
+  replaceAndHold(db){
+    const tmp = this.file + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(db));
+    fs.renameSync(tmp, this.file);
+    this.held = true; this.dirty = false;
   }
 }
 

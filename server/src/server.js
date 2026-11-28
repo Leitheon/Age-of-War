@@ -99,6 +99,9 @@ function main(overrides = {}){
   perf.reset();   // start measuring now: loading the client's data and placing the map held things up, as it should
 
   const close = () => { clearInterval(ticker); try { perf.loop?.disable(); } catch (e){} clearInterval(store.timer); for (const s of [policySrv, gameSrv, httpSrv]) try { s.close(); } catch (e){} try { store.flush(); } catch (e){} };
+  // The admin page's Fresh start (game.wipeWorld) ends the program on the new world; run-server.bat (the autostart)
+  // starts it again.
+  game.restart = overrides.embedded ? null : () => { close(); process.exit(0); };
   if (!overrides.embedded){
     const stop = () => { close(); process.exit(0); };
     process.on('SIGINT', stop); process.on('SIGTERM', stop);

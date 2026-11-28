@@ -7,6 +7,7 @@
 //   Linked accounts: groups sharing a browser or an address; a pair can be marked allowed (a household).
 //   Activity: the activity log, by kind and lord. Bans: address and browser bans, allowed browsers and pairs.
 //   Audit log: every admin action.
+//   Fresh start: wipe the world and keep the accounts (game.wipeWorld), with a copy of the old world kept.
 //   Banner (on the overview): the line scrolling across the top of the game and its link (game.banner).
 // Actions are forms POSTed with the page's token (t); each one is in the audit log, then the page reloads (303).
 const world = require('./world');
@@ -158,6 +159,18 @@ class AdminPage {
         const b = g.setBanner(q.get('text'), link);
         S.audit('set the banner to', b.text + b.link);
         return back('Banner saved. Players see it the next time they load the game (or press F5).');
+      }
+      // The fresh start (game.wipeWorld): only with WIPE typed in the box. The server restarts on the new world.
+      case 'wipe': {
+        const again = note => ({ redirect: this.url({ view: 'wipe', note }) });
+        if (String(q.get('confirm') || '').trim() !== 'WIPE') return again('Nothing was wiped: type WIPE (in capitals) in the box to confirm.');
+        const newMap = !!q.get('newMap'), db = g.db;
+        S.audit('wiped the world (fresh start)', '', `${num(Object.keys(db.accounts || {}).length)} accounts kept, ${num(Object.keys(db.players || {}).length)} lords and ${num(Object.keys(db.castles || {}).length)} cities cleared${newMap ? ', a new map' : ''}`);
+        let backup;
+        try { backup = g.wipeWorld({ newMap }); }
+        catch (e){ g.log.error('Fresh start: ' + e.message); return again('Nothing was wiped: ' + e.message); }
+        if (g.restart) setTimeout(() => g.restart(), 1500);
+        return this.wipedPage(backup, !!g.restart);
       }
       case 'allowdevice': case 'disallowdevice': {
         const key = String(q.get('key') || ''), k = 'device:' + key;
@@ -344,6 +357,38 @@ class AdminPage {
         return `<tr><td>${what}</td><td>${when(v.at)}</td><td>${esc(v.note || '')}</td><td>${undo}</td></tr>`;
       }).join('')}</table>` : '<p class="dim">Nothing allowed yet: households sharing a computer or a network can be allowed from a player\'s page.</p>'}`;
   }
+  // ---------- the fresh start ----------
+  backups(){
+    const fs = require('fs'), path = require('path'), dir = path.join(path.dirname(this.g.store.file), 'backups');
+    let files = []; try { files = fs.readdirSync(dir).filter(n => /^world-before-wipe-.*\.json$/.test(n)).sort().reverse(); } catch (e){}
+    return { dir, files: files.map(n => { let kb = 0; try { kb = Math.round(fs.statSync(path.join(dir, n)).size / 1024); } catch (e){} return { name: n, kb }; }) };
+  }
+  wipe(){
+    const db = this.g.db, n = (x, one, many = one + 's') => { const k = Object.keys(x || {}).length; return `<b>${num(k)}</b> ${k === 1 ? one : many}`; }, path = require('path'), world = path.join(path.dirname(this.g.store.file), 'world.json'), b = this.backups();
+    const armies = Object.keys(db.armies || {}).length, colonies = Object.keys(db.colonies || {}).length;
+    return `<h2>Fresh start</h2>
+      <p>Wipes the world for a new beginning and keeps every account. Players sign in with the same name and password as before and found a new lord and city, as on their first day.</p>
+      <table class="facts">
+        <tr><td>Kept</td><td>${n(db.accounts, 'account')}: names, passwords, e-mails, sign-ins and bans. Your side too: banned addresses and browsers, allowed pairs, notes, the audit log, the banner and the sign-in background. A muted or frozen lord's next lord is muted or frozen for the time left.</td></tr>
+        <tr><td>Cleared</td><td>${n(db.players, 'lord')} and ${n(db.castles, 'city', 'cities')}, with their heroes, troops, items, coins, mail and reports; ${n(db.alliances, 'alliance')} and their war reports${armies ? `; ${n(db.armies, 'army', 'armies')} out` : ''}${colonies ? `; ${n(db.colonies, 'colony', 'colonies')}` : ''}; the market, the Hall of Fame and its votes, chat and the newsboard. Valleys, NPC cities and Historic Cities go back to how they started.</td></tr>
+        <tr><td>Backup</td><td>Before anything is cleared, the whole world is copied to <b>${esc(b.dir)}</b>. To undo the wipe, stop the server, put that file in place of <b>${esc(world)}</b> (renamed to world.json), and start the server again.</td></tr>
+        <tr><td>Restart</td><td>The server restarts on the new world. With the autostart (install-autostart.bat) it's back by itself in about 15 seconds. If you run it from start.bat, its window stops: close it and run start.bat again. Everyone online is signed out with a note to come back in a minute.</td></tr>
+      </table>
+      ${this.form('wipe', {}, `<label><input type="checkbox" name="newMap" value="1"> Draw a new map too (the NPC cities, valleys and flats in new places)</label><br>
+        <input name="confirm" placeholder="Type WIPE to confirm" size="22" autocomplete="off"> <button class="red">Wipe the world</button>`, { confirm: 'Wipe the world and keep only the accounts? Every lord and city goes. A backup is kept.' })}
+      <h3>Backups from earlier wipes</h3>${b.files.length ? `<table><tr><th>File</th><th>Size</th></tr>${b.files.map(f => `<tr><td>${esc(f.name)}</td><td>${num(f.kb)} KB</td></tr>`).join('')}</table>` : '<p class="dim">None yet.</p>'}`;
+  }
+  // What the admin sees after the wipe, while the server restarts: it opens the admin page once the server is back.
+  wipedPage(backup, restarts){
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Server admin</title><style>
+      body{font:14px Arial,sans-serif;background:#1d1a16;color:#eee;margin:0;padding:20px 24px 60px;max-width:760px}h1{margin:0 0 14px;font-size:22px}b{color:#f0c96a}.dim{color:#9a9186}
+      .note{background:#2f3d2c;border:1px solid #4f6b49;padding:9px 12px;border-radius:5px}</style></head><body><h1>The world is wiped</h1>
+      <p class="note">A copy of the old world is in <b>${esc(backup)}</b>.</p>
+      ${restarts ? `<p>The server is restarting on the new world. With the autostart it's back in about 15 seconds, and this page opens the admin page by itself.</p>
+      <p>If you run the server from start.bat, its window has stopped: close it and run start.bat again.</p><p class="dim" id="w">Waiting for the server...</p>
+      <script>setTimeout(function poll(){ fetch('/admin', { cache: 'no-store' }).then(r => { if (r.ok) location.href = '/admin?note=' + encodeURIComponent('Fresh start done: the new world is running.'); else setTimeout(poll, 3000); }, () => setTimeout(poll, 3000)); }, 6000);</script>`
+        : '<p>Start the server again to run the new world.</p>'}</body></html>`;
+  }
   audit(){
     const list = [...this.S.db.audit].reverse().slice(0, 1000);
     return `<h2>Audit log</h2>${list.length ? `<table><tr><th>When (UTC)</th><th>Action</th></tr>${list.map(x => `<tr><td class="nw">${when(x.t)}</td><td>${esc(x.action)} <b>${esc(x.target)}</b>${x.detail ? ` <span class="dim">${esc(x.detail)}</span>` : ''}</td></tr>`).join('')}</table>` : '<p class="dim">No admin actions yet.</p>'}`;
@@ -366,8 +411,8 @@ class AdminPage {
     }
     const view = q.get('view') || 'home';
     const body = view === 'accounts' ? this.accounts(q, now) : view === 'player' ? this.player(q, now) : view === 'alts' ? this.alts(now)
-      : view === 'activity' ? this.activity(q) : view === 'bans' ? this.bans(now) : view === 'audit' ? this.audit() : this.home(now);
-    const nav = [['home', 'Overview'], ['accounts', 'Accounts'], ['alts', 'Linked accounts'], ['activity', 'Activity'], ['bans', 'Bans'], ['audit', 'Audit log']]
+      : view === 'activity' ? this.activity(q) : view === 'bans' ? this.bans(now) : view === 'audit' ? this.audit() : view === 'wipe' ? this.wipe() : this.home(now);
+    const nav = [['home', 'Overview'], ['accounts', 'Accounts'], ['alts', 'Linked accounts'], ['activity', 'Activity'], ['bans', 'Bans'], ['audit', 'Audit log'], ['wipe', 'Fresh start']]
       .map(([v, l]) => this.link({ view: v }, l, v === view ? 'tab on' : 'tab')).join('');
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Server admin</title><style>
       body{font:14px Arial,sans-serif;background:#1d1a16;color:#eee;margin:0;padding:20px 24px 60px}h1{margin:0 0 4px;font-size:22px}h2{color:#e6c27a;font-size:18px;margin:26px 0 10px}h3{color:#e6c27a;font-size:15px;margin:22px 0 8px}
