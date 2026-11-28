@@ -93,6 +93,10 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   costs gold.
 - **Heroes** level up by themselves once they have the experience, with their attribute points
   (`rules.heroAutoLevel`), and the **Inn** puts a new hero in a hired one's place at once (`rules.innRestock`).
+- **Inn refresh for gold** (`rules.innRefreshGold`): refreshing the Inn without a Hero Hunting costs 1,000 gold
+  (0: the Hero Hunting's shop price), and the Inn's dialog says so.
+- **Helm heroes**: the attribute a helm promises (Plate Helm of Lancelot 70-80, Holy Helm of Mars 81-90, Crystal of
+  Attunement 101-110, Ardee's Sigil 115-125) is the hero's base stat; his level's points are in the other two.
 - **Historic Cities** show their introductions from the client's own city list. Each of the 16 states has its capital,
   8 level 14s and 121 level 12s (every 18 tiles from 9,9: Olathe at 99,99 beside Washington, D.C.), and every Historic
   City has flats on all sides, except where another Historic City is (`rules.historic.flatRing`).

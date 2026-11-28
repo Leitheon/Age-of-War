@@ -785,7 +785,9 @@ class Game {
   welcomeJs(){
     const b = this.banner();
     // (and the sign-up form's Turnstile check, when it's on: turnstile.js)
+    // (and what refreshing the Inn costs without a Hero Hunting, for its dialog: handlers/heroes.js)
     return `window.AOW_WELCOME=${JSON.stringify(b.text)};window.AOW_LINK=${JSON.stringify(b.link)};window.AOW_GOLD_PER_COIN=${Number(this.goldFinishRate?.()) || 0};`
+      + `window.AOW_INN_GOLD=${Number(this.innRefreshGold?.()) || 0};`
       + (this.turnstile?.clientJs() || 'window.aowTurnstile=null;');
   }
   tickerFile(){ return path.join(this.dataDir, 'movingText.txt'); }

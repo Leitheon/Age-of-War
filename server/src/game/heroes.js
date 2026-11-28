@@ -97,10 +97,11 @@ class HeroLogic {
   // pointsPerLevel, 1 an ordinary hero) are moved out of base into added, so base is the hero's level-1 stats, as a
   // historic hero's (the sheet) and a Ring hero's already are. The totals don't change; Holy Water now gives those
   // points back to spend again. (Each stat keeps at least 5; the points come off in proportion to what's above 5.)
-  splitLevelPoints(h, level = h.level){
+  // `keep`: a stat whose base stays as it is (a helm's promised attribute: itemUse.helm), the points come off the others.
+  splitLevelPoints(h, level = h.level, keep = null){
     if (!h || h.historic || h.ringHero || h.lv1) return h;
     h.added = h.added || { pol: 0, atk: 0, int: 0 }; h.lv1 = 1;
-    const ks = ['pol', 'atk', 'int'], room = ks.map(k => Math.max(0, (h.base[k] || 0) - 5)), sum = room.reduce((a, b) => a + b, 0);
+    const ks = ['pol', 'atk', 'int'], room = ks.map(k => k === keep ? 0 : Math.max(0, (h.base[k] || 0) - 5)), sum = room.reduce((a, b) => a + b, 0);
     const n = Math.min(sum, Math.max(0, Math.round((Math.max(1, level || 1) - 1) * this.pointsPerLevel(h))));
     if (!n) return h;
     const share = room.map(r => n * r / sum), take = share.map(Math.floor);

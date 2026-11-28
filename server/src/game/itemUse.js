@@ -361,14 +361,17 @@ class ItemUse {
     const taken = new Set(H.list(c).map(x => x.name));
     const h = H.makeHero(1, null, taken);
     h.level = level; h.exp = 0; h.loyalty = 100;
+    let keep = null;
     if (all) h.base = { pol: all, atk: all, int: all };
     else {
       const total = Math.round(60 + level * 1.5 + (rnd() - 0.5) * 20), w = [rnd() + 0.3, rnd() + 0.3, rnd() + 0.3], s = w[0] + w[1] + w[2];
       h.base = { pol: Math.max(5, Math.round(total * w[0] / s)), atk: Math.max(5, Math.round(total * w[1] / s)), int: 0 };
       h.base.int = Math.max(5, total - h.base.pol - h.base.atk);
-      if (special){ const k = ['pol', 'atk', 'int'][Math.floor(rnd() * 3)]; h.base[k] = rint(special[0], special[1], rnd); }
+      if (special){ keep = ['pol', 'atk', 'int'][Math.floor(rnd() * 3)]; h.base[keep] = rint(special[0], special[1], rnd); }
     }
-    delete h.lv1; h.added = { pol: 0, atk: 0, int: 0 }; H.splitLevelPoints(h, level);   // (base: the level-1 stats)
+    // (base: the level-1 stats. The helm's "individual attribute" is a base stat, so it stays in its range and the
+    // level's points come off the other two: Fox, Nov 28 2026.)
+    delete h.lv1; h.added = { pol: 0, atk: 0, int: 0 }; H.splitLevelPoints(h, level, keep);
     // (either royal helm: a lord gets a Queen and a lady a King, with the royal portrait; heroes.makeRoyal)
     if (royal){ h.name = ''; H.makeRoyal(h, p); }   // (101 in each base stat, leadership 26: rules.royalHero)
     const hero = { id: this.g.store.id(), ...h, status: HERO_STATUS.FREE, hiredAt: Date.now() };

@@ -972,6 +972,18 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
     const full = await c.call('hero.refreshHerosListFromTavern', { castleId: castle.id });
     const hire2 = await c.call('hero.hireHero', { castleId: castle.id, heroName: full.heros[0].name });
     ok(hire2.ok < 0 && /Feasting Hall is full/.test(hire2.errorMsg), 'a full Feasting Hall blocks hiring');
+    {
+      // Refreshing the Inn without a Hero Hunting costs rules.innRefreshGold (Fox, Nov 28 2026: 1,000 gold); with one,
+      // it uses the item and no gold; /welcome tells the Inn's dialog the price.
+      const HH = 'consume.refreshtavern.1', pl = srv.store.db.players[liveCastle.playerId], G = srv.game;
+      pl.items[HH] = 0;
+      const g0 = G.goldPool(pl), paid = await c.call('hero.refreshHerosListFromTavern', { castleId: castle.id }), g1 = G.goldPool(pl);
+      pl.items[HH] = 1;
+      const used = await c.call('hero.refreshHerosListFromTavern', { castleId: castle.id }), g2 = G.goldPool(pl);
+      const win = {}; new Function('window', (await get('/welcome.js')).body.toString())(win);
+      ok(paid.ok === 1 && Math.abs(g0 - g1 - 1000) < 50 && used.ok === 1 && !pl.items[HH] && Math.abs(g1 - g2) < 50 && win.AOW_INN_GOLD === 1000,
+        `refreshing the Inn without a Hero Hunting costs 1,000 gold (${Math.round(g0 - g1)}); with one it uses the item; the dialog is told the price (${win.AOW_INN_GOLD})`);
+    }
     const hero = added.hero;
     ok((await c.call('hero.promoteToChief', { castleId: castle.id, heroId: hero.id })).ok === 1 && (await c.wait('server.HeroUpdate')).data.hero.status === 1, 'the hero can be made mayor');
     ok((await c.call('hero.dischargeChief', { castleId: castle.id })).ok === 1 && (await c.wait('server.HeroUpdate')).data.hero.status === 0, 'and relieved again');
@@ -1629,6 +1641,22 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const helm = await c.call('shop.useGoods', { castleId: castle.id, itemId: 'player.box.hero.a', num: 1 });
       const nh = G.heroes.list(city)[n0];
       ok(helm.ok === 1 && nh && nh.level >= 10 && nh.level <= 15, `Leather Helm of Robinhood brings a level 10-15 hero to the Feasting Hall (${nh?.name}, level ${nh?.level})`);
+      {
+        // Fox (Nov 28 2026): a helm's "individual attribute" is a base stat: it stays in the helm's range, and the
+        // hero's level points come off the other two.
+        const RANGE = { 'player.box.hero.c': [70, 80], 'player.box.hero.d': [81, 90], 'player.box.hero.e': [101, 110], 'player.box.hero.f': [115, 125] }, bad = [];
+        const fhWas = fh.level; fh.level = Math.max(fh.level, G.heroes.list(city).length + 1);
+        for (const [id, [lo, hi]] of Object.entries(RANGE)) for (let i = 0; i < 4; i++){
+          give(id); const list = G.heroes.list(city), n = list.length;
+          const r = await c.call('shop.useGoods', { castleId: castle.id, itemId: id, num: 1 }), h = list[n];
+          if (r.ok !== 1 || !h){ bad.push(`${id}: ${r.errorMsg}`); continue; }
+          const top = ['pol', 'atk', 'int'].reduce((a, k) => h.base[k] > h.base[a] ? k : a, 'pol');
+          if (!(h.base[top] >= lo && h.base[top] <= hi && h.added[top] === 0)) bad.push(`${id} (level ${h.level}): base ${JSON.stringify(h.base)}, added ${JSON.stringify(h.added)}`);
+          list.splice(n, 1);
+        }
+        fh.level = fhWas;
+        ok(!bad.length, 'the helms\' promised attribute is the hero\'s base stat (Plate Helm 70-80, Holy Helm 81-90, Crystal of Attunement 101-110, Ardee\'s Sigil 115-125)' + (bad.length ? ': ' + bad.join('; ') : ''));
+      }
       {
         // Fox (Oct 29 2026): a King or Queen takes no seat in the Feasting Hall: a full hall still takes one, as an extra.
         const fhWas = fh.level; fh.level = G.heroes.list(city).filter(h => !h.king).length;

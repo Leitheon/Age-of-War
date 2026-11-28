@@ -194,6 +194,7 @@ const DEFAULTS = {
   heroHireCostPerLevel: 1000,      // gold, as the Inn window shows
   persuadeGoldPerLevel: 1000,      // gold to persuade a captured hero, a level (the client's confirm text)
   innRefreshMinutes: 60,           // the Inn offers new heroes on its own this often (game time)
+  innRefreshGold: 1000,            // gold to refresh the Inn without a Hero Hunting (Fox, Nov 28 2026); 0: the Hero Hunting's shop price
   innMaxLevelPerInnLevel: 8,       // UNVERIFIED: an Inn of level L offers heroes up to level 8 x L
   heroStartLoyalty: 70,            // UNVERIFIED
   heroPointsPerLevel: 1,

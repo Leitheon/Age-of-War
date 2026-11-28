@@ -4,22 +4,28 @@ const { centsRate, fmt } = require('../nocents');
 module.exports = (game, H) => {
   const { heroes } = game;
   const pool = () => game.faces;
+  // Gold an Inn refresh costs without a Hero Hunting (0: coins, with cents on and no innRefreshGold).
+  const innGold = game.innRefreshGold = () => {
+    const flat = Math.round(Number(game.rules.innRefreshGold));
+    return flat > 0 ? flat : (game.data.items['consume.refreshtavern.1']?.price || 5) * centsRate(game.rules);
+  };
   const listReply = (conn, cmd, c) => {
     const offers = heroes.innList(c, game.now(), pool());
     game.reply(conn, cmd, { heros: offers.map((o, i) => heroes.offerBean(o, i)), posCount: heroes.vacancies(c) });
   };
   H['hero.getHerosListFromTavern'] = (conn, d, cmd) => { const c = game.castleOr(conn, cmd, d.castleId); if (c){ listReply(conn, cmd, c); game.store.touch(); } };
-  // "Hero Hunting" refreshes the Inn. Without one in the inventory the client offers to buy it, then asks
-  // again, so the item's coin price is charged here instead.
+  // "Hero Hunting" refreshes the Inn. Without one in the inventory the client offers to refresh for gold (or to buy
+  // it, then asks again), so the gold is charged here instead: rules.innRefreshGold (1,000), or with that 0 the
+  // item's coin price (its worth in gold without cents, nocents.js).
   H['hero.refreshHerosListFromTavern'] = (conn, d, cmd) => {
     const c = game.castleOr(conn, cmd, d.castleId); if (!c) return;
     const p = conn.player, id = 'consume.refreshtavern.1', price = game.data.items[id]?.price || 5;
     if (!heroes.innLevel(c)) return game.fail(conn, cmd, -30, 'Build an Inn to recruit heroes.');
-    const rate = centsRate(game.rules), gold = price * rate;   // (no cents: its worth in gold, nocents.js)
+    const gold = innGold();
     if (game.items.take(p, id)) game.pushItems(p, [id]);
-    else if (rate && game.goldPool(p) >= gold) game.payGold(p, gold, c, 'Hero Hunting');
-    else if (!rate && (p.coins || 0) >= price){ p.coins -= price; game.pushPlayerInfo(p); }
-    else return game.fail(conn, cmd, -28, rate ? `Refreshing the Inn takes a Hero Hunting (${fmt(gold)} gold).` : `Refreshing the Inn takes a Hero Hunting (${price} coins).`);
+    else if (gold && game.goldPool(p) >= gold) game.payGold(p, gold, c, 'Inn refresh');
+    else if (!gold && (p.coins || 0) >= price){ p.coins -= price; game.pushPlayerInfo(p); }
+    else return game.fail(conn, cmd, -28, gold ? `Refreshing the Inn takes a Hero Hunting or ${fmt(gold)} gold.` : `Refreshing the Inn takes a Hero Hunting (${price} coins).`);
     heroes.refreshInn(c, game.now(), pool());
     game.store.touch();
     listReply(conn, cmd, c);
