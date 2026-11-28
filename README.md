@@ -97,6 +97,8 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   (0: the Hero Hunting's shop price), and the Inn's dialog says so.
 - **Helm heroes**: the attribute a helm promises (Plate Helm of Lancelot 70-80, Holy Helm of Mars 81-90, Crystal of
   Attunement 101-110, Ardee's Sigil 115-125) is the hero's base stat; his level's points are in the other two.
+- **Phone layout's resources**: the lord panel on a phone shows the city's food, lumber, stone, iron and gold (it
+  showed 0 for each).
 - **Historic Cities** show their introductions from the client's own city list. Each of the 16 states has its capital,
   8 level 14s and 121 level 12s (every 18 tiles from 9,9: Olathe at 99,99 beside Washington, D.C.), and every Historic
   City has flats on all sides, except where another Historic City is (`rules.historic.flatRing`).
