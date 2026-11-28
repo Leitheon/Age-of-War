@@ -1838,8 +1838,10 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         'Population Increase', 'Wealthy Society', 'Prestige Building', 'Item Purchase', 'Promotion', 'Battlefield', 'Guidelines', 'Military Operation', 'The Medals',
         'Be an Evonian', 'Stratagem', 'Achievement', 'Uprising', 'Hero Gear', 'Daily Amulet'];
       const at = names.map(n => WIKI.indexOf(n));
-      ok(at.every((v, i) => v >= 0 && (i === 0 || v > at[i - 1])) && ['Colony', 'Scouting', 'Wealthy Society', 'Battlefield', 'Correspondence', 'Military Operation', 'Uprising', 'Achievement', 'Stratagem'].every(n => names.includes(n)),
-        'the categories follow the wiki\'s order; Correspondence (mail), Military Operation (wounded troops), Uprising, Achievement and Stratagem show');
+      // (Uprising and Stratagem are off: the web client has no screens for them; Fox, Nov 28 2026)
+      ok(at.every((v, i) => v >= 0 && (i === 0 || v > at[i - 1])) && ['Colony', 'Scouting', 'Wealthy Society', 'Battlefield', 'Correspondence', 'Military Operation', 'Achievement'].every(n => names.includes(n))
+        && !names.includes('Uprising') && !names.includes('Stratagem'),
+        'the categories follow the wiki\'s order; Correspondence (mail), Military Operation (wounded troops) and Achievement show; Uprising and Stratagem don\'t');
       const listOf = async name => (await c.call('quest.getQuestList', { castleId: castle.id, typeId: types.types.find(t => t.name === name)?.typeId })).quests || [];
       const queenQ = await listOf('Queen');
       ok(queenQ.length === 1 && queenQ[0].questId === 601 && queenQ[0].targets[0].name.startsWith('Prestige reaches 1,000'), 'the Queen chain starts with Prestige 1,000, as on the wiki');
@@ -4872,6 +4874,20 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         && order.matched.fills === 1 && order.matched.bought === 500 && order.matched.spent === 50 && order.offer?.giveAmount === 10 && order.offer.wantAmount === 100
         && Math.floor(B.c.res.gold) === 4890 && mineAfter.myOffers.length === 0,
         'the market: an offer holds what it gives; taking part of it, then an order at its price, fill it, and the rest of the order waits on the board');
+      {
+        // The Trading quests from the web market (Fox, Nov 28 2026: "double check all quests"): offering food for gold
+        // sells it; taking that offer (gold for food) buys it.
+        const sf = G.quests.state(S.p).flags, bf = G.quests.state(B.p).flags;
+        ok(sf.sell === true && !sf.buyRes && bf.buyRes === true && !bf.sell, 'selling and buying in the web market complete Sell Resources and Buy Resources');
+        // Quests no one can finish here aren't offered: Member Enrichment while alliances hold fewer members than it asks
+        // (rules.alliances.memberCap), and the stratagem, uprising and commission quests (no web screens for them).
+        const Q = G.quests, cap = G.rules.alliances.memberCap, five = Q.defs.get(67), ten = Q.defs.get(68);
+        G.rules.alliances.memberCap = 1; const capped = [Q.offered(five), Q.offered(ten)];
+        G.rules.alliances.memberCap = 5; const five5 = [Q.offered(five), Q.offered(ten)];
+        G.rules.alliances.memberCap = cap;
+        ok(capped.join() === 'false,false' && five5.join() === 'true,false' && Q.offered(five) && [660, 661, 680, 681].every(id => !Q.offered(Q.defs.get(id))),
+          'Member Enrichment is offered only up to the alliance member cap, and the stratagem, uprising and commission quests aren\'t offered');
+      }
       const ships = B.ask('market.getMarket', {}).shipments;
       G.items.add(B.p, 'consume.transaction.1', 1);
       const fast = B.ask('market.speedUp', { shipmentId: ships[0].id });

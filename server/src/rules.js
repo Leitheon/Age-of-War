@@ -739,7 +739,10 @@ const DEFAULTS = {
   dailyEvent: { enabled: true, item: 'player.box.gambling.3', count: 1 },
   // Routine quests. dailyAmulet: the Daily Amulet category, this server's stand-in for the daily Amulet before
   // live's way (dailyEvent) was known; true shows it as well.
-  quests: { dailyAmulet: false, systems: { mail: true, market: true, injured: true, uprising: true, chat: true, achievement: true, stratagem: true, alliance: true, commission: true } },
+  // Quests that need a system are offered while it's true here. The web client has no screens for stratagems,
+  // uprisings or commissions (Fox, Nov 28 2026: "double check all quests to make sure they are completeable"), so
+  // their quests are off; true offers them again (the Flash client has those screens).
+  quests: { dailyAmulet: false, systems: { mail: true, market: true, injured: true, uprising: false, chat: true, achievement: true, stratagem: false, alliance: true, commission: false } },
   // Anti-Colonization commission quests (commission.js; the client's texts): the uprising they start lasts hours
   // ("available for default 24 hours"), and the reward is at least minReward cents.
   commission: { hours: 24, minReward: 1 },

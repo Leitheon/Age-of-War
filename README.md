@@ -106,6 +106,11 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
 - **Quests the web client completes**: One click change (One Click Change in the hero window), Items Purchase (the
   web shop) and Folk Hearsay (opening it: the web client has no task to accept there) are done by what the web
   client sends.
+- **Every quest offered can be finished**: trading in the web market completes Sell Resources (giving food, lumber,
+  stone or iron) and Buy Resources (getting one). Member Enrichment is offered only up to the alliance member cap
+  (`rules.alliances.memberCap`). The stratagem, uprising and commission quests are off, since the web client has no
+  screens for those (`rules.quests.systems`: true offers them again).
+- **Statistics** has no World Boss Rank tab (there's no world boss).
 - **Historic Cities** show their introductions from the client's own city list. Each of the 16 states has its capital,
   8 level 14s and 121 level 12s (every 18 tiles from 9,9: Olathe at 99,99 beside Washington, D.C.), and every Historic
   City has flats on all sides, except where another Historic City is (`rules.historic.flatRing`).

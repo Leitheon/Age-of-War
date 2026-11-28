@@ -118,7 +118,8 @@ function catalog(){
   const prod = (res, name, first, base) => [1000, 5000, 10000, 50000].map((n, i) => q(base + i, name, [kind('prod', { res, n })], `${i === 0 ? first + '*1, ' : ''}${RES_NAME[res]}*${n}`));
   const tax = [[500, 'Gold*1000'], [1000, 'Gold*5000'], [5000, 'Food*10000'], [10000, 'Food*50000']].map(([n, r], i) => q(180 + i, 'Tax Revenue', [kind('tax', { n })], r));
   const prestige = range(0, 9).map(i => q(184 + i, 'Prestige Building', [kind('prestige', { n: 1000 * Math.pow(2, i) })], `Gold*${(i + 1) * 10000}`));
-  const members = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((n, i) => q(67 + i, 'Member Enrichment', [flag(`allianceMembers${n}`, `Your alliance reaches ${n} members`)], 'Prestige*100, Gold*1000', { needs: 'alliance' }));
+  // (offered only while alliances can hold that many: rules.alliances.memberCap; Fox, Nov 28 2026)
+  const members = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((n, i) => q(67 + i, 'Member Enrichment', [flag(`allianceMembers${n}`, `Your alliance reaches ${n} members`)], 'Prestige*100, Gold*1000', { needs: 'alliance', members: n }));
   const ACQUIRE = 'Successfully capture and persuade a hero';
   const QUEEN_PRESTIGE = [100, 100, 200, 300, 500];   // the wiki's first five Queen awards read 1-5; the live game shows 100 for the second
   const queen = [
@@ -297,7 +298,7 @@ class QuestLogic {
   // ---------- definitions ----------
   define(raw, cat){
     const targets = raw.targets.map(t => t.kind === 'tech' ? { ...t, id: Number(Object.values(this.g.data.techs).find(x => x.name === t.name)?.id) || 0 } : t);
-    return { id: raw.id, typeId: cat.typeId, version: cat.version || 0, name: raw.name, targets, show: raw.show || [], needs: raw.needs || null,
+    return { id: raw.id, typeId: cat.typeId, version: cat.version || 0, name: raw.name, targets, show: raw.show || [], needs: raw.needs || null, members: raw.members || 0,
       promo: raw.promo || null, level: raw.level || 0, daily: !!raw.daily, repeat: false, reward: this.parseReward(raw.reward), text: raw.text || null };
   }
   parseReward(text){
@@ -358,6 +359,9 @@ class QuestLogic {
   maxCities(p){ return Math.min(this.rules.maxCities || 10, this.title(p) + 1); }
   // Systems quests can need. None of them exist on this server yet.
   supports(system){ return !!this.rules.quests?.systems?.[system]; }
+  // Can an alliance have n members? (rules.alliances.memberCap; 0: no cap)
+  membersAllowed(n){ const cap = Math.floor(Number(this.rules.alliances?.memberCap) || 0); return !(cap > 0 && cap < n); }
+  offered(d){ return !(d.needs && !this.supports(d.needs)) && !(d.members && !this.membersAllowed(d.members)); }
 
   // ---------- checking targets ----------
   check(p, c, t, now){
@@ -435,7 +439,7 @@ class QuestLogic {
   // The quest a chain offers: its first not yet completed (daily quests stay), if that one can be offered.
   current(p, chain, c, now){
     const s = this.state(p), d = chain.find(x => x.daily || !s.done[x.id]);
-    if (!d || (d.needs && !this.supports(d.needs)) || (d.show.length && !this.met(p, c, d.show, now))) return null;
+    if (!d || !this.offered(d) || (d.show.length && !this.met(p, c, d.show, now))) return null;
     return d;
   }
   currentOf(p, cat, c, now){ return this.catVisible(cat) ? cat.chains.map(ch => this.current(p, ch, c, now)).filter(Boolean) : []; }
@@ -482,6 +486,7 @@ class QuestLogic {
     const cat = this.categories.find(x => x.typeId === def.typeId);
     if (!this.currentOf(p, cat, c, now).includes(def)){
       if (def.needs && !this.supports(def.needs)) return [-1, `${def.name} needs something this server doesn't have yet.`];
+      if (def.members && !this.membersAllowed(def.members)) return [-1, `Alliances on this server hold ${this.rules.alliances.memberCap} member${this.rules.alliances.memberCap === 1 ? '' : 's'}, so ${def.name} isn't offered.`];
       return [-1, `${def.name} isn't open yet. Finish the quest before it first.`];
     }
     const st = this.status(p, c, def, now);

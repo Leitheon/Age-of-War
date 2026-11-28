@@ -93,6 +93,14 @@ module.exports = (game, H) => {
     });
   };
 
+  // The Trading quests (Sell Resources, Buy Resources; Fox, Nov 28 2026): giving food, lumber, stone or iron sells it,
+  // getting one buys it (gold is the money).
+  const tradeQuests = (p, gave, got) => {
+    let n = false;
+    if (gave !== 'gold') n = game.quests.flag(p, 'sell') || n;
+    if (got !== 'gold') n = game.quests.flag(p, 'buyRes') || n;
+    if (n) game.questNotice(p);
+  };
   H['market.postOffer'] = (conn, d, cmd) => {
     const c = game.castleOr(conn, cmd, d.castleId); if (!c) return;
     const p = conn.player, now = game.now(), give = d.giveResource, want = d.wantResource;
@@ -123,6 +131,7 @@ module.exports = (game, H) => {
     } else c.res[give] += left;   // filled: what wasn't needed comes back
     M().offers = M().offers.filter(o => o.filledGive < o.giveAmount && o.filledWant < o.wantAmount);
     game.log.info(`${p.name} offered ${gAmt} ${give} for ${wAmt} ${want}${fills ? `: bought ${got} from ${fills} offer${fills > 1 ? 's' : ''}` : ''}`);
+    tradeQuests(p, give, want);
     touch(touched); game.pushResources(c);
     game.reply(conn, cmd, { matched: { fills, bought: got, spent }, offer: offer ? view(offer) : null });
   };
@@ -141,6 +150,7 @@ module.exports = (game, H) => {
     trade(o, c, p, f.pay, now);
     M().offers = M().offers.filter(x => x.filledGive < x.giveAmount && x.filledWant < x.wantAmount);
     game.log.info(`${p.name} bought ${f.take} ${o.giveResource} from ${o.playerName} for ${f.pay} ${o.wantResource}`);
+    tradeQuests(p, o.wantResource, o.giveResource);
     touch([p.id, o.playerId]); game.pushResources(c);
     game.reply(conn, cmd, { take: f.take, pay: f.pay });
   };
