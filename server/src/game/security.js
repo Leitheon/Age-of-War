@@ -43,6 +43,17 @@ function netOf(ip){
   if (parts.length !== 8 || !parts.every(x => /^[0-9a-f]{1,4}$/.test(x))) return s;
   return parts.slice(0, 4).map(x => parseInt(x, 16).toString(16)).join(':') + '::/64';
 }
+// Out-of-band testing services (Nov 28 2026: a scanner posted https://<random>.oast.me in world chat, to see whether
+// the server, a bot or a player's game would open it and so give away its address). Interactsh (oast.*,
+// interact.sh), Burp Collaborator (oastify.com, burpcollaborator.net) and the like exist only to catch such visits;
+// no player has a reason to write one. Security.probe() bans whoever does.
+const PROBE = /(?:^|[^a-z0-9-])((?:[a-z0-9-]+\.)*(?:oast\.(?:pro|live|site|online|fun|me)|interact\.sh|interactsh\.com|oastify\.com|burpcollaborator\.net|dnslog\.(?:cn|link)|ceye\.io|requestrepo\.com|canarytokens\.(?:com|org)))(?![a-z0-9-])/i;
+function probeIn(v, depth = 0){
+  if (typeof v === 'string') return PROBE.exec(v)?.[1] || null;
+  if (!v || typeof v !== 'object' || depth > 16) return null;
+  for (const x of Object.values(v)){ const hit = probeIn(x, depth + 1); if (hit) return hit; }
+  return null;
+}
 function clientOf(req, sockIp){
   const peer = clean(sockIp), h = req?.headers || {};
   const fwd = loopback(peer) ? (h['cf-connecting-ip'] || String(h['x-forwarded-for'] || '').split(',')[0]) : '';
@@ -175,6 +186,34 @@ class Security {
     }
     this.touch();
     return key;
+  }
+  // A scanner's probe (PROBE: a testing service's address in anything sent; Fox, Nov 28 2026): the message goes
+  // nowhere, and the sender's network is banned for rules.security.probeBan.networkDays (30; 0: for good), his browser
+  // and his account (signed in, or the one being made) for good. The server's own computer is never banned. Any line
+  // with such an address already kept (the chat's history, mail, alliance texts) is removed (scrubProbes).
+  probe(conn, host, cmd, now = this.g.now()){
+    if (!conn || conn.local) return null;
+    const days = this.rules.probeBan?.networkDays ?? 30, until = days > 0 ? now + days * 86400e3 : null, why = 'Automatic: security scanner';
+    const net = conn.ip ? this.banKey('ip', conn.ip, until, why, now) : null;
+    if (conn.device) this.banKey('device', conn.device, null, why, now);
+    const a = conn.player ? this.accountOf(conn.player) : null;
+    if (a && !this.banOf(a, now)) this.ban(a, null, why, now);
+    const gone = this.scrubProbes();
+    this.audit('automatically banned a security scanner', a?.name || net || '?', `it sent ${host} (${cmd}); ${net ? `its network ${net} ${this.span({ until })}` : ''}${conn.device ? ', its browser for good' : ''}${a ? `, the account ${a.name} for good` : ''}${gone ? `; ${gone} kept line${gone === 1 ? '' : 's'} with it removed` : ''}`, now);
+    this.activity({ type: 'probe', account: a?.name, ids: conn.player ? [conn.player.id] : [], ip: conn.ip, net, host, cmd, device: conn.device || undefined }, now);
+    this.g.log.warn(`Banned a security scanner: ${a ? a.name + ', ' : ''}${conn.ip}${net && net !== conn.ip ? ` (${net})` : ''}${conn.device ? ', its browser' : ''}. It sent ${host} in ${cmd}.`);
+    return { net, account: a?.name || null, removed: gone };
+  }
+  // Takes every kept line with a testing service's address out: the chat's history, mail, alliance introductions and
+  // notes. Returns how many went. (Also when the server starts: game.js.)
+  scrubProbes(){
+    const db = this.g.db, bad = t => typeof t === 'string' && PROBE.test(t);
+    let n = 0;
+    for (const [k, list] of Object.entries(db.chatLog || {})){ const keep = list.filter(l => !bad(l.msg)); n += list.length - keep.length; db.chatLog[k] = keep; }
+    for (const p of Object.values(db.players || {})) if (p.mails?.length){ const keep = p.mails.filter(m => !bad(m.title) && !bad(m.content)); n += p.mails.length - keep.length; p.mails = keep; }
+    for (const al of Object.values(db.alliances || {})) for (const f of ['info', 'note']) if (bad(al[f])){ al[f] = ''; n++; }
+    if (n) this.touch();
+    return n;
   }
   // Name guessing (rules.security.autoBan; Fox, Nov 28 2026: "can these be auto-banned?", of a scanner trying account
   // names one after another: aowtest, victim_aow, xalgorix_a2, aowreset1 ...). Wrong passwords for unknownNames
@@ -321,4 +360,4 @@ class Security {
   }
 }
 
-module.exports = { Security, clientOf, newDevice, deviceCookie, emailKey, DEVICE, loopback, netOf };
+module.exports = { Security, clientOf, newDevice, deviceCookie, emailKey, DEVICE, loopback, netOf, probeIn, PROBE };

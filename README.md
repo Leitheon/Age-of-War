@@ -192,6 +192,12 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
     for 60 days unused. The official battle-report fetcher and the Flash bridge run only where they're used.
   - Renaming a lord takes a New ID and nothing else (any item used to do), with an account name's letters (no
     look-alikes), and not another player's name. Hero names can't hold `< > & "`.
+- **Scanner probes banned on sight:** a message with the address of an out-of-band testing service in it
+  (Interactsh's `oast.me`, `oast.fun`... and `interact.sh`, Burp Collaborator's `oastify.com`, `dnslog.cn` and the
+  like, which exist only to catch a server or a player's game opening a link) is refused, and the sender's account
+  and browser are banned for good, his network for 30 days (`rules.security.probeBan`). Lines with such an address
+  already kept (the chat's history, mail, alliance texts) are removed, also when the server starts. Never the
+  server's own computer. Shown on the admin overview and under Activity, Automatic bans.
 - **Farming valleys** (`rules.battle.rangedOverCounter`): the valley guide's archers take valleys without losing any:
   50 / 100 / 200 archers for levels 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with 1
   Cavalry for levels 4-10, against every mix of troops a valley has, with research 10 (or Archery 7 and a hero of 300

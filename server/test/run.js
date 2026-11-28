@@ -4102,6 +4102,22 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         // The market's resource type is a whole number.
         const odd = G.market.post(G.castlesOf(p1)[0], p1, 1.5, 0, 10, 1);
         ok(Array.isArray(odd), 'a market order for resource type 1.5 is refused');
+        // A scanner's probe (Nov 28 2026: https://<random>.oast.me posted in world chat): refused, and the sender's
+        // account, browser and network banned at once; lines with such an address already kept are removed. Signing up
+        // with one bans the network too; the server's own computer is never banned.
+        (G.db.chatLog ??= {}).world = [...(G.db.chatLog.world || []), { fromUser: 'Someone', msg: 'see https://dc4rksu7ui0.oast.me', time: G.now() }, { fromUser: 'Fine', msg: 'hello all', time: G.now() }];
+        G.mail.send(A1.p, 'Review1', 'note', 'go to http://x1y2.oastify.com/a');
+        const a2 = G.db.accounts.review2, said = call(A2.conn, 'common.privateChat', { targetName: 'Lord Review', msg: 'look https://Abc123.OAST.me/x' });
+        const net2 = S.ipBan('192.0.2.32'), dev2 = S.db.bans.device[A2.conn.device], acct2 = S.banOf(a2);
+        const signup = reg(fake('192.0.2.37', 'af'.repeat(16)), 'ProbeMaker', 'scan@q9w8.oast.fun'), net3 = S.ipBan('192.0.2.37');
+        const localSaid = call(Object.assign(fake('127.0.0.1', 'b0'.repeat(16), true), { player: A1.p }), 'common.worldChat', { msg: 'http://t.interact.sh' });
+        const world = (G.db.chatLog.world || []).map(l => l.msg).join('|'), inbox = (A1.p.mails || []).map(m => m.content).join('|');
+        const pev = S.events({ types: ['probe'] }).find(e => /oast\.me$/i.test(e.host || '')), probeTab = await get('/admin?view=activity&type=autoban,probe');
+        ok(said.ok < 0 && net2 && net2[1].until > G.now() + 29 * 86400e3 && dev2 && acct2 && acct2.until == null && signup.ok < 0 && !G.db.accounts.probemaker && net3
+          && localSaid.ok < 0 && !S.ipBan('127.0.0.1') && !/oast|oastify/i.test(world) && /hello all/.test(world) && !/oastify/.test(inbox)
+          && pev?.host?.toLowerCase() === 'abc123.oast.me' && /Banned a security scanner/.test(String(probeTab.body)),
+          'a message with a testing service\'s address (an oast.me link in chat, an oast.fun e-mail at sign-up) is refused, and the sender\'s account and browser are banned for good, his network for 30 days; such lines already in the chat history and mail are removed; the server\'s own computer is never banned');
+        S.unban(a2); S.unbanKey('ip', '192.0.2.32'); S.unbanKey('ip', '192.0.2.37'); delete S.db.bans.device[A2.conn.device]; delete S.db.bans.device['af'.repeat(16)];
         S.tries.clear(); S.db.tries = {};
       }
       // The admin page: the overview, a player's page, and an action (with the page's token only).

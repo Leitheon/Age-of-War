@@ -35,7 +35,7 @@ const { Chat } = require('./chat');
 const { Effort } = require('./effort');
 const { Stratagems } = require('./stratagems');
 const { Alliances } = require('./alliances');
-const { Security } = require('./security');
+const { Security, probeIn } = require('./security');
 const { AdminPage } = require('./admin');
 const { CLASS } = require('./combat');
 
@@ -200,6 +200,7 @@ class Game {
     };
     for (const f of HANDLER_FILES) require('./handlers/' + f)(this, this.handlers);
     this.migrate();
+    { const n = this.security.scrubProbes(); if (n) log.warn(`Removed ${n} kept line${n === 1 ? '' : 's'} with a security scanner's address (chat history, mail, alliance texts)`); }
     const placed = this.hh.seed();
     if (placed) log.info(`Placed ${placed} historic heroes in NPC cities`);
   }
@@ -694,6 +695,9 @@ class Game {
   handle(conn, cmd, data){
     cmd = String(cmd);
     if (!CMD_NAME.test(cmd) || BUILT_IN.has(cmd) || poisoned(data)) return this.fail(conn, cmd.slice(0, 80), -1, 'That request was refused.');
+    // (a security scanner's probe: security.probe bans it)
+    const probe = probeIn(data);
+    if (probe){ this.security.probe(conn, probe, cmd); return this.fail(conn, cmd, -1, 'That request was refused.'); }
     if (this.overLimit(conn)) return this.fail(conn, cmd, -1, 'Too many requests at once. Slow down.');
     const h = Object.hasOwn(this.handlers, cmd) ? this.handlers[cmd] : null;
     this.notePackage(conn, cmd, data);

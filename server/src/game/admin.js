@@ -18,7 +18,7 @@ const DUR = [['1h', '1 hour', 3600e3], ['6h', '6 hours', 6 * 3600e3], ['1d', '1 
   ['7d', '7 days', 7 * 86400e3], ['30d', '30 days', 30 * 86400e3], ['perm', 'Permanent', null]];
 const RES = ['food', 'wood', 'stone', 'iron', 'gold'];
 const TYPES = [['', 'Everything'], ['signin,resume', 'Sign-ins'], ['signin-fail', 'Wrong passwords'], ['signup', 'Sign-ups'], ['signup-blocked', 'Refused sign-ups'],
-  ['autoban', 'Automatic bans'], ['transport', 'Transports'], ['reinforce', 'Reinforcements'], ['market', 'Market trades'], ['policy', 'Policies'], ['battle', 'Battles']];
+  ['autoban,probe', 'Automatic bans'], ['transport', 'Transports'], ['reinforce', 'Reinforcements'], ['market', 'Market trades'], ['policy', 'Policies'], ['battle', 'Battles']];
 const esc = s => String(s ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
 const when = t => t ? new Date(t).toISOString().slice(0, 16).replace('T', ' ') : '';
 const num = n => Math.floor(Number(n) || 0).toLocaleString('en-US');
@@ -70,6 +70,7 @@ class AdminPage {
       case 'resume': return `${acc(e.account)} came back (reload)${ip}${dev}`;
       case 'signin-fail': return `Wrong password for ${acc(e.account)} from${ip}${dev}`;
       case 'signup-blocked': return `<span class="bad">Sign-up of ${esc(e.account)} refused</span>: the browser already has ${(e.others || []).map(acc).join(', ')}${ip}${dev}`;
+      case 'probe': return `<span class="bad">Banned a security scanner</span>${e.account ? ` (${acc(e.account)})` : ''}: it sent ${esc(e.host)} (${esc(e.cmd)}); its network ${esc(e.net || '?')}${e.device ? ' and browser' : ''} banned${ip}${dev}`;
       case 'autoban': return `<span class="bad">Banned ${esc(e.net)} automatically</span> ${e.until ? 'until ' + when(e.until) : 'for good'}: it tried ${num((e.names || []).length)} account names that don't exist (${esc((e.names || []).slice(0, 8).join(', '))}${(e.names || []).length > 8 ? ' ...' : ''})${(e.banned || []).length ? `; its new accounts banned too: ${e.banned.map(acc).join(', ')}` : ''}${ip}${dev}`;
       case 'transport': {
         const back = this.acctOfLord(e.to), q = { view: 'player', name: back?.name || '', tb_city: e.toCityId || '' };
@@ -191,7 +192,7 @@ class AdminPage {
     const S = this.S, accs = Object.values(this.g.db.accounts || {}), day = now - 86400e3;
     const banned = accs.filter(a => S.banOf(a, now)).length, ps = accs.map(a => a.playerId && this.g.db.players[a.playerId]).filter(Boolean);
     const groups = S.groups(now), recent = S.events({ max: 2000, months: 1 }).filter(e => e.t >= day);
-    const fails = recent.filter(e => e.type === 'signin-fail'), refused = recent.filter(e => e.type === 'signup-blocked'), autos = recent.filter(e => e.type === 'autoban');
+    const fails = recent.filter(e => e.type === 'signin-fail'), refused = recent.filter(e => e.type === 'signup-blocked'), autos = recent.filter(e => e.type === 'autoban'), probes = recent.filter(e => e.type === 'probe');
     const byIp = new Map(); for (const e of fails) if (e.ip) byIp.set(e.ip, (byIp.get(e.ip) || 0) + 1);
     const noisy = [...byIp].filter(([, n]) => n >= 5).sort((x, y) => y[1] - x[1]);
     const stat = (n, l, q) => `<div class="stat">${q ? this.link(q, `<b>${num(n)}</b>`) : `<b>${num(n)}</b>`}<span>${l}</span></div>`;
@@ -203,7 +204,8 @@ class AdminPage {
       <h2>Needs a look</h2>
       ${groups.length ? `<p>${groups.filter(x => x.browsers).length} group${groups.filter(x => x.browsers).length === 1 ? '' : 's'} sharing a browser, ${groups.filter(x => !x.browsers).length} sharing only an address. ${this.link({ view: 'alts' }, 'See them')}.</p>
         <ul>${groups.slice(0, 5).map(gr => `<li>${gr.browsers ? '<span class="b bad">same browser</span> ' : '<span class="b warn">same address</span> '}${gr.names.map(n => this.who(this.acct(n))).join(', ')}</li>`).join('')}</ul>` : '<p class="dim">No accounts share a browser or an address.</p>'}
-      ${autos.length ? `<p class="bad"><b>${autos.length}</b> network${autos.length === 1 ? ' was' : 's were'} banned automatically today for guessing account names: ${autos.map(e => esc(e.net)).join(', ')}. ${this.link({ view: 'activity', type: 'autoban' }, 'See them')}.</p>` : ''}
+      ${probes.length ? `<p class="bad"><b>${probes.length}</b> security scanner${probes.length === 1 ? ' was' : 's were'} banned automatically today for sending a testing service's address: ${probes.map(e => esc(e.account || e.net || e.ip || '?')).join(', ')}. ${this.link({ view: 'activity', type: 'autoban,probe' }, 'See them')}.</p>` : ''}
+      ${autos.length ? `<p class="bad"><b>${autos.length}</b> network${autos.length === 1 ? ' was' : 's were'} banned automatically today for guessing account names: ${autos.map(e => esc(e.net)).join(', ')}. ${this.link({ view: 'activity', type: 'autoban,probe' }, 'See them')}.</p>` : ''}
       ${refused.length ? `<p><b>${refused.length}</b> sign-up${refused.length === 1 ? ' was' : 's were'} refused today for a browser that already has an account. ${this.link({ view: 'activity', type: 'signup-blocked' }, 'See them')}.</p>` : ''}
       ${noisy.length ? `<p class="bad">Many wrong passwords today from: ${noisy.map(([ip, n]) => `${esc(ip)} (${n})`).join(', ')}.</p>` : ''}
       <h2>Newest accounts</h2>${this.accountsTable(newest, now)}

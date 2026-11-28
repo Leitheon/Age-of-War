@@ -885,7 +885,11 @@ const DEFAULTS = {
   // `minutes` is banned for `days` (0: for good), with the accounts made from it in the last accountsHours;
   // unknownNames 0 turns it off. (Limits and bans count an IPv6 address as its /64.)
   security: { oneAccountPerBrowser: true, signupsPerDay: 3, failsPer15Min: 10, linkDays: 30, auditMax: 5000,
-    autoBan: { unknownNames: 5, minutes: 15, days: 7, accountsHours: 24 } },
+    autoBan: { unknownNames: 5, minutes: 15, days: 7, accountsHours: 24 },
+    // probeBan (Nov 28 2026, security.probe): a message with a testing service's address in it (a scanner's probe, as
+    // https://<random>.oast.me in world chat) bans the sender's network for networkDays (0: for good), and his
+    // browser and account for good.
+    probeBan: { networkDays: 30 } },
   // Automatic backups (backups.js; Fox, Nov 28 2026: "backup every 3 hours, and save 3 days of backups"): a copy of
   // the world in data/backups every everyHours, those older than keepDays deleted. everyHours 0 turns them off.
   backups: { everyHours: 3, keepDays: 3 },
