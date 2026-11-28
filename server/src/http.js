@@ -325,7 +325,7 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
     // The admin page and the debug menu: only with the admin password (config.json's adminPassword, user "admin").
     if (ADMIN_PAGES.has(p) && adminDenied(cfg, req, res, log)) return;
     // (a page returns its HTML, or { body, type })
-    if (pages[p]){ try { const r = pages[p](query); if (r?.redirect){ res.writeHead(303, { Location: r.redirect, 'Cache-Control': 'no-cache' }); return res.end(); } return typeof r === 'string' ? send(res, 200, r, TYPES['.html']) : send(res, 200, r.body, r.type); } catch (e){ log.error(`${p}: ${e.message}`); return send(res, 500, 'Server error', 'text/plain'); } }
+    if (pages[p]){ try { const r = pages[p](query); if (r?.redirect){ res.writeHead(303, { Location: r.redirect, 'Cache-Control': 'no-cache' }); return res.end(); } if (r?.filename){ res.writeHead(200, { 'Content-Type': r.type, 'Content-Length': Buffer.byteLength(r.body), 'Content-Disposition': `attachment; filename="${String(r.filename).replace(/[^\w.-]/g, '_')}"`, 'Cache-Control': 'no-cache' }); return res.end(r.body); } return typeof r === 'string' ? send(res, 200, r, TYPES['.html']) : send(res, 200, r.body, r.type); } catch (e){ log.error(`${p}: ${e.message}`); return send(res, 500, 'Server error', 'text/plain'); } }
     if (p === '/config2.xml') return send(res, 200, config2(cfg), TYPES['.xml']);
     // Battle report links. The official site's battle*.evony.com/default.html?logfile/<date>/<xx>/<xx>/<hash>.xml
     // needs Flash; here the same address (only the host changes) is the new client drawing the report, and

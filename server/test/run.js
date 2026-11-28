@@ -4220,6 +4220,20 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
             && lateHas === 2 && again === 0 && laterHas === 0 && have(later2) === 0 && have(later) === 1 && gift.stopped && !Array.isArray(noNew) && keptOnWipe && /stopped/.test(tab) && /sent a gift to everyone/.test(S.db.audit.find(x => /gift to everyone/.test(x.action))?.action || ''),
             `a gift to everyone ("${note}"): every lord gets it at once with a System mail, a lord founded within the 30 days gets it as he starts (once), none after it's stopped or with no days for new lords; a Fresh start keeps it`);
         }
+        // The admin page's Items tab (Fox, Nov 28 2026): every item, searchable, with what it does, what a chest opens
+        // to, its gold-shop price and a gift link; and the list as a spreadsheet file.
+        {
+          const all = String((await get('/admin?view=items')).body), found = String((await get('/admin?view=items&find=Christmas%20Chest')).body);
+          const chests = String((await get('/admin?view=items&kind=Chests')).body), csv = await get('/admin?view=items&format=csv&find=christmas');
+          const text = csv.body.toString('utf8'), lines = text.replace(/^\ufeff/, '').trim().split('\r\n');
+          const sold = Object.values(G.data.items).find(it => it.price > 0 && it.type === '宝物' && !/^hero\.taskitem\./.test(it.id) && !(G.rules.webShop?.hidden || []).includes(it.id) && G.rules.webShop?.prices?.[it.id] == null);
+          const soldRow = String((await get('/admin?view=items&find=' + encodeURIComponent(sold.id))).body);
+          ok(/<h2>Items<\/h2>/.test(all) && /1,7\d\d<\/b>\)/.test(all) && /page 1 of \d+/.test(all) && /Christmas Chest/.test(found) && /Opens to: One of 5/.test(found) && /view=gifts&amp;item=player\.box\.present\.money\.113/.test(found)
+            && /Chests/.test(chests) && csv.status === 200 && /text\/csv/.test(csv.type) && /attachment; filename="age-of-war-items\.csv"/.test(csv.headers['content-disposition'] || '')
+            && text.charCodeAt(0) === 0xfeff && lines[0] === 'ID,Name,Kind,What it does,Opens to,Gold shop price' && lines.some(l => /^player\.box\.present\.money\.113,Christmas Chest,Chests,/.test(l))
+            && new RegExp((sold.price * 10000).toLocaleString('en-US')).test(soldRow),
+            `the admin page's Items tab lists every item (search, kinds, pages), with what a chest opens to, the gold-shop price (${sold.id}: ${(sold.price * 10000).toLocaleString('en-US')}) and a gift link; the list downloads as a spreadsheet (${lines.length - 1} Christmas items)`);
+        }
         S.tries.clear(); S.db.tries = {};
       }
       // The admin page: the overview, a player's page, and an action (with the page's token only).

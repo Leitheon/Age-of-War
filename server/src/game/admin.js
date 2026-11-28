@@ -7,6 +7,8 @@
 //   Linked accounts: groups sharing a browser or an address; a pair can be marked allowed (a household).
 //   Activity: the activity log, by kind and lord. Bans: address and browser bans, allowed browsers and pairs.
 //   Audit log: every admin action.
+//   Items: every item in the game's item table, with what it does, what a chest opens to here, its gold-shop price,
+//          a link to gift it, and the whole list as a spreadsheet file.
 //   Gifts: an item to every lord at once, and to new lords for so many days (gifts.js).
 //   Backups: the automatic copies of the world (backups.js) and the ones made before a fresh start.
 //   Fresh start: wipe the world and keep the accounts (game.wipeWorld), with a copy of the old world kept.
@@ -14,6 +16,10 @@
 // Actions are forms POSTed with the page's token (t); each one is in the audit log, then the page reloads (303).
 const world = require('./world');
 const { netOf } = require('./security');
+const { centsRate, centsText } = require('./nocents');
+// The item table's categories (the shop's tabs: webshop.js), in English.
+const ITEM_KIND = { '宝物': 'Items', '加速': 'Speed-ups', '生产': 'Production', '宝箱': 'Chests', '计谋': 'Stratagems', '材料': 'Materials' };
+const KINDS = ['Items', 'Speed-ups', 'Production', 'Chests', 'Stratagems', 'Materials', 'Hero items', 'Equipment', 'Other'];
 
 const DUR = [['1h', '1 hour', 3600e3], ['6h', '6 hours', 6 * 3600e3], ['1d', '1 day', 86400e3], ['3d', '3 days', 3 * 86400e3],
   ['7d', '7 days', 7 * 86400e3], ['30d', '30 days', 30 * 86400e3], ['perm', 'Permanent', null]];
@@ -417,6 +423,53 @@ class AdminPage {
         return `<tr><td>${what}</td><td>${when(v.at)}</td><td>${esc(v.note || '')}</td><td>${undo}</td></tr>`;
       }).join('')}</table>` : '<p class="dim">Nothing allowed yet: households sharing a computer or a network can be allowed from a player\'s page.</p>'}`;
   }
+  // ---------- every item (Fox, Nov 28 2026: "do I have an accessible database of all the items and their
+  // descriptions?") ----------
+  kindOf(it){ return ITEM_KIND[it.type] || (/^hero\./.test(it.id) ? 'Hero items' : /^equipment\./.test(it.id) ? 'Equipment' : 'Other'); }
+  // The gold shop's price (as webshop.js prices it), or 0 when the shop doesn't list it.
+  shopGold(it){
+    const W = this.g.rules.webShop || {}, coins = W.prices?.[it.id] != null ? Number(W.prices[it.id]) || 0 : Number(it.price) || 0;
+    const rate = Number(W.goldPerCoin) > 0 ? Number(W.goldPerCoin) : 10000;
+    if (!(coins > 0) || /^hero\.taskitem\./.test(it.id) || (W.hidden || []).includes(it.id) || !ITEM_KIND[it.type]) return 0;
+    return Math.round(coins * rate);
+  }
+  // An item's text as players see it (cents read as gold where the server has no cents: nocents.js).
+  itemText(t){ const r = centsRate(this.g.rules); return String(t || '').replace(/\r/g, '').trim() && (r ? centsText(String(t).trim(), r) : String(t).trim()); }
+  // The items matching the search (q: find, kind), by name; for the tab and the file.
+  itemRows(q){
+    const items = this.g.data.items || {}, term = String(q.get('find') || '').trim().toLowerCase(), kind = q.get('kind') || '';
+    return Object.values(items).filter(it => (!kind || this.kindOf(it) === kind) && (!term || [it.id, it.name, it.desc].some(x => String(x || '').toLowerCase().includes(term))))
+      .sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)) || a.id.localeCompare(b.id));
+  }
+  opensTo(it){
+    if (it.type !== '宝箱') return '';
+    const keys = this.g.itemUse?.keysFor?.get(it.id), items = this.g.data.items || {};
+    return this.holds(it.id) + (keys?.length ? ` (needs ${[...new Set(keys.map(k => items[k]?.name || k))].join(' or ')})` : '');
+  }
+  itemsView(q){
+    const items = this.g.data.items || {}, rows = this.itemRows(q), per = 100, pages = Math.max(1, Math.ceil(rows.length / per));
+    const page = Math.min(pages, Math.max(1, Math.floor(Number(q.get('page')) || 1))), shown = rows.slice((page - 1) * per, page * per);
+    const find = q.get('find') || '', kind = q.get('kind') || '', nav = n => this.link({ view: 'items', find, kind, page: n }, n === page ? `<b>${n}</b>` : String(n));
+    return `<h2>Items</h2>
+      <p>Every item in the game's item table (<b>${num(Object.keys(items).length)}</b>): what it does, what a chest gives when opened here, and its price in the gold shop. "Gift" puts it in the Gifts tab's form.</p>
+      <form method="get" class="inline"><input type="hidden" name="view" value="items"><input name="find" value="${esc(find)}" placeholder="name, ID or words in the description" size="34">
+        <select name="kind"><option value="">Every kind</option>${KINDS.map(k => `<option${k === kind ? ' selected' : ''}>${k}</option>`).join('')}</select> <button>Find</button>
+        ${find || kind ? this.link({ view: 'items' }, 'Show all') : ''} · <a href="${esc(this.url({ view: 'items', find, kind, format: 'csv' }))}">Download ${find || kind ? 'these' : 'all'} as a spreadsheet file (.csv)</a></form>
+      <p class="dim">${num(rows.length)} item${rows.length === 1 ? '' : 's'}${pages > 1 ? `, page ${page} of ${pages}` : ''}.</p>
+      ${shown.length ? `<table><tr><th>Item</th><th>Kind</th><th>What it does</th><th>Gold shop</th><th></th></tr>${shown.map(it => {
+        const opens = this.opensTo(it), gold = this.shopGold(it);
+        return `<tr><td><b>${esc(this.itemText(it.name) || it.id)}</b><br><span class="dim">${esc(it.id)}</span></td><td class="nw">${this.kindOf(it)}</td>
+          <td>${esc(this.itemText(it.desc))}${opens ? `${this.itemText(it.desc) ? '<br>' : ''}<span class="dim">Opens to: ${esc(opens)}</span>` : ''}</td><td class="nw">${gold ? num(gold) : ''}</td>
+          <td>${this.link({ view: 'gifts', item: it.id }, 'Gift')}</td></tr>`; }).join('')}</table>` : '<p class="dim">Nothing matches.</p>'}
+      ${pages > 1 ? `<p>Pages: ${Array.from({ length: pages }, (_, i) => nav(i + 1)).join(' ')}</p>` : ''}`;
+  }
+  // The same list as a spreadsheet file (UTF-8 with a byte-order mark, so Excel reads the names right).
+  itemsCsv(q){
+    const cell = v => { const t = String(v ?? ''); return /[",\r\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+    const lines = [['ID', 'Name', 'Kind', 'What it does', 'Opens to', 'Gold shop price'].join(',')];
+    for (const it of this.itemRows(q)) lines.push([it.id, this.itemText(it.name), this.kindOf(it), this.itemText(it.desc), this.opensTo(it), this.shopGold(it) || ''].map(cell).join(','));
+    return { body: '\ufeff' + lines.join('\r\n') + '\r\n', type: 'text/csv; charset=utf-8', filename: 'age-of-war-items.csv' };
+  }
   // ---------- gifts to everyone (gifts.js) ----------
   // What a chest gives when opened here (itemUse's chest reader), in a line: its sets, or one random prize; a buff
   // item says what it does.
@@ -426,7 +479,7 @@ class AdminPage {
     const one = e => e.kind === 'res' ? `${n(e)}${e.key === 'wood' ? 'lumber' : e.key}` : e.kind === 'eachres' ? `${n(e)}of each resource` : e.kind === 'cents' ? `${n(e)}cents${this.g.rules.noCents !== false ? ' (paid as gold)' : ''}`
       : e.kind === 'troop' ? `${n(e)}${e.key}` : e.kind === 'medal' ? `${n(e)}random medal` : `${e.count ?? e.min ?? 1} ${items[e.id]?.name || e.id}`;
     if (sets.length) return (sets.length > 1 ? `One of ${sets.length}: ` : '') + sets.map(set => set.map(one).join(', ')).join('; or ');
-    if (/^player\.box\.|^player\.item\./.test(id)) return 'One random prize, as from an Amulet spin (gold, resources or an item).';
+    if (items[id]?.type === '宝箱' || /^player\.box\.|^player\.item\./.test(id) && !ITEM_KIND[items[id]?.type]) return 'One random prize, as from an Amulet spin (gold, resources or an item).';
     return String(items[id]?.desc || '').slice(0, 220);
   }
   giftsView(q, now){
@@ -503,6 +556,7 @@ class AdminPage {
   // ---------- the page ----------
   page(q){
     const g = this.g, now = g.now(), ok = q.get('t') === this.tok;
+    if (q.get('view') === 'items' && q.get('format') === 'csv' && !q.get('_post')) return this.itemsCsv(q);
     let note = q.get('note') ? `<p class="note">${esc(q.get('note'))}</p>` : '';
     if (q.get('_post')){
       if (!ok) note = '<p class="note bad">That form had expired (the server restarted). Try again.</p>';
@@ -517,8 +571,8 @@ class AdminPage {
     }
     const view = q.get('view') || 'home';
     const body = view === 'accounts' ? this.accounts(q, now) : view === 'player' ? this.player(q, now) : view === 'alts' ? this.alts(now)
-      : view === 'activity' ? this.activity(q) : view === 'bans' ? this.bans(now) : view === 'audit' ? this.audit() : view === 'wipe' ? this.wipe() : view === 'backups' ? this.backupsView() : view === 'gifts' ? this.giftsView(q, now) : this.home(now);
-    const nav = [['home', 'Overview'], ['accounts', 'Accounts'], ['alts', 'Linked accounts'], ['activity', 'Activity'], ['bans', 'Bans'], ['audit', 'Audit log'], ['gifts', 'Gifts'], ['backups', 'Backups'], ['wipe', 'Fresh start']]
+      : view === 'activity' ? this.activity(q) : view === 'bans' ? this.bans(now) : view === 'audit' ? this.audit() : view === 'wipe' ? this.wipe() : view === 'backups' ? this.backupsView() : view === 'gifts' ? this.giftsView(q, now) : view === 'items' ? this.itemsView(q) : this.home(now);
+    const nav = [['home', 'Overview'], ['accounts', 'Accounts'], ['alts', 'Linked accounts'], ['activity', 'Activity'], ['bans', 'Bans'], ['audit', 'Audit log'], ['items', 'Items'], ['gifts', 'Gifts'], ['backups', 'Backups'], ['wipe', 'Fresh start']]
       .map(([v, l]) => this.link({ view: v }, l, v === view ? 'tab on' : 'tab')).join('');
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Server admin</title><style>
       body{font:14px Arial,sans-serif;background:#1d1a16;color:#eee;margin:0;padding:20px 24px 60px}h1{margin:0 0 4px;font-size:22px}h2{color:#e6c27a;font-size:18px;margin:26px 0 10px}h3{color:#e6c27a;font-size:15px;margin:22px 0 8px}

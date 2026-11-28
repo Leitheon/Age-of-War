@@ -222,6 +222,11 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   default) as he starts. Each lord gets a gift once; one can be stopped for new lords early. The tab lists the game's
   Christmas items with what opening each gives here (the Christmas Chest is one of five war chests). Gifts carry on
   through a Fresh start, so one still open reaches everyone on the new world.
+- **Items** (the admin page's Items tab): every item in the game's item table (about 1,700), searchable by name, ID or
+  description and by kind (the shop's tabs, hero items, equipment), with what each does, what a chest gives when
+  opened here (and the key it needs), its gold-shop price, and a link to gift it to everyone. The list (or what a
+  search found) downloads as a spreadsheet file (.csv) that Excel opens. It's read from the game file the server
+  loads, so nothing from the game is in the release.
 - **Farming valleys** (`rules.battle.rangedOverCounter`): the valley guide's archers take valleys without losing any:
   50 / 100 / 200 archers for levels 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with 1
   Cavalry for levels 4-10, against every mix of troops a valley has, with research 10 (or Archery 7 and a hero of 300
