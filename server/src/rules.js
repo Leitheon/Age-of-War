@@ -10,7 +10,9 @@ const DEFAULTS = {
   // Hall and nothing else (the tutorial starts with "let's build a cottage"), 5,000 food, lumber, stone and iron,
   // 18,771 gold, 10% tax, an 80% production rate, and 45 people (no Cottage: limit 50, x 90% at 10% tax).
   start: {
-    resources: { food: 5000, wood: 5000, stone: 5000, iron: 5000, gold: 18771 },
+    // (Fox, Nov 28 2026: "set the starting amount of resources for a new account and new city to 50k of each
+    // resource"; live was 5,000 each. Gold is live's.)
+    resources: { food: 50000, wood: 50000, stone: 50000, iron: 50000, gold: 18771 },
     population: 45,
     taxRate: 10,
     productionRate: 80,
@@ -731,7 +733,8 @@ const DEFAULTS = {
   newCityName: 'new',
   buildCity: {
     workers: 250, cost: { food: 10000, wood: 10000, stone: 10000, iron: 10000, gold: 10000 },
-    start: { buildings: { '-1': [31, 1] }, resources: { food: 5000, wood: 5000, stone: 5000, iron: 5000, gold: 68550 }, population: 45, taxRate: 10, productionRate: 80 },
+    // (a city built on a flat starts with 50,000 of each resource too: Fox, Nov 28 2026; live was 5,000)
+    start: { buildings: { '-1': [31, 1] }, resources: { food: 50000, wood: 50000, stone: 50000, iron: 50000, gold: 68550 }, population: 45, taxRate: 10, productionRate: 80 },
   },
   // The daily Aries Amulet, as live gives it (Fox's recordings, Nov 2026: 85 claims, one Amulet each): random
   // event 1, whose Accept (common.setEventDone { id: 1 }) gives this once a day; the window offers it again after

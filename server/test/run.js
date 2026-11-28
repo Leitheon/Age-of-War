@@ -1920,8 +1920,8 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         ok(nc?.name === 'new', `the new city is called "new", as on the live game (${nc?.name})`);
         const near = (v, want) => Math.abs(v - want) < 50, rb = add?.data.castleBean.resource, nr = G.logic.rates(nc, me);
         ok(nc && Object.values(nc.buildings).length === 1 && nc.buildings['-1']?.typeId === 31 && nc.buildings['-1'].level === 1
-          && ['food', 'wood', 'stone', 'iron'].every(k => near(nc.res[k], 5000)) && near(nc.res.gold, 68550) && nc.taxRate === 10 && Object.values(nc.commence).every(v => v === 80),
-          'the new city starts as on the live game: a level 1 Town Hall only, 5,000 of each resource, 68,550 gold, 10% tax and 80% production rate');
+          && ['food', 'wood', 'stone', 'iron'].every(k => near(nc.res[k], 50000)) && near(nc.res.gold, 68550) && nc.taxRate === 10 && Object.values(nc.commence).every(v => v === 80),
+          'the new city starts with a level 1 Town Hall only, 50,000 of each resource (Fox, Nov 28 2026; live: 5,000), 68,550 gold, 10% tax and 80% production rate');
         ok(nc?.troops.peasants === 250 && city.troops.peasants === 50 && !Object.values(srv.store.db.armies).some(a => a.mission === 4) && city.res.stone < 15000 && G.quests.maxCities(me) === me.castles.length,
           `the 250 Workers stay on in the new city and the materials are used up (${city.troops.peasants} workers left at home)`);
         ok(rb && rb.maxPopulation === 50 && rb.populationDirection === 0 && G.logic.popTarget(nc) === 45, 'with no Cottage the population limit is 50, and at 10% tax the population settles at 45 (90% of it)');
@@ -1933,9 +1933,9 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           // A brand-new lord's city with the server's default rules (the test world uses a richer start).
           const { DEFAULTS } = require('../src/rules'), tmp = { id: 'tmp-lord', name: 'Tmp', castles: [], techs: {}, items: {}, buffs: {} };
           const fc = G.createCastle(tmp, { start: DEFAULTS.start }), fr = G.beans.resource(fc, tmp);
-          ok(Object.keys(fc.buildings).join() === '-1' && fc.buildings['-1'].typeId === 31 && fc.buildings['-1'].level === 1 && ['food', 'wood', 'stone', 'iron'].every(k => fr[k].amount === 5000 && fr[k].increaseRate === 100 * G.logic.speed)
+          ok(Object.keys(fc.buildings).join() === '-1' && fc.buildings['-1'].typeId === 31 && fc.buildings['-1'].level === 1 && ['food', 'wood', 'stone', 'iron'].every(k => fr[k].amount === 50000 && fr[k].increaseRate === 100 * G.logic.speed)
             && fr.gold === 18771 && fr.texRate === 10 && fr.support === 90 && fr.complaint === 0 && fr.curPopulation === 45 && fr.maxPopulation === 50 && fr.taxIncome === Math.floor(4.5 * G.logic.speed) && Object.values(fc.commence).every(v => v === 80),
-            `a new lord's city starts as on the live game: a level 1 Town Hall only, 5,000 of each resource (+100 an hour), 18,771 gold, 10% tax, 80% production rate, 45 of 50 people, loyalty 90/0 (${JSON.stringify({ gold: fr.gold, pop: fr.curPopulation, max: fr.maxPopulation, tax: fr.taxIncome })})`);
+            `a new lord's city starts with a level 1 Town Hall only, 50,000 of each resource (+100 an hour; Fox, Nov 28 2026), 18,771 gold, 10% tax, 80% production rate, 45 of 50 people, loyalty 90/0 (${JSON.stringify({ gold: fr.gold, pop: fr.curPopulation, max: fr.maxPopulation, tax: fr.taxIncome })})`);
           delete srv.store.db.castles[fc.id]; delete srv.store.db.tiles[fc.fieldId];
         }
         ok(rb && rb.support === 90 && rb.complaint === 0 && rb.curPopulation === 45 && Math.round(nr.food) === 100 && G.logic.upkeep(nc) === 250 && Math.round(nr.wood) === 100 && Math.floor(nr.gold) === 4,
