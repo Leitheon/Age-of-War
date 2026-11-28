@@ -1712,6 +1712,12 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const wr = (await c.wait('equipment.WearEquipmenttech')).data;
       const slot = worn.hero.equipmentbean.find(e => e.heroPos === 3);
       ok(wr.ok === 1 && worn.hero.equipmentbean.length === 16 && slot.lv === 1 && slot.addAttribute === 1 && worn.hero.attack === 1, 'a hero wears the weapon for +1 attack and the hero window gets all 16 slots');
+      { // Fox (Nov 28 2026): "The one-click gear quest doesn't seem to be completing properly": One Click Change sends
+        // equipment.WearAllEquipmenttech.
+        const flags = G.quests.state(me).flags; delete flags.wearAll;
+        const all = await c.call('equipment.WearAllEquipmenttech', { heroid: h0.id, AddAttributeType: 2 });
+        ok(all.ok === 1 && flags.wearAll === true, 'One Click Change completes the "One click change" quest' + (all.ok === 1 ? '' : ': ' + all.errorMsg));
+      }
       give('enhanced.star.2', 4);
       const gems0 = me.items['enhanced.star.2'];
       const star = await c.call('equipment.EnhancedStarByGemStone', { gemstoneid: 'enhanced.star.2', count: 4, pos: 1 });
@@ -3959,6 +3965,11 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const buy = await call2('shop.buyPooled', { itemId: 'consume.2.a', amount: 2 }), poor = await call2('shop.buyPooled', { itemId: 'consume.2.a', amount: 1 });
       ok(cat.data.tabs.length >= 5 && cat.data.tabs[0].name === 'Items' && !cat.data.tabs.some(t => t.id === 'hot' || t.name === 'Treasure') && ware.price > 0 && buy.data.ok === 1 && pw.items['consume.2.a'] >= 2 && pw.boundGold === 0 && Math.floor(home.res.gold) === 8 && poor.data.ok < 0,
         'the shop (no Hot tab; Items first) sells for gold from the lord\'s cities, bound gold first');
+      {
+        // The web client's shop and Folk Hearsay complete their quests (Items Purchase, Folk Hearsay: Fox, Nov 28 2026).
+        const fl = srv.game.quests.state(pw).flags, hs = await call2('npchero.getNpcHerosList', { castleId: home.id });
+        ok(fl.buy === true && hs.data.ok === 1 && fl.hearsay === true, 'buying in the web shop completes Items Purchase, and opening Folk Hearsay completes its quest');
+      }
       const listed = cat.data.tabs.flatMap(x => x.items).map(x => x.id), off = srv.game.rules.webShop.hidden, speaker = await call2('shop.buyPooled', { itemId: 'consume.1.a', amount: 1 });
       ok(off.length === 76 && !listed.some(id => off.includes(id)) && listed.length > 50 && ['consume.1.a', 'player.box.present.money.43', 'hero.item.Lugui_Wine', 'player.item.stoneoffinding'].every(id => off.includes(id))
         && speaker.data.ok < 0 && !pw.items['consume.1.a'],

@@ -336,12 +336,15 @@ class Game {
       case 'hero.refreshHerosListFromTavern': flag('refreshInn'); break;
       case 'castle.speedUpBuildCommand': if (item === 'consume.2.a') flag('guideBuild'); break;
       case 'tech.speedUpResearch': if (item === 'consume.2.b') flag('guideResearch'); break;
-      case 'shop.buy': flag('buy'); break;
-      case 'quest.accept': flag('hearsay'); break;
+      // (the web client's shop buys with shop.buyPooled, and Halloween goods with shop.buyHalloween; Fox, Nov 28 2026)
+      case 'shop.buy': case 'shop.buyPooled': case 'shop.buyHalloween': flag('buy'); break;
+      // (the web client's Folk Hearsay lists the rumours and has no task to accept: opening it counts)
+      case 'quest.accept': case 'npchero.getNpcHerosList': flag('hearsay'); break;
       case 'npchero.getNpcHeroInfroByID': flag('enquire'); break;
       case 'npchero.getNpcHerosListByMoney': flag('moreHearsay'); break;
       case 'npchero.getNpcHerosListByFilter': flag('heroSearch'); break;
-      case 'equipment.WearAll': flag('wearAll'); break;
+      // (One Click Change: equipment.WearAllEquipmenttech; it listened for a command no client sends: Fox, Nov 28 2026)
+      case 'equipment.WearAllEquipmenttech': case 'equipment.WearAll': flag('wearAll'); break;
       case 'shop.useGoods':
         if (/^player\.box\.gambling\.\d+$/.test(item)) flag('amulet');
         if (item === 'player.box.present.2') flag('newbiePack');

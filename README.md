@@ -103,6 +103,9 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   72 hours, the achievements' bonuses (with what each does, no countdown), Beginner's Protection with when it runs out
   (and that a level 5 Town Hall ends it), and a Dream Truce's window as a truce. Lasting bonuses and hunger show no
   countdown.
+- **Quests the web client completes**: One click change (One Click Change in the hero window), Items Purchase (the
+  web shop) and Folk Hearsay (opening it: the web client has no task to accept there) are done by what the web
+  client sends.
 - **Historic Cities** show their introductions from the client's own city list. Each of the 16 states has its capital,
   8 level 14s and 121 level 12s (every 18 tiles from 9,9: Olathe at 99,99 beside Washington, D.C.), and every Historic
   City has flats on all sides, except where another Historic City is (`rules.historic.flatRing`).

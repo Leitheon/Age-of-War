@@ -182,7 +182,7 @@ function catalog(){
       [q(630, 'Acquire Enemy\'s Hero', [flag('captureHero', ACQUIRE)], 'Aries Amulet*1, Holy Water*1', { show: [bld(B.INN)] }),
         q(635, 'Acquire Enemy\'s Hero', [flag('captureFamous', `${ACQUIRE} who is famous (a historic hero)`)], 'Aries Amulet*1, Holy Water*1')],
       [q(631, 'Enquire Details', [flag('enquire', 'Enquire details of a specific hero (Inn, Hearsay)')], 'Holy Water*1, Cents*10', { show: [bld(B.INN)] })],
-      [q(632, 'Folk Hearsay', [flag('hearsay', 'Accept the task of capturing a hero (Inn, Hearsay)')], 'Gold*2000', { show: [bld(B.INN)] })],
+      [q(632, 'Folk Hearsay', [flag('hearsay', 'Hear the Folk Hearsay about famous heroes (Inn, level 5: Folk Hearsay)')], 'Gold*2000', { show: [bld(B.INN)] })],
       [q(633, 'More Hearsay', [flag('moreHearsay', 'Refresh the list of heroes you can enquire about (More Hearsay)')], 'Gold*2000', { show: [bld(B.INN)] })],
       [q(634, 'Specific Hero Information', [flag('heroSearch', 'Search the details of a specific hero (Hero Search)')], 'Gold*5000', { show: [bld(B.INN)] })],
     ] },
