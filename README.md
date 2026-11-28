@@ -145,9 +145,19 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   written as they happen (it was made from the members' reports each time, so a deleted report or a member who left took
   battles out). Kept 30 days or 300 pages, whichever ends first; a battle with a lord in no alliance is in it, either
   way round, as are colonizations and uprisings.
+- **Battle refit** (Nov 28 2026; `rules.battle`, `heroAttackPerPoint`, `leadership`, `counters`, `starSetLife`): our
+  battles killed 2 to 7 times what retail does in a lord's city. Refit to Fox's 24 CC2 tests and Report A (a city of
+  2.1 billion of every troop) together with the live valley battles in `test/`: a hero adds 0.5% attack a point of
+  his attack (gear included; was 1%), troops beyond his leadership get a fifth of it (was all), a lord's star set gives
+  his city's defenders its life bonus too, archers, ballistae and catapults do x1.3 against cavalry (was x2), and a
+  defending stack's strike carries on to the next attacker in range once its target is wiped out. The one-kind tests
+  now kill 1.0-1.3 times live's numbers, Report A ends in live's 6 rounds, and the valley battles come out in the
+  live number of rounds as often as before.
 - **Farming valleys** (`rules.battle.rangedOverCounter`): the valley guide's archers take valleys without losing any:
   50 / 100 / 200 archers for levels 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with 1
-  Cavalry for levels 4-10, against every mix of troops a valley has, with Archery 5 or more. Archers, ballistae and
+  Cavalry for levels 4-10, against every mix of troops a valley has, with research 10 (or Archery 7 and a hero of 300
+  attack; since the battle refit, at Archery 5 with a weak hero an all-archer valley of level 5-6 can get a volley
+  off). Archers, ballistae and
   catapults shoot the enemy's ranged troops in range before what they counter (archers shot a valley's cavalry first,
   and its archers closed in and fired back); the one Cavalry holds the valley's troops where they stand.
 - **Farming NPC 1-5**: transporters stay back while anything else in their army still fights

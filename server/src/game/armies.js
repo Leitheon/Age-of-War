@@ -579,6 +579,8 @@ class ArmyLogic {
     const life = hero && vsNpc ? g.equipment.setLife(p, hero) : 0;
     return g.combat.mods(g.logic, p, hero, troops, { side: 'attack', life });
   }
+  // The defenders' life bonus from their lord's star set (rules.starSetLife.defence).
+  defenceLife(dp, hero){ return dp && this.g.rules.starSetLife?.defence ? this.g.equipment.setLife(dp, hero) : 0; }
   attack(a, p, c, hero, tile, report, now){
     const g = this.g;
     // A Colonize march checks again on arrival: the city may have been colonized, or the lord's limit reached.
@@ -612,7 +614,7 @@ class ArmyLogic {
       guests = shut ? [] : this.guests(dc);
       defHero = defHeroObj = this.defender(dc, guests, now);
       const defTroops = shut ? {} : guests.length ? this.merged(dc.troops, guests) : dc.troops;
-      defender = { troops: defTroops, forts: dc.forts, mods: g.combat.mods(g.logic, dp, defHero, defTroops, { side: 'defence', walls: g.logic.level(dc, TYPE.WALLS) }) };
+      defender = { troops: defTroops, forts: dc.forts, mods: g.combat.mods(g.logic, dp, defHero, defTroops, { side: 'defence', walls: g.logic.level(dc, TYPE.WALLS), life: this.defenceLife(dp, defHero) }) };
       defName = dp.name;
       // An attack on an uprising colony of this lord's suppresses the uprising when it wins.
       rising = g.colonies.rising(p, dc);
@@ -853,7 +855,7 @@ class ArmyLogic {
     g.logic.settle(dc, dp, now);
     const defHero = this.defender(dc, [], now), before = { ...troops }, defBefore = { ...dc.troops }, fortsBefore = { ...(dc.forts || {}) };
     const attacker = { troops, mods: g.combat.mods(g.logic, p, hero, troops, { side: 'attack', life: 0 }) };
-    const defender = { troops: dc.troops, forts: dc.forts, mods: g.combat.mods(g.logic, dp, defHero, dc.troops, { side: 'defence', walls: g.logic.level(dc, TYPE.WALLS) }) };
+    const defender = { troops: dc.troops, forts: dc.forts, mods: g.combat.mods(g.logic, dp, defHero, dc.troops, { side: 'defence', walls: g.logic.level(dc, TYPE.WALLS), life: this.defenceLife(dp, defHero) }) };
     const r = g.combat.fight(attacker, defender), left = r.attLeft;
     g.effort.kills(p, r.def); g.effort.kills(dp, r.att);
     this.relive(p, before, left, now); this.relive(dp, defBefore, r.defLeft, now);

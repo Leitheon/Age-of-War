@@ -238,24 +238,31 @@ const DEFAULTS = {
   mayorStepPerPoint: 0.9986,
   // Each Construction level takes 10% off a building's (or wall defense's) time, compounding (live: 0.9^10).
   constructionStep: 0.9,
-  heroAttackPerPoint: 1,           // a hero leading an army raises its attack by 1% per point
+  // A hero leading an army raises its attack by this % per point of his attack (his power with its +25% buffs, and his
+  // gear's attack). Fox's live CC2 tests (Nov 26 2026): the same 10,000 archers under Leonard (229 attack), Walter
+  // Raleigh (832) and AYOMIM (1,015) killed 1,687, 3,616 and 4,197 of a city's cavalry; with research's 50% that is
+  // 0.50% a point for all three (1% gave Walter and AYOMIM 6-7 times live's kills; Nov 28 2026 refit).
+  heroAttackPerPoint: 0.5,
   heroDefencePerIntelligence: 1.21, // ...and its defence (fitted to dxcalc, Oct 30 2026; m3.101: 1.01)
   // How many troops a hero leads (Evony Advanced Guide, "Hero Leadership"): (leadership x perPoint + level) x leadership,
   // 110,000 for a level 100 hero with leadership 100. An ordinary hero's leadership is his level. Troops beyond
   // that get attackShare of his bonus when attacking (none: "never send more than your hero can lead") and
   // defenceShare when defending ("fight at 25% of your hero's bonus"). NPC cities' and Historic Cities' heroes
   // lead everything (dxcalc gives them leadership 9999). enabled: false gives every troop the full bonus.
-  // attackShare 1: live gives an attacking hero's bonus to every troop. Fox's recordings: in 855 valley battles of
-  // 100-200 archers under heroes of levels 1-4 (who lead 11 to 176 by the formula) the rounds come out right in
-  // 78.7% with the full bonus and 64.0% without it (83.1% in the battles the limit doesn't touch).
-  leadership: { enabled: true, perPoint: 10, attackShare: 1, defenceShare: 0.25 },
+  // attackShare: Fox's CC2 tests (Nov 26 2026): 100,000 archers or catapults under Leonard (level 45, leads 22,275)
+  // killed 6.95 times what 10,000 did, not 10: the troops beyond his leadership get about a fifth of his bonus (0.2;
+  // Nov 28 2026 refit). (Before, with 1% a point of hero attack: 1, from 855 valley battles under heroes of levels
+  // 1-4, whose bonus is small either way.)
+  leadership: { enabled: true, perPoint: 10, attackShare: 0.2, defenceShare: 0.25 },
   // The star set life bonus (Evony Advanced Guide, "Star Set Life Bonus" and "Attacking NPC's"): when every one of
   // the lord's 14 gear technologies has at least this many stars, his troops get this much extra life (%, added to
   // Medicine's) when attacking an NPC city or a Historic City, whatever the leading hero wears (Fox's live
   // battles, Oct 2026). 5, 9 and 12 stars are the guide's confirmed 150%, 200% and 250% life; 14 and 15 are its
   // guesses (300% and 350%), and the battle fit puts dxcalc's 15-star value at +220% to +250%. valleys: true
   // also counts valley attacks; perHero: true counts only the pieces the leading hero wears.
-  starSetLife: { tiers: [[5, 50], [9, 100], [12, 150], [14, 200], [15, 250]], valleys: false, perHero: false },
+  // defence: the city's lord's star set counts for its defenders too (Nov 28 2026 refit: Fox's CC2 tests on a city
+  // whose lord has a 15-star set kill what our battles give with +250% life on its troops).
+  starSetLife: { tiers: [[5, 50], [9, 100], [12, 150], [14, 200], [15, 250]], valleys: false, perHero: false, defence: true },
   // The server's experience value of one troop, by type: RoboEvony's TROOP_EXP_VALUES. It is what each troop is
   // worth to Draft and Disarmament (policies.taken; the Evony Advanced Guide's undraftable numbers are 2^31 / these),
   // and, divided by 50 like a fort's exp in the client's table, to hero experience and honor (Fox's live reports:
@@ -296,7 +303,20 @@ const DEFAULTS = {
     simultaneous: true,             // ...from the numbers at the start of the strikes
     // A stack strikes what it counters first (rules.counters: pikemen at horsemen...); Fox, from the live game.
     counterFirst: 'all',
-    damageScale: 0.554,             // fitted
+    // Refit Nov 28 2026 (Fox: "Our battles are killing way too many troops compared to retail") to his 24 CC2 tests
+    // and Report A, a city of 2.1 billion of every troop, and to the live valley battles in test/ at the same time.
+    // With the heroes' attack as the recording has it (gear included), 0.5% a point of it (heroAttackPerPoint), the
+    // city lord's 15-star set on its defenders (starSetLife.defence), ranged troops' bonus against cavalry cut to
+    // x1.3 (counters) and the defenders' carried-over damage (overflow): the 22 tests of one troop type come out at
+    // 0.87-1.25 times live's kills, the two mixed armies end in live's 6 rounds, and the valley battles in the live
+    // number of rounds as often as before (78 of the 101, 84% of the 400). The old fit (0.554, rangedScale 0.70, 1%
+    // a point, from dxcalc and the valleys alone) killed 2 to 7 times live's numbers in a lord's city.
+    damageScale: 0.89,
+    // overflow: what a defending stack's strike has left after wiping out its target goes on to the next attacker in
+    // its range. Report A's 2 million catapults and test G3's 12 kinds of 8,000 last 6 rounds, as live; without it
+    // 9 and 12 (a city's billions killing one small stack a round while the attackers' ranged troops kept firing).
+    // The attackers' don't carry over: with it the valley battles ended early (64% in live's rounds). true: both sides.
+    overflow: 'D',
     // Archers, ballistae and catapults: Age I's half damage (0.5) was ~25% short in the live game. Fox's 101 live
     // valley battles of 200 archers (heroes of known attack, Military Tradition 5, Archery 6; Nov 2026) come out
     // in the live number of rounds in 78 of them at 0.63 (59 at 0.5), every one within a round, the misses split
@@ -305,7 +325,9 @@ const DEFAULTS = {
     // Fox's recordings (Nov 2026): 5,442 valley battles of archers with each hero's attack and each lord's research
     // known come out in the live number of rounds in 82.4% at 0.70 (72% at 0.63), the 101 above in 79; 99.7% of
     // all within a round. (Hero attack 0.9 a point with 0.72 does no better: +1% a point stays.)
-    rangedScale: 0.70,
+    // Nov 28 2026 refit (see damageScale): 0.562, so ranged troops do 0.5 of their attack (damageScale x this) with
+    // 0.5% a point of hero attack, the same 78 / 84% of the valley battles in live's rounds.
+    rangedScale: 0.562,
     towerScale: 0.373,              // fitted: archer's towers
     towerLifeFromEngineering: true, // Engineering adds its fortification life to archer's towers (fits better)
     // Archers, ballistae, catapults and archer's towers shoot enemy archers, ballistae, catapults and towers in
@@ -352,8 +374,11 @@ const DEFAULTS = {
     wallRangePerLevel: 4.5,
   },
   // Attack bonuses, attacker typeId -> defender typeId (players' Age I table): swordsmen vs pikemen, cavalry
-  // and cataphracts vs archers, pikemen vs horsemen, archers, ballistae and catapults vs cavalry.
-  counters: { 6: { 5: 1.1 }, 9: { 7: 1.2 }, 10: { 7: 1.2 }, 5: { 9: 1.8, 10: 1.8 }, 7: { 9: 2 }, 11: { 9: 2 }, 13: { 9: 2 } },
+  // and cataphracts vs archers, pikemen vs horsemen, archers, ballistae and catapults vs cavalry. The last three
+  // were x2 until Nov 28 2026: in Fox's CC2 tests they killed a city's cavalry at about the rate their attack gives
+  // (x2: twice live's numbers; x1: 0.96 of them), while the pikemen's 1.8 shows. x1.3 is as little as keeps the
+  // farming guide's 250 ballistae at an NPC 4 lossless (its 150 cavalry reached them below x1.25).
+  counters: { 6: { 5: 1.1 }, 9: { 7: 1.2 }, 10: { 7: 1.2 }, 5: { 9: 1.8, 10: 1.8 }, 7: { 9: 1.3 }, 11: { 9: 1.3 }, 13: { 9: 1.3 } },
   npcRecoverHours: 8,              // a beaten NPC city or valley regains its stores over this long (game time; the wiki: 8 hours).
                                    // Troops and defenses come back within an hour, and everything is full again after the daily reset.
   // Garrisons.

@@ -10,7 +10,8 @@
 //   - Ranged stacks (archers, ballistae, catapults, archer's towers) shoot the closest enemy ranged stack in range
 //     first (rangedFirst, rangedOverCounter). Otherwise a stack strikes the enemy it counters first (counterFirst:
 //     pikemen at horsemen, archers at cavalry...); otherwise melee stacks hit the fastest enemy in range and ranged
-//     stacks the closest. Damage beyond what kills the target stack is lost.
+//     stacks the closest. With rules.battle.overflow, damage beyond what kills the target stack goes on to the next
+//     enemy in range (otherwise it is lost).
 //   - Kills = count x attack x bonus x max(minDefenceFactor, 1 - defence/1000) x damageScale x (rangedScale or
 //     towerScale) / life, rounded up (players' Age I formula; bonus from rules.counters, e.g. pikemen x1.8
 //     against horsemen; defence counts as at least defenceFloor; however high it is, minDefenceFactor of the
@@ -125,12 +126,27 @@ class Combat {
       const mode = cfg.turn || 'moveOrAttack', simul = !!cfg.simultaneous, pending = [];
       const holds = s => (s.who === 'D' && (cfg.defendersStay === 'all' || (cfg.defendersStay === 'ranged' && s.ranged)))
         || (s.typeId === SCOUT && (cfg.scoutsStay === 'all' || cfg.scoutsStay === s.who))
+        || (s.ranged && (cfg.rangedStay === 'all' || cfg.rangedStay === s.who))
         || (cfg.transportersHoldBack && s.typeId === CARRIAGE && all.some(o => o.who === s.who && o.count > 0 && o.typeId !== CARRIAGE));
       const step = (s, enemies) => {
         const near = enemies.reduce((a, b) => Math.abs(b.x - s.x) < Math.abs(a.x - s.x) ? b : a), gap = Math.abs(near.x - s.x);
         s.x += Math.sign(near.x - s.x) * Math.min(s.speed, Math.max(0, gap - (cfg.stopAtRange ? s.range : 0)));
       };
+      // overflow: what a strike has left after wiping its target out goes on to the next enemy in its range, and so on.
+      const land = (s, target, count) => {
+        let share = 1, t = target;
+        for (let i = 0; t && share > 1e-9 && i < 20; i++){
+          if (t.count <= 0){ t = this.pick(s, alive(t.who)); continue; }
+          const dmg = this.damage(s, t, count) * share, need = t.count * t.life;
+          if (dmg < need){ this.hit(t, dmg); return; }
+          t.count = 0; share *= 1 - need / dmg;
+          t = this.pick(s, alive(t.who));
+        }
+      };
+      // ('melee': only melee stacks' strikes carry over)
+      const carries = s => cfg.overflow === true || (cfg.overflow === 'melee' && !s.ranged) || cfg.overflow === s.who;
       const strike = (s, target) => {
+        if (carries(s)){ if (simul) pending.push([target, 0, s, s.count]); else land(s, target, s.count); return; }
         const dmg = this.damage(s, target);
         if (simul) pending.push([target, dmg]); else this.hit(target, dmg);
         // Ballistae creep forward while they shoot, until the walls are in range (Age I guides; off).
@@ -159,7 +175,7 @@ class Combat {
         const target = this.pick(s, enemies);
         if (target) strike(s, target);
       }
-      for (const [t, d] of pending) this.hit(t, d);
+      for (const [t, d, s, n] of pending) if (s) land(s, t, n); else this.hit(t, d);
       // The walls (only while attackers are left).
       if (!alive('A').length) break;
       const tower = def0.find(s => s.tower && s.count > 0);

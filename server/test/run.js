@@ -782,10 +782,11 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
     const noTech = { techEffect: () => 0 }, lvl10 = { level: 10, base: { atk: 50, int: 40 }, added: { atk: 0, int: 0 } };
     const lvl100 = { level: 100, base: { atk: 50, int: 40 }, added: { atk: 0, int: 0 } };
     const lead = (h, n, side) => srv.game.combat.mods(noTech, {}, h, { archer: n }, { side }).attack;
-    ok(hb.leadership === 37 && srv.game.combat.leads(lvl10) === 1100 && srv.game.combat.leads(lvl100) === 110000 && lead(lvl10, 1100) === 50 && lead(lvl100, 110000) === 50,
-      'leadership = level; a hero leads (leadership x 10 + level) x leadership troops: 1,100 at level 10, 110,000 at level 100 (the guide)');
-    ok(lead(lvl10, 2200) === 50 && lead(lvl10, 2200, 'defence') === 31.25 && Math.abs(srv.game.combat.mods(noTech, {}, lvl10, { archer: 2200 }, { side: 'defence' }).defence - 40 * srv.game.rules.heroDefencePerIntelligence * 0.625) < 1e-9,
-      'troops beyond that still get all of his bonus in attack (live: Fox\'s recordings) and a quarter of it in defence (2,200 under a level 10 hero: 100% / 62.5% of it)');
+    const kpp = srv.game.rules.heroAttackPerPoint, fullBonus = 50 * kpp;   // (50 attack: 25% at 0.5% a point)
+    ok(hb.leadership === 37 && srv.game.combat.leads(lvl10) === 1100 && srv.game.combat.leads(lvl100) === 110000 && lead(lvl10, 1100) === fullBonus && lead(lvl100, 110000) === fullBonus && kpp === 0.5,
+      'leadership = level; a hero leads (leadership x 10 + level) x leadership troops: 1,100 at level 10, 110,000 at level 100 (the guide); his attack gives 0.5% a point');
+    ok(Math.abs(lead(lvl10, 2200) - fullBonus * 0.6) < 1e-9 && lead(lvl10, 2200, "defence") === fullBonus * 0.625 && Math.abs(srv.game.combat.mods(noTech, {}, lvl10, { archer: 2200 }, { side: 'defence' }).defence - 40 * srv.game.rules.heroDefencePerIntelligence * 0.625) < 1e-9,
+      'troops beyond that get a fifth of his bonus in attack (Fox\'s CC2 tests: 100,000 archers under a level 45 hero killed 6.95 times what 10,000 did) and a quarter of it in defence (2,200 under a level 10 hero: 60% / 62.5% of it)');
     {
       // Fox, live: behind level 10 Walls with Archery 10, archers reach 2,340 and archer's towers 2,535 (4.5% a Walls level).
       const C = srv.game.combat, arch10 = { techEffect: (p, id) => id === 14 ? 50 : 0 };
@@ -816,8 +817,8 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       };
       const clean = r => r.attackerWon && r.att.every(u => u.lose === 0);
       const farm = [[1, 20], [2, 50], [3, 170], [4, 250], [5, 550]].map(([L, n]) => clean(farmFight(L, { ballista: n })));
-      ok(farm.every(Boolean) && clean(farmFight(5, { ballista: 450 }, { hero: heroOf(25) })) && !clean(farmFight(5, { ballista: 450 })),
-        `the guide's 20/50/170/250/550 ballistae beat NPC 1-5 without loss with research 10 and a hero of no attack; 450 do it with a hero of 25 attack, not with none: ${farm}`);
+      ok(farm.every(Boolean) && clean(farmFight(5, { ballista: 450 }, { hero: heroOf(25) })) && clean(farmFight(5, { ballista: 450 })),
+        `the guide's 20/50/170/250/550 ballistae beat NPC 1-5 without loss with research 10 and a hero of no attack, and 450 at an NPC 5 with research 10 (Fox): ${farm}`);
       // The guide's table at an NPC 5 (550 ballistae, a hero of no attack): 0 losses, small losses (from units, out of the
       // towers' range) or massive losses (in the towers' range), by Archery and Horseback Riding.
       const table = { '8/3': 'M', '8/4': 'S', '8/5': '0', '8/6': '0', '8/7': 'S', '8/8': 'M', '8/9': 'M', '9/1': 'S', '9/2': 'S', '9/3': '0', '9/5': 'S', '9/6': 'S',
@@ -834,16 +835,18 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       {
         const GUIDE = [null, { archer: 50 }, { archer: 100 }, { archer: 200 }, { archer: 400, lightCavalry: 1 }, { archer: 800, lightCavalry: 1 }, { archer: 1600, lightCavalry: 1 },
           { archer: 3200, lightCavalry: 1 }, { archer: 10000, lightCavalry: 1 }, { archer: 20000, lightCavalry: 1 }, { archer: 20000, lightCavalry: 1 }];
-        const valleyFight = (L, id, day, A) => { const troops = GUIDE[L]; return C.fight({ troops, mods: C.mods(research(A, 10, A), {}, heroOf(80), troops) }, { troops: N.valley(L, id, day), forts: {}, mods: {} }); };
+        // (Nov 28 2026 refit, a hero's attack at 0.5% a point: research 10 with a hero of 80 attack, or Archery 7 with
+        // one of 300, gear included; at Archery 5 with the 80, an all-archer valley of level 5-6 gets a volley off.)
+        const valleyFight = (L, id, day, A, atk = 80) => { const troops = GUIDE[L]; return C.fight({ troops, mods: C.mods(research(A, 10, A), {}, heroOf(atk), troops) }, { troops: N.valley(L, id, day), forts: {}, mods: {} }); };
         const dirty = [], was = C.rules.battle.rangedOverCounter;
-        for (const A of [5, 10]) for (let L = 1; L <= 10; L++) for (let id = 1; id <= 8; id++) for (let day = 0; day < 15; day += 3){
-          const r = valleyFight(L, id * 7919, day, A), lost = GUIDE[L].archer - (r.attLeft.archer || 0);
+        for (const [A, atk] of [[10, 80], [7, 300]]) for (let L = 1; L <= 10; L++) for (let id = 1; id <= 8; id++) for (let day = 0; day < 15; day += 3){
+          const r = valleyFight(L, id * 7919, day, A, atk), lost = GUIDE[L].archer - (r.attLeft.archer || 0);
           if (!r.attackerWon || lost) dirty.push(`Archery ${A} level ${L}: ${lost} lost`);
         }
         C.rules.battle.rangedOverCounter = false;
         let before = 0; for (let L = 6; L <= 10; L++) for (let id = 1; id <= 8; id++) for (let day = 0; day < 15; day += 3) if (GUIDE[L].archer - (valleyFight(L, id * 7919, day, 10).attLeft.archer || 0)) before++;
         C.rules.battle.rangedOverCounter = was;
-        ok(!dirty.length && before > 0, `the valley guide's archers (with 1 Cavalry from level 4) take valleys 1-10 without losing an archer, against every mix of troops, at Archery 5 and 10 (shooting the cavalry first they lost some in ${before} of 200 fights)${dirty.length ? ': ' + dirty.slice(0, 5).join('; ') : ''}`);
+        ok(!dirty.length && before > 0, `the valley guide's archers (with 1 Cavalry from level 4) take valleys 1-10 without losing an archer, against every mix of troops, with research 10 and a hero of 80 attack, or Archery 7 and one of 300 (shooting the cavalry first they lost some in ${before} of 200 fights)${dirty.length ? ': ' + dirty.slice(0, 5).join('; ') : ''}`);
       }
       // Fox (Nov 24 2026): with ballistae and transporters an NPC 1-5 costs nothing; the transporters had walked up to
       // the walls and lost 230 to the towers while the ballistae lost none. They stay back now while anything else fights.
@@ -901,6 +904,32 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         }
         ok(!off.length, `Fox's CC2 tests, one kind at a time on a city with 2.145 billion of every troop: the live number of rounds for all 12 kinds, its Cavalry hit and never its Scouts, no traps on siege troops or Transporters${off.length ? ' (off: ' + off.join('; ') + ')' : ''}`);
       }
+      // Nov 28 2026 refit (Fox: "Our battles are killing way too many troops compared to retail"): his CC2 tests'
+      // kills, each hero as the recording has him (power with its +25% buff, plus gear attack; 0.5% a point), the
+      // city's 15-star set giving its troops +250% life, and Report A (the same city, 1,948,400 catapults and more
+      // under Walter Raleigh): its 6 rounds, as live (9 without the defenders' carried-over damage).
+      {
+        const city = {}; for (const t of Object.values(srv.game.data.troops)) city[t.field] = 2145000000;
+        city.carriage = 1835000000;
+        const kpp = srv.game.rules.heroAttackPerPoint, L = srv.game.rules.leadership;
+        const hero = { Leonard0: [64, 0, 18, 44, 44], Leonard: [64, 164.7, 18, 44, 44], AYOMIM: [356 * 1.25, 569.7, 108, 120, 120], Walter: [210 * 1.25, 569.7, 86, 249, 150] };
+        const am = (name, n) => { const [p, g, int, ldr, lvl] = hero[name], cap = (ldr * L.perPoint + lvl) * ldr, led = n <= cap ? 1 : (cap + (n - cap) * L.attackShare) / n;
+          return { attack: 50 + (p + g) * kpp * led, defence: 50 + int * 1.21, life: 50, range: 50, fortLife: 100, speedFoot: 100, speedHorse: 50 }; };
+        const dm = { attack: 50 + 969.7 * kpp * 0.25, defence: 50 + 88 * 1.21 * 0.25, life: 50 + 250, range: 95, fortLife: 100, speedFoot: 100, speedHorse: 50 };
+        const forts = { trap: 8, abatis: 5, arrowTower: 1, rollingLogs: 8, rockfall: 4 };
+        const cav = (name, troops) => C.fight({ troops, mods: am(name, Object.values(troops).reduce((x, y) => x + y, 0)) }, { troops: city, forts, mods: dm }).def.find(u => u.field === 'lightCavalry').lose;
+        const cases = [['A1 Warriors', 'Leonard0', { militia: 10000 }, 276], ['B04 Pikemen', 'Leonard0', { pikemen: 10000 }, 1494], ['B06 Archers', 'Leonard', { archer: 10000 }, 1687],
+          ['B08 Cavalry', 'Leonard', { lightCavalry: 10000 }, 2009], ['B12 Catapults', 'Leonard', { catapult: 10000 }, 8442], ['C1b 100,000 Archers', 'Leonard', { archer: 100000 }, 11726],
+          ['D1 Archers', 'AYOMIM', { archer: 10000 }, 4197], ['D2 Archers', 'Walter', { archer: 10000 }, 3616]];
+        const got = cases.map(([k, h, t, live]) => [k, cav(h, t), live]), wide = got.filter(([, ours, live]) => ours < live * 0.8 || ours > live * 1.4);
+        const ra = { peasants: 100, militia: 100, scouter: 100, pikemen: 100, swordsmen: 100, archer: 20000, heavyCavalry: 100, ballista: 30000, batteringRam: 1000, catapult: 1948400 };
+        const raCity = { ...city, lightCavalry: 0, carriage: 1735000000 }, raForts = { trap: 6, abatis: 4, arrowTower: 1, rollingLogs: 7, rockfall: 5 };
+        const fightA = () => C.fight({ troops: ra, mods: am('Walter', 2049300) }, { troops: raCity, forts: raForts, mods: dm });
+        const rA = fightA(), was = C.rules.battle.overflow; C.rules.battle.overflow = false; const rA0 = fightA(); C.rules.battle.overflow = was;
+        const raLost = f => rA.def.find(u => u.field === f)?.lose || 0;
+        ok(!wide.length && rA.round === 6 && rA0.round > 6 && raLost('archer') < 2581256 * 1.2 && raLost('heavyCavalry') < 1747231 * 1.2,
+          `Fox's CC2 tests come out near live's kills (ours/live: ${got.map(([k, o, l]) => `${k} ${o}/${l}`).join(', ')}), and Report A ends in live's 6 rounds (${rA0.round} without carried-over damage), killing ${raLost('archer')} archers and ${raLost('heavyCavalry')} cataphracts (live 2,581,256 and 1,747,231; before the refit 10.8 and 9.7 million)`);
+      }
       // m3.112: Fox's 101 live valley battles (NA62, Nov 2026, from the battle capture): 200 archers, heroes of
       // known attack, Military Tradition 5 (+25%), Archery 6 (+30% range). Archers at 0.63 (Age I's 0.5 was ~25%
       // short): 78 come out in the live number of rounds (59 at 0.5), every one within a round, no archer lost.
@@ -908,7 +937,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         const lv = JSON.parse(fs.readFileSync(path.join(__dirname, 'live-valley-battles.json'), 'utf8'));
         let exact = 0, near = 0, lostArchers = 0;
         for (const [hero, troops, rounds] of lv.battles){
-          const r = C.fight({ troops: { archer: 200 }, mods: { attack: 25 + lv.heroAttack[hero], range: 30 } }, { troops, mods: {} });
+          const r = C.fight({ troops: { archer: 200 }, mods: { attack: 25 + lv.heroAttack[hero] * srv.game.rules.heroAttackPerPoint, range: 30 } }, { troops, mods: {} });
           if (r.round === rounds) exact++;
           if (Math.abs(r.round - rounds) <= 1 && r.attackerWon) near++;
           lostArchers += r.att[0].lose;
@@ -923,7 +952,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         const eff = (id, L) => L ? srv.game.data.techs[id].levels[L - 1].effect : 0;
         let exact = 0, near = 0, won = 0, lostOurs = 0, lostLive = 0;
         for (const [n, def, rounds, atk, mt, ar, md, lost] of rv){
-          const r = C.fight({ troops: { archer: n }, mods: { attack: eff(9, mt) + atk, range: eff(14, ar), life: eff(16, md) } }, { troops: def, mods: {} });
+          const r = C.fight({ troops: { archer: n }, mods: { attack: eff(9, mt) + atk * srv.game.rules.heroAttackPerPoint, range: eff(14, ar), life: eff(16, md) } }, { troops: def, mods: {} });
           exact += r.round === rounds ? 1 : 0; near += Math.abs(r.round - rounds) <= 1 ? 1 : 0; won += r.attackerWon ? 1 : 0;
           lostOurs += r.att.find(u => u.field === 'archer')?.lose || 0; lostLive += lost;
         }
