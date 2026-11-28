@@ -156,6 +156,11 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
 - **Age of War's own names in the browser**: the service worker and its art cache (`aow-assets-...`, was
   `evony-assets-...`), the sign-in cookie (`aow_session`), the screen settings and the map's zoom and marks. A
   player's old ones are carried over once, so nobody is signed out or loses a setting; the art is fetched once more.
+- **Sign-up and password limits survive a restart**: the counts behind `security.signupsPerDay` and `failsPer15Min`
+  are kept with the world (they were in memory, so each restart started them over: a scanner made 5 accounts from one
+  address in a day, past the limit of 3). **The admin page** refuses an address for 15 minutes after 10 wrong
+  passwords (each is written in the server window), and its sign-in answer no longer names the user or the file the
+  password is in.
 - **Farming valleys** (`rules.battle.rangedOverCounter`): the valley guide's archers take valleys without losing any:
   50 / 100 / 200 archers for levels 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with 1
   Cavalry for levels 4-10, against every mix of troops a valley has, with research 10 (or Archery 7 and a hero of 300

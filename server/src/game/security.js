@@ -88,11 +88,18 @@ class Security {
     const d = this.db.devices[device], me = String(name).toLowerCase();
     return d ? Object.keys(d.accounts).filter(n => n !== me && this.g.db.accounts?.[n]) : [];
   }
-  // How many attempts under key came within the last ms (add: counting one more now).
+  // How many attempts under key came within the last ms (add: counting one more now). Kept with the world (db.tries),
+  // so a restart doesn't start them over (Nov 28 2026: one address made 5 accounts in a day past the limit of 3, the
+  // count lost each time the server was restarted for an update).
   attempts(key, ms, now = this.g.now(), add = false){
-    const list = (this.tries.get(key) || []).filter(t => t > now - ms);
+    const tries = (this.db.tries ??= {});
+    if (this.tries.size){ for (const [k, v] of this.tries) tries[k] = [...(tries[k] || []), ...v]; this.tries.clear(); }
+    const list = (tries[key] || []).filter(t => t > now - ms);
     if (add) list.push(now);
-    if (list.length) this.tries.set(key, list); else this.tries.delete(key);
+    if (list.length) tries[key] = list.slice(-200); else delete tries[key];
+    if (add) this.touch();
+    // (now and then, drop the keys nothing has been counted under for a day)
+    if (add && Math.random() < 0.02) for (const [k, v] of Object.entries(tries)) if (!v.length || v[v.length - 1] < now - 86400000) delete tries[k];
     return list.length;
   }
 

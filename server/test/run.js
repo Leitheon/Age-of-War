@@ -3960,7 +3960,11 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const blocked = login(fake('198.51.100.8', DEV3), 'SecMain');
       ok(tries.slice(0, 10).every(r => /Wrong user name/.test(r.errorMsg)) && /Too many wrong passwords/.test(tries[10].errorMsg) && /Too many wrong passwords/.test(blocked.errorMsg)
         && S.events({ types: ['signin-fail'] }).filter(e => e.account === 'SecMain').length >= 10, 'after 10 wrong passwords in 15 minutes an address and the account are stopped, and each try is logged');
-      S.tries.clear();
+      // (Nov 28 2026) the counts are kept with the world: a restarted server still has them.
+      const { Security } = require('../src/game/security.js'), again = new Security(G);
+      ok(again.attempts('fail:198.51.100.7', 15 * 60e3, now()) >= 10 && again.attempts('failacct:secmain', 15 * 60e3, now()) >= 10,
+        'the wrong-password and sign-up counts are kept with the world, so restarting the server doesn\'t start them over');
+      S.tries.clear(); S.db.tries = {};
       // Bans: the account, an address, a browser; the player is told why and for how long.
       S.ban(main, now() + 3600e3, 'Running alts');
       const nb = login(fake('203.0.113.10', DEV1), 'SecMain');
@@ -4004,6 +4008,17 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         'accounts sharing a browser are linked and grouped; an allowed pair leaves the groups; the server\'s own computer links nobody by address');
       ok(S.events({ types: ['market'] }).some(e => e.buyer === 'Trader') && S.events({ types: ['battle'] }).length > 0,
         `trades and battles between lords are in the activity log (${S.events({ types: ['market'] }).length} trades, ${S.events({ types: ['battle'] }).length} battles)`);
+      // (Nov 28 2026) Wrong admin passwords: 10 from an address in 15 minutes, then it's refused for the rest of them;
+      // the answer doesn't name the user or say where the password is kept. (From another address, the page works.)
+      {
+        const tryAdmin = (pw, ip) => new Promise((resolve, reject) => http.get({ host: '127.0.0.1', port: PORTS.httpPort, path: '/admin', headers: {
+          ...(pw != null ? { Authorization: 'Basic ' + Buffer.from('admin:' + pw).toString('base64') } : {}), 'CF-Connecting-IP': ip } }, res => { const c = []; res.on('data', d => c.push(d)); res.on('end', () => resolve({ status: res.statusCode, body: Buffer.concat(c).toString() })); }).on('error', reject));
+        const asked = await tryAdmin(null, '198.51.100.99'), wrong = [];
+        for (let i = 0; i < 10; i++) wrong.push(await tryAdmin('guess' + i, '198.51.100.99'));
+        const locked = await tryAdmin(ADMIN.pw, '198.51.100.99'), other = await tryAdmin(ADMIN.pw, '198.51.100.98');
+        ok(asked.status === 401 && !/config\.json|user name/i.test(asked.body) && wrong.every(r => r.status === 401) && locked.status === 429 && other.status === 200,
+          `after 10 wrong admin passwords from an address it is refused for 15 minutes, even with the right one (${locked.status}); the answer names no user (${JSON.stringify(asked.body)}); another address still gets in`);
+      }
       // The admin page: the overview, a player's page, and an action (with the page's token only).
       const home = await get('/admin'), page = await get('/admin?view=player&name=SecMain'), alts = await get('/admin?view=alts');
       const postAdmin = fields => new Promise((resolve, reject) => {

@@ -155,6 +155,22 @@ function adminOk(cfg, req){
   return want.length === got.length && require('crypto').timingSafeEqual(want, got);
 }
 
+// Wrong admin passwords (Nov 28 2026, after a security scanner's visit): an address that sends 10 in 15 minutes is
+// refused for the rest of the 15 minutes, and each is in the server window. (A request without a password, the
+// browser asking for one, doesn't count.) The answer doesn't say what the user name is or where the password is kept.
+const adminFails = new Map(), ADMIN_FAILS = 10, ADMIN_WINDOW = 15 * 60e3;
+function adminDenied(cfg, req, res, log){
+  const ip = clientOf(req, req.socket?.remoteAddress).ip || '?', now = Date.now();
+  const recent = (adminFails.get(ip) || []).filter(t => t > now - ADMIN_WINDOW);
+  if (recent.length >= ADMIN_FAILS){ adminFails.set(ip, recent); req.resume(); res.writeHead(429, { 'Content-Type': 'text/plain', 'Retry-After': '900' }); res.end('Too many wrong passwords. Try again in 15 minutes.'); return true; }
+  if (adminOk(cfg, req)) return false;
+  if (req.headers.authorization){ recent.push(now); adminFails.set(ip, recent); log.warn(`Wrong admin password from ${ip} (${recent.length} in 15 minutes)`); }
+  if (adminFails.size > 1000) for (const [k, v] of adminFails) if (!v.some(t => t > now - ADMIN_WINDOW)) adminFails.delete(k);
+  req.resume(); res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Server admin", charset="UTF-8"', 'Content-Type': 'text/plain' });
+  res.end(cfg.adminPassword ? 'Admin password needed.' : 'Set adminPassword in config.json first.');
+  return true;
+}
+
 function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = null, json = null){
   const pub = path.join(root, 'public'), cache = path.resolve(root, cfg.cacheDir || 'cache');
   // The game's art (flash/, tiles/, _uiassets/, heroes/, fonts/ and the two backgrounds): kept out of git, in art/.
@@ -273,7 +289,7 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
     // The admin page's sign-in background upload (admin.js): the picture's own bytes, sent by the page's script, up
     // to 8 MB; the page (game.admin) checks its token and saves it where findLoginMap looks first.
     if (req.method === 'POST' && p === '/admin/login-map' && pages[p]){
-      if (!adminOk(cfg, req)){ req.resume(); res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Server admin", charset="UTF-8"', 'Content-Type': 'text/plain' }); return res.end('Admin password needed.'); }
+      if (adminDenied(cfg, req, res, log)) return;
       const body = await new Promise(done => { const parts = []; let n = 0; req.on('data', d => { n += d.length; if (n > 8 * 1048576){ done(null); req.destroy(); } else parts.push(d); }); req.on('end', () => done(Buffer.concat(parts))); req.on('error', () => done(null)); });
       if (body == null) return send(res, 413, 'The picture is over 8 MB.', 'text/plain');
       try { const r = pages[p](query, body); return send(res, r.ok ? 200 : 400, JSON.stringify(r), 'application/json; charset=utf-8'); }
@@ -281,7 +297,7 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
     }
     // The admin page's forms (its actions) come as POSTs: their fields join the query, with _post set.
     if (req.method === 'POST' && ADMIN_PAGES.has(p)){
-      if (!adminOk(cfg, req)){ req.resume(); res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Server admin", charset="UTF-8"', 'Content-Type': 'text/plain' }); return res.end('Admin password needed.'); }
+      if (adminDenied(cfg, req, res, log)) return;
       const body = await new Promise(done => { let b = ''; req.setEncoding('utf8'); req.on('data', d => { b += d; if (b.length > 200000){ b = null; req.destroy(); } }); req.on('end', () => done(b)); req.on('error', () => done(null)); });
       if (body == null) return send(res, 413, 'Too much.', 'text/plain');
       for (const [k, v] of new URLSearchParams(body)) query.set(k, v);
@@ -293,10 +309,7 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
     if (p === '/play' || p === '/play/') return fs.existsSync(path.join(pub, 'play', 'index.html')) ? sendFile(res, path.join(pub, 'play', 'index.html'))
       : send(res, 404, 'The new client is not built yet (public/play is missing).', 'text/plain');
     // The admin page and the debug menu: only with the admin password (config.json's adminPassword, user "admin").
-    if (ADMIN_PAGES.has(p) && !adminOk(cfg, req)){
-      res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Server admin", charset="UTF-8"', 'Content-Type': 'text/plain' });
-      return res.end(cfg.adminPassword ? 'The admin password is in config.json (adminPassword); the user name is admin.' : 'Set adminPassword in config.json first.');
-    }
+    if (ADMIN_PAGES.has(p) && adminDenied(cfg, req, res, log)) return;
     // (a page returns its HTML, or { body, type })
     if (pages[p]){ try { const r = pages[p](query); if (r?.redirect){ res.writeHead(303, { Location: r.redirect, 'Cache-Control': 'no-cache' }); return res.end(); } return typeof r === 'string' ? send(res, 200, r, TYPES['.html']) : send(res, 200, r.body, r.type); } catch (e){ log.error(`${p}: ${e.message}`); return send(res, 500, 'Server error', 'text/plain'); } }
     if (p === '/config2.xml') return send(res, 200, config2(cfg), TYPES['.xml']);
