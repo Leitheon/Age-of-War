@@ -1,4 +1,4 @@
-/* Evony Age II — asset service worker.
+/* Age of War — asset service worker.
  *
  * Persists game art in Cache Storage so it is served locally instead of being re-fetched from the server on
  * every use (the old behaviour: the server sent Cache-Control: no-cache, so every image re-downloaded, which
@@ -16,7 +16,9 @@
  * falls back to a plain network fetch and can never brick the app. Recovery: post {type:'PURGE'} to wipe caches.
  */
 const VERSION = 'aow-0.1.18' // replaced per build by the asset-manifest Vite plugin; Age of War: changed by hand when kept art must go
-const CACHE = 'evony-assets-' + VERSION
+// (Age of War 0.1.87: the cache's name was evony-assets-..., DoA's; the old one is dropped below, so the art is
+// fetched once more.)
+const CACHE = 'aow-assets-' + VERSION
 const STATIC_RE = /\.(png|jpe?g|gif|svg|webp|ico|woff2?|ttf|otf|wasm|swf|css|js)$/i
 
 self.addEventListener('install', () => { self.skipWaiting() })
@@ -25,7 +27,7 @@ self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
     try {
       const keys = await caches.keys()
-      await Promise.all(keys.filter((k) => k.startsWith('evony-assets-') && k !== CACHE).map((k) => caches.delete(k)))
+      await Promise.all(keys.filter((k) => (k.startsWith('aow-assets-') || k.startsWith('evony-assets-')) && k !== CACHE).map((k) => caches.delete(k)))
     } catch { /* ignore */ }
     // Age of War 0.1.71: welcome.js (the banner, changed from the admin page) was kept like art; drop the kept copy.
     try { const c = await caches.open(CACHE); for (const r of await c.keys()) if (new URL(r.url).pathname === '/welcome.js') await c.delete(r) } catch { /* ignore */ }

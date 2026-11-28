@@ -153,6 +153,9 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   defending stack's strike carries on to the next attacker in range once its target is wiped out. The one-kind tests
   now kill 1.0-1.3 times live's numbers, Report A ends in live's 6 rounds, and the valley battles come out in the
   live number of rounds as often as before.
+- **Age of War's own names in the browser**: the service worker and its art cache (`aow-assets-...`, was
+  `evony-assets-...`), the sign-in cookie (`aow_session`), the screen settings and the map's zoom and marks. A
+  player's old ones are carried over once, so nobody is signed out or loses a setting; the art is fetched once more.
 - **Farming valleys** (`rules.battle.rangedOverCounter`): the valley guide's archers take valleys without losing any:
   50 / 100 / 200 archers for levels 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with 1
   Cavalry for levels 4-10, against every mix of troops a valley has, with research 10 (or Archery 7 and a hero of 300
