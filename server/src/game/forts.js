@@ -4,6 +4,13 @@
 // Construction speeds them up ("constructing speed of buildings and fortified units"), and the mayor's politics, as
 // for buildings (Fox's recordings, Nov 2026: 3,395 of 3,418 live times exact; the rest were taken as the mayor
 // changed). An order takes one unit's time, rounded down, times the number, as troops do.
+// A batch hands its defences over one at a time, evenly over its build time, as troops do (Fox, Nov 27 2026: "wall
+// defences that are built in batches should finish individually from their stack just as the troops do";
+// rules.fortsOneByOne: false gives the whole batch at the end). The batch being built keeps num (still to come),
+// total (ordered), began (when it started), startTime (when the last one was finished, or the batch began) and
+// endTime (when the last will be).
+// The list's conditionBean carries the wall space as population (the Walls window reads it so: "Wall space"), so its
+// Max stops at the room left on the Walls, counting what's queued (Fox, Nov 27 2026).
 const WALLS = 32, POS_WALLS = -2, TECH_CONSTRUCTION = 17;
 
 class FortLogic {
@@ -27,7 +34,7 @@ class FortLogic {
       if (kind === 'b'){ const cur = this.castle.level(c, id); buildings.push({ typeId: id, level, curLevel: cur, successFlag: cur >= level }); }
       else { const cur = this.castle.techLevel(p, id); techs.push({ id, level, curLevel: cur, successFlag: cur >= level }); }
     }
-    return { buildings, techs, items: [], food: f.food * num, wood: f.wood * num, stone: f.stone * num, iron: f.iron * num, gold: 0, population: 0,
+    return { buildings, techs, items: [], food: f.food * num, wood: f.wood * num, stone: f.stone * num, iron: f.iron * num, gold: 0, population: f.space * num,
       time: Math.max(1, Math.floor(this.unitSeconds(p, typeId, c) + 1e-9) * num), destructTime: 0 };
   }
   list(c, p){
@@ -51,17 +58,20 @@ class FortLogic {
     for (const k of ['food', 'wood', 'stone', 'iron']) if (c.res[k] < cond[k]) return [-1, `Not enough ${k === 'wood' ? 'lumber' : k}.`];
     this.castle.pay(c, cond);
     c.fortSeq = (c.fortSeq || 0) + 1;
-    const q = this.queue(c), item = { queueId: c.fortSeq, type: typeId, num, costTime: cond.time, startTime: 0, endTime: 0, cost: cond };
+    const q = this.queue(c), item = { queueId: c.fortSeq, type: typeId, num, total: num, costTime: cond.time, began: 0, startTime: 0, endTime: 0, cost: cond };
     q.push(item);
-    if (q.length === 1){ item.startTime = now; item.endTime = now + item.costTime * 1000; }
+    if (q.length === 1) this.start(item, now);
     return null;
   }
+  start(item, t){ item.began = item.startTime = t; item.endTime = t + item.costTime * 1000; }
+  oneByOne(){ return this.rules.fortsOneByOne !== false; }
   cancel(c, queueId, now){
     const q = this.queue(c), i = q.findIndex(x => x.queueId === queueId);
     if (i < 0) return [-23, 'That batch is already finished.'];
-    const [item] = q.splice(i, 1);
-    this.castle.pay(c, item.cost, 1, this.rules.fortCancelRefundRate);
-    if (i === 0 && q.length){ q[0].startTime = now; q[0].endTime = now + q[0].costTime * 1000; }
+    // what is still to come is paid back (the defences already built stay)
+    const [item] = q.splice(i, 1), share = item.num / (item.total || item.num);
+    this.castle.pay(c, item.cost, 1, this.rules.fortCancelRefundRate * share);
+    if (i === 0 && q.length) this.start(q[0], now);
     return null;
   }
   demolish(c, typeId, num){
@@ -78,18 +88,44 @@ class FortLogic {
     item.endTime = Math.max(now, now + reduce(item.endTime - now));
     return null;
   }
+  // Hand over every defence that is due; returns true if any were.
   completeDue(c, now){
-    const q = this.queue(c); let changed = false;
-    while (q.length && q[0].endTime && q[0].endTime <= now){
-      const done = q.shift(), field = this.data.forts[done.type].field;
-      c.forts[field] = (c.forts[field] || 0) + done.num; changed = true; this.onDone?.(c, done.type, done.num);
-      if (q.length){ q[0].startTime = done.endTime; q[0].endTime = done.endTime + q[0].costTime * 1000; }
+    const q = this.queue(c), oneByOne = this.oneByOne(); let changed = false;
+    while (q.length && q[0].endTime){
+      const it = q[0], left = it.num;
+      let n = left;
+      if (it.endTime > now){
+        if (!oneByOne || !(left > 1)) break;
+        const per = (it.endTime - it.startTime) / left;
+        n = Math.min(left - 1, Math.floor((now - it.startTime) / per + 1e-9));
+        if (n <= 0) break;
+        it.startTime += n * per;
+      }
+      it.num -= n;
+      const field = this.data.forts[it.type].field;
+      c.forts = c.forts || {};
+      c.forts[field] = (c.forts[field] || 0) + n; changed = true; this.onDone?.(c, it.type, n);
+      if (it.num > 0) break;
+      q.shift();
+      if (q.length) this.start(q[0], it.endTime);
     }
     return changed;
   }
-  nextDue(c){ const q = this.queue(c); return q[0]?.endTime || Infinity; }
-  // The Walls window always reads the first entry, so there is always one.
-  queueBeans(c){ return [{ positionId: POS_WALLS, allProduceQueue: this.queue(c).map(x => ({ queueId: x.queueId, type: x.type, num: x.num, costTime: x.costTime, endTime: x.endTime || 0 })) }]; }
+  // When the next defence is due.
+  nextDue(c){
+    const it = this.queue(c)[0];
+    if (!it?.endTime) return Infinity;
+    return this.oneByOne() && it.num > 1 ? it.startTime + (it.endTime - it.startTime) / it.num : it.endTime;
+  }
+  // The Walls window always reads the first entry, so there is always one. It shows a countdown and a bar for an
+  // entry with startTime and endTime (the batch being built: from when it began, over its whole time; the rest wait).
+  queueBeans(c){
+    return [{ positionId: POS_WALLS, allProduceQueue: this.queue(c).map(x => {
+      const from = x.endTime ? (x.began || x.startTime) : 0;
+      return { queueId: x.queueId, type: x.type, num: x.num, total: x.total || x.num, startTime: from, endTime: x.endTime || 0,
+        costTime: x.endTime ? Math.max(1, Math.round((x.endTime - from) / 1000)) : x.costTime };
+    }) }];
+  }
 }
 
 module.exports = { FortLogic };

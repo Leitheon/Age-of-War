@@ -10,13 +10,14 @@ module.exports = (game, H) => {
     const c = game.castleOr(conn, cmd, d.castleId); if (!c) return;
     const err = F.produce(c, conn.player, d.wallProtectType, d.num, game.now());
     if (err) return game.fail(conn, cmd, err[0], err[1]);
-    game.store.touch(); game.reply(conn, cmd, {}); game.pushResources(c);
+    // (the update has the Walls window read the wall space again, so its Max counts what was just queued)
+    game.store.touch(); game.reply(conn, cmd, {}); pushForts(c); game.pushResources(c);
   };
   H['fortifications.cancelFortificationProduce'] = (conn, d, cmd) => {
     const c = game.castleOr(conn, cmd, d.castleId); if (!c) return;
     const err = F.cancel(c, d.queueId, game.now());
     if (err) return game.fail(conn, cmd, err[0], err[1]);
-    game.store.touch(); game.reply(conn, cmd, {}); game.pushResources(c);
+    game.store.touch(); game.reply(conn, cmd, {}); pushForts(c); game.pushResources(c);
   };
   H['fortifications.destructWallProtect'] = (conn, d, cmd) => {
     const c = game.castleOr(conn, cmd, d.castleId); if (!c) return;

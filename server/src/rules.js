@@ -656,6 +656,8 @@ const DEFAULTS = {
   fortUnlock: { 14: [['b', 32, 1]], 15: [['b', 32, 2]], 16: [['b', 32, 3], ['t', 14, 1]], 17: [['b', 32, 5]], 18: [['b', 32, 7]] },
   fortCancelRefundRate: 1.0,
   fortDemolishRefundRate: 0.5,
+  // Defences are finished one at a time over a batch's build time, as troops (Fox, Nov 27 2026). false: all at the end.
+  fortsOneByOne: true,
 
   // ---------- Town Hall: Comfort and Levy ----------
   pacifyCooldownMinutes: 15,       // UNVERIFIED

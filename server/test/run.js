@@ -1406,7 +1406,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
     ok((await c.call('fortifications.produceWallProtect', { castleId: castle.id, wallProtectType: 14, num: 50 })).ok === 1, 'build 50 traps');
     const busyWalls = await c.call('fortifications.produceWallProtect', { castleId: castle.id, wallProtectType: 14, num: 5 });
     ok(busyWalls.ok === -51, 'level 1 Walls queue one batch at a time');
-    const fu = (await c.wait('server.FortificationsUpdate', 8000)).data;
+    const fu = (await c.wait('server.FortificationsUpdate', 8000, d => d.fortification.trap === 50)).data;
     ok(fu.fortification.trap === 50, 'the traps are finished');
     const tooMany = await c.call('fortifications.produceWallProtect', { castleId: castle.id, wallProtectType: 14, num: 5000 });
     ok(tooMany.ok < 0 && /room on the Walls/.test(tooMany.errorMsg), 'the Walls\' space limit is enforced');
@@ -4090,6 +4090,45 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         'with startWalls a new city has level 1 Walls, and a city without Walls gets them (once; built Walls are left alone)');
       ok(fl.ok === 1 && fl.totalSpace === G.forts.space(city) && fl.totalSpace > 0 && fl.usedSpace === G.forts.used(city),
         'the Walls window gets the wall space and what\'s used of it (totalSpace, usedSpace)');
+      // Wall defences (Fox, Nov 27 2026): a batch is finished one at a time as troops are; the queue sends the batch's
+      // start so the window counts it down (it said "Waiting"); a cancel pays back what's still to come; the list
+      // gives each defence's wall space (as population), so the window's Max stops at the room left, queue counted.
+      {
+        const F = G.forts, t0 = G.now(), q = F.queue(city), qWas = q.splice(0), fortsWas = { ...(city.forts || {}) }, resWas = { ...city.res };
+        const wallsWas = city.buildings['-2'].level; city.buildings['-2'].level = Math.max(3, wallsWas);
+        for (const k of ['food', 'wood', 'stone', 'iron']) city.res[k] = 1e8;
+        const trap = G.data.forts[14], r1 = F.produce(city, pb, 14, 10, t0), r2 = F.produce(city, pb, 14, 4, t0), used = F.used(city);
+        const per = (q[0].endTime - q[0].startTime) / 10, bean0 = F.queueBeans(city)[0].allProduceQueue, trap0 = city.forts.trap || 0;
+        F.completeDue(city, t0 + per * 3.5);
+        const after3 = (city.forts.trap || 0) - trap0, bean1 = F.queueBeans(city)[0].allProduceQueue[0], next = F.nextDue(city);
+        const food0 = city.res.food; F.cancel(city, q[0].queueId, t0 + per * 3.5); const back = city.res.food - food0;
+        const start2 = q[0].startTime, end2 = q[0].endTime; F.completeDue(city, end2);
+        const got = (city.forts.trap || 0) - trap0, listed = ask('fortifications.getFortificationsProduceList', {});
+        const pr = () => (pb.prestige || 0) + (pb.trainPrestige || 0), pr0 = pr();
+        for (let i = 0; i < 10; i++) F.onDone(city, 14, 1);
+        const raw = G.quests.prestigeFor(trap, 10), want = G.rules.prestige?.byTownHalls !== false ? raw / G.quests.townHalls(pb) : raw, gained = pr() - pr0;
+        G.rules.fortsOneByOne = false; F.produce(city, pb, 14, 5, t0); const allAtEnd = !F.completeDue(city, q[0].endTime - 1) && F.completeDue(city, q[0].endTime) && city.forts.trap - trap0 === got + 5; G.rules.fortsOneByOne = true;
+        q.splice(0, q.length, ...qWas); city.forts = fortsWas; Object.assign(city.res, resWas); city.buildings['-2'].level = wallsWas;
+        const parts = { queued: r1 === null && r2 === null && used >= 14 * trap.space,
+          timer: bean0[0].startTime === t0 && bean0[0].endTime === t0 + per * 10 && bean0[0].costTime === per * 10 / 1000 && bean0[0].total === 10 && bean0[1].startTime === 0 && bean0[1].endTime === 0,
+          oneByOne: after3 === 3 && bean1.num === 7 && bean1.total === 10 && bean1.startTime === t0 && Math.abs(next - (t0 + per * 4)) < 2,
+          cancel: back === Math.floor(trap.food * 10 * 0.7) && start2 === t0 + per * 3.5 && got === 7,
+          space: listed.fortList.find(f => f.typeId === 14).conditionBean.population === trap.space && listed.fortList.find(f => f.typeId === 15).conditionBean.population === G.data.forts[15].space,
+          prestige: Math.abs(gained - want) < 1e-6, allAtEnd };
+        ok(Object.values(parts).every(Boolean), `wall defences are finished one at a time (3 of 10 by 3.5 units' time, the next due at the 4th), the queue has the batch's start and end so the Walls window counts it down, a cancel pays back what's still to come (7 of 10), the list gives each defence's wall space, and prestige keeps its fractions ${JSON.stringify(parts)}`);
+      }
+      // Auto-heal and the city gate (Fox, Nov 27 2026: both turned back on when their window was reopened): the replies
+      // carry the setting as saved, which the client keeps; Broken Gates' lock refuses a change.
+      {
+        const healWas = pb.autoHeal, goWas = city.goOut;
+        const h1 = ask('common.setAutoHeal', { autoHeal: true }), h0 = ask('common.setAutoHeal', { autoHeal: false });
+        const g0 = ask('army.setArmyGoOut', { isArmyGoOut: false }), bean0 = G.beans.castle(city, pb).goOutForBattle, g1 = ask('army.setArmyGoOut', { isArmyGoOut: true });
+        city.charms = city.charms || {}; city.charms.gateLock = { open: true, until: G.now() + 60000 };
+        const locked = ask('army.setArmyGoOut', { isArmyGoOut: false }); delete city.charms.gateLock;
+        pb.autoHeal = healWas; city.goOut = goWas;
+        ok(h1.ok === 1 && h1.autoHeal === true && h0.ok === 1 && h0.autoHeal === false && g0.ok === 1 && g0.goOutForBattle === false && bean0 === false && g1.goOutForBattle === true && locked.ok < 0 && /Broken Gates/.test(locked.errorMsg),
+          'turning auto-heal or the city gate off answers with the setting as saved (off), the city says the gate is shut, and Broken Gates\' lock refuses a change');
+      }
       // Pay with Gold: the Guidelines' coin price for the time left, times the shop's gold per coin.
       const cities = G.castlesOf(pb);
       for (const x of cities) x.res.gold = 0;

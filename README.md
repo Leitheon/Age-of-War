@@ -129,6 +129,11 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   Wealth of Nations and Excalibur 500,000; Adv City Teleporter 1,000,000 and War Teleporter 2,000,000; Bernini's
   Hammer 5,000 (also when queuing a building buys one); Speech Text 2,000,000, and it works on a city once an hour
   (`speechTextCooldownMinutes`).
+- **The Walls window**: the defence being built counts down with a progress bar (it said "Waiting"); a batch is
+  finished one defence at a time, as troops are (`fortsOneByOne`), and a cancel pays back what's still to come; Max
+  stops at the room left on the Walls, counting what's queued; the order panel keeps Qty, Max, Demolish and Build on
+  one row with the order's total (what you're short of in red) and any message below.
+- **Auto-heal and the city gate** keep their setting when their window is reopened (both showed the old one again).
 - **Farming valleys** (`rules.battle.rangedOverCounter`): the valley guide's archers take valleys without losing any:
   50 / 100 / 200 archers for levels 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with 1
   Cavalry for levels 4-10, against every mix of troops a valley has, with Archery 5 or more. Archers, ballistae and

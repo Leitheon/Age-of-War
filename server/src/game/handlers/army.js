@@ -46,7 +46,7 @@ module.exports = (game, H) => {
     const c = game.castleOr(conn, cmd, d.castleId); if (!c) return;
     const lock = c.charms?.gateLock, now = game.now();
     if (lock && lock.until > now) return game.fail(conn, cmd, -1, `Broken Gates: this city's gates are stuck ${lock.open ? 'open' : 'shut'} until ${new Date(lock.until).toLocaleTimeString()}.`);
-    c.goOut = flag(d.isArmyGoOut); game.store.touch(); game.reply(conn, cmd, {});
+    c.goOut = flag(d.isArmyGoOut); game.store.touch(); game.reply(conn, cmd, { goOutForBattle: armies.gateOpen(c, now) });
   };
   // The Fugitive Camp (Rally Spot): "Mutiny may occur when your city does not have enough food to feed the troops."
   // Fox: that was Age I (10% an hour); on Age II hungry troops don't desert, they just can't march without food.
@@ -81,5 +81,6 @@ module.exports = (game, H) => {
   };
   H['army.disbandInjuredTroop'] = (conn, d, cmd) => { const c = game.castleOr(conn, cmd, d.castleId); if (!c) return; armies.disbandWounded(c, game.now()); game.reply(conn, cmd, {}); };
   // The Hospital's Auto Heal box.
-  H['common.setAutoHeal'] = (conn, d, cmd) => { conn.player.autoHeal = !!d.autoHeal && d.autoHeal !== 'false'; game.store.touch(); game.reply(conn, cmd, {}); };
+  // (the reply has the setting as saved: the web client keeps it, so the Wounded Barracks shows it when reopened)
+  H['common.setAutoHeal'] = (conn, d, cmd) => { conn.player.autoHeal = !!d.autoHeal && d.autoHeal !== 'false'; game.store.touch(); game.reply(conn, cmd, { autoHeal: conn.player.autoHeal }); };
 };

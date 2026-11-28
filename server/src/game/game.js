@@ -167,7 +167,17 @@ class Game {
     this.items.onAdd = (p, id, n) => { if (/^hero\.loyalty\.\d$/.test(id)) this.effort.note(p, `medal:${id}`, n); };
     // an item bought at the moment it's used: the coins change (after the command's own reply)
     this.items.onBuy = p => setImmediate(() => this.pushPlayerInfo(p));
-    this.forts.onDone = (c, type, num) => { gain(c, this.data.forts[type], num); mayor(c, this.data.forts[type], num); };
+    // Defences are finished a few at a time too (forts.js): their prestige keeps its fractions with the troops'.
+    this.forts.onDone = (c, type, num) => {
+      const p = this.playerOf(c), f = this.data.forts[type];
+      if (p){
+        const raw = this.quests.prestigeFor(f, num), share = this.rules.prestige?.byTownHalls !== false ? raw / this.quests.townHalls(p) : raw;
+        p.trainPrestige = (p.trainPrestige || 0) + share;
+        const whole = Math.floor(p.trainPrestige + 1e-9);
+        if (whole > 0){ p.prestige = (p.prestige || 0) + whole; p.trainPrestige -= whole; }
+      }
+      mayor(c, f, num);
+    };
     for (const f of HANDLER_FILES) require('./handlers/' + f)(this, this.handlers);
     this.migrate();
     const placed = this.hh.seed();
