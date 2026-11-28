@@ -43,6 +43,10 @@ class War {
     if (now - (p.createdAt || 0) >= (b.days ?? 7) * DAY) return false;
     return !this.g.castlesOf(p).some(c => (c.buildings[POS_TOWN_HALL]?.level || 0) >= (b.townHall ?? 5));
   }
+  // When a lord's Beginner's Protection runs out at the latest (a Town Hall at the level ends it sooner); 0: none now.
+  beginnerUntil(p, now = this.g.now()){
+    return this.beginner(p, now) ? (p.createdAt || 0) + ((this.g.rules.beginnerProtection || {}).days ?? 7) * DAY : 0;
+  }
   // A Truce Agreement, or a Dream Truce's window (account.js).
   truce(p, now = this.g.now()){ return !!p && (this.g.logic.buffActive(p, 'PlayerPeaceBuff', now) || this.g.account.inDreamTruce(p, now)); }
   vacation(p, now = this.g.now()){ return !!p && !!this.g.account.vacation(p, now); }

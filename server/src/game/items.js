@@ -38,7 +38,7 @@ const BUFF_NAMES = {
   IncFoodProduceBuff: 'Food production +25%', IncWoodProduceBuff: 'Lumber production +25%', IncStoneProduceBuff: 'Stone production +25%', IncIronProduceBuff: 'Iron production +25%',
   IncGoldProduceBuff: 'Tax revenue +100%', PlayerIncArmyAttachBuff: 'Troop attack +20%', PlayerIncArmyDefenceBuff: 'Troop defence +20%', TroopReliveBuff: 'Battle losses -30%',
   ReduceTroopsUpkeepBuff: 'Troop upkeep -50%', StopTroopsUpkeepBuff: 'No troop upkeep', doubleBuilding: 'Two buildings at once', EMCardBuff: 'Evony membership',
-  HealBonusBuff: 'Healing +15%', TrainSpeedBuff: 'Recruiting speed +10%',
+  HealBonusBuff: 'Healing +15%', TrainSpeedBuff: 'Recruiting speed +10%', DreamTruceBuff: 'Dream Truce', RemovingSecurityCodeBuff: 'Removing the Security Code',
   HauntedCastleBuf: 'Resource production +10%, Rally Spot limit +25%', HauntedCastleAdvBuf: 'Resource production +10%, Rally Spot limit +25%',
   PlayerPeaceBuff: 'Truce', TopeVotesPrivilegeBuf: 'Governor', PlayerSpeakerBuf_BPAP: 'Publicity Ambassador', PlayerSpeakerBuf_BPAP_15: 'Publicity Ambassador', PlayerSpeakerBuf_SPAP: 'Publicity Ambassador', PlayerSpeakerBuf_SPAP_15: 'Publicity Ambassador', PlayerSpeakerBuf_GPAP: 'Publicity Ambassador', PlayerSpeakerBuf_GPAP_15: 'Publicity Ambassador',
 };
@@ -116,9 +116,12 @@ class Items {
   // All new players can build two buildings at one time in 72 hours." The client shows that buff by itself, from the
   // account's creation time, so the server only has to honour it.)
   buildSlots(p, now = Date.now()){
+    return this.newLordDoubleUntil(p) > now || this.active(p, 'doubleBuilding', now) ? 2 : 1;
+  }
+  // When a new lord's two builders end (0: none).
+  newLordDoubleUntil(p){
     const h = this.rules.newPlayerDoubleBuildHours ?? 72;
-    const fresh = h > 0 && p?.createdAt > 0 && now - p.createdAt < h * 3600000;
-    return fresh || this.active(p, 'doubleBuilding', now) ? 2 : 1;
+    return h > 0 && p?.createdAt > 0 ? p.createdAt + h * 3600000 : 0;
   }
 
   // ---------- speed-ups ----------

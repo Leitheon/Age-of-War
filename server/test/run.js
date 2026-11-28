@@ -3936,6 +3936,23 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const step = await call2('common.step', { clientTime: Date.now() });
       ok(step.data.ok === 1 && step.data.castles[0].id === home.id && Array.isArray(step.data.items) && Number.isFinite(step.data.serverTime) && 'boundGold' in step.data,
         'common.step answers with the lord\'s cities, items and counts');
+      {
+        // The buff bar shows every bonus (Fox, Nov 28 2026): a new lord's two builders (to 72 hours after he started),
+        // the achievements' bonuses (under the client's Ach* icons, with what they do, no countdown), Beginner's
+        // Protection with when it runs out, and a Dream Truce's window as a truce.
+        const G = srv.game, a = G.effort.list.find(x => x.buff?.[0] === 'IncGoldProduceEffortBuff' && x.buff[1] === 1);
+        G.effort.state(pw).done[a.id] = Date.now();
+        const s1 = (await call2('common.step', { clientTime: Date.now() })).data, bs = s1.playerBuffs;
+        const dbl = bs.find(x => x.typeId === 'DoubleBuildingBuff'), ach = bs.find(x => x.typeId === 'AchGoldBuff');
+        const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+        pw.dreamTruce = { firstAt: Date.now(), days: 1, startSec: Math.max(0, Math.floor((Date.now() - midnight) / 1000) - 60) };
+        const s2 = (await call2('common.step', { clientTime: Date.now() })).data;
+        delete pw.dreamTruce; delete G.effort.state(pw).done[a.id];
+        ok(dbl && dbl.endTime === pw.createdAt + 72 * 3600000 && ach && !ach.endTime && /Gold income \+5%/.test(ach.descName) && !bs.some(x => /EffortBuf/.test(x.typeId))
+          && s1.playerState === 2 && s1.protectUntil === pw.createdAt + 7 * 86400000 && /Town Halls reaches level 5/.test(s1.protectNote)
+          && s2.playerState === 1 && s2.truceUntil > Date.now() + 9 * 3600000 && !s2.protectUntil,
+          `the buff bar shows a new lord's two builders (to ${new Date(dbl?.endTime || 0).toISOString()}), the achievements' bonuses (${ach?.descName}), Beginner's Protection with its end, and a Dream Truce window as a truce`);
+      }
       const cat = await call2('shop.getCatalog');
       const ware = cat.data.tabs.flatMap(x => x.items).find(x => x.id === 'consume.2.a');
       home.res.gold = ware.price * 2 + 5; pw.boundGold = 3;

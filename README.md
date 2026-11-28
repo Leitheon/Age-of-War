@@ -99,6 +99,10 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   Attunement 101-110, Ardee's Sigil 115-125) is the hero's base stat; his level's points are in the other two.
 - **Phone layout's resources**: the lord panel on a phone shows the city's food, lumber, stone, iron and gold (it
   showed 0 for each).
+- **Buff bar**: every bonus a lord has shows as an icon with its time left: a new lord's two builders for his first
+  72 hours, the achievements' bonuses (with what each does, no countdown), Beginner's Protection with when it runs out
+  (and that a level 5 Town Hall ends it), and a Dream Truce's window as a truce. Lasting bonuses and hunger show no
+  countdown.
 - **Historic Cities** show their introductions from the client's own city list. Each of the 16 states has its capital,
   8 level 14s and 121 level 12s (every 18 tiles from 9,9: Olathe at 99,99 beside Washington, D.C.), and every Historic
   City has flats on all sides, except where another Historic City is (`rules.historic.flatRing`).
