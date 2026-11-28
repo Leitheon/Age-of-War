@@ -93,7 +93,7 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
   // every city, startWalls, and its gold in place of cents, noCents, are off for the live checks and tested on their own;
   // so are troops eating a tenth of live's upkeep, troopUpkeep, and prestige never lost, battlePrestige.losses and
   // alliances.quitPrestigeRate.)
-  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, troopUpkeep: 1, battlePrestige: { losses: true }, alliances: { quitPrestigeRate: 0.1 }, heroAutoLevel: false, innRestock: false, prisonersNeedNoSeat: false, reports: { heroCapture: true, itemOpened: true, reinforcements: true, outcomeInTitle: false }, historicHeroes: { questFree: false }, draft: { undraftable: true }, war: { required: true }, policies: { targetHours: 0 }, npcConquest: { layout: { keepCottages: null } }, dynamiteFullDemolish: false, mayorExp: 0, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
+  fs.writeFileSync(path.join(dataDir, 'rules.json'), JSON.stringify({ startWalls: 0, noCents: false, troopUpkeep: 1, battlePrestige: { losses: true }, alliances: { quitPrestigeRate: 0.1, memberCap: 0 }, heroAutoLevel: false, innRestock: false, prisonersNeedNoSeat: false, reports: { heroCapture: true, itemOpened: true, reinforcements: true, outcomeInTitle: false }, historicHeroes: { questFree: false }, draft: { undraftable: true }, war: { required: true }, policies: { targetHours: 0 }, npcConquest: { layout: { keepCottages: null } }, dynamiteFullDemolish: false, mayorExp: 0, start: { resources: { food: 200000, wood: 200000, stone: 200000, iron: 200000, gold: 50000 },
     population: 100, taxRate: 20, productionRate: 100, buildings: { '0': [1, 1], '1001': [7, 1], '1002': [4, 1], '1003': [5, 1], '1004': [6, 1] } } }));
   const srv = main({ ...PORTS, dataDir, cacheDir: path.join(dataDir, 'cache'), speed: 600, logLevel: 'warn', embedded: true, assetCdn: '', flashClient: true, legacyLogin: true, adminPassword: ADMIN.pw });
   ADMIN.token = srv.game.adminToken;
@@ -4178,6 +4178,27 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           && /Finish the security check/.test(none.errorMsg) && /Finish the security check/.test(forged.errorMsg) && /couldn't be confirmed/.test(down.errorMsg) && /ran out/.test(old.errorMsg)
           && passed.ok === 1 && !!G.db.accounts.tsuser5 && !G.db.accounts.tsuser1 && !G.db.accounts.tsuser2 && home.ok === 1 && asked.length === 5 && asked[4] === '192.0.2.85' && /security check failed/.test(tsEv?.why || ''),
           `Turnstile: off without keys; with them the page gets the site key (not the secret), and a sign-up without a good token is refused ("${none.errorMsg}"), as when Cloudflare can't be asked ("${down.errorMsg}"); a good one makes the account; the server's own computer skips it`);
+        // Alliances of one (rules.alliances.memberCap; Fox, Nov 28 2026: "for now, since the playerbase will be small,
+        // limit alliances to only 1 person"): nobody can apply, be invited or join, whatever the Embassy or a Ritual of
+        // Pact (which is kept, not used up); nobody already in one is put out; 0 lifts it.
+        {
+          const AL = G.alliances, two = Object.values(G.db.alliances || {}).find(x => x.members.length >= 2), ar = G.rules.alliances;
+          const solo = lord('Solo1', '192.0.2.91').p, other = lord('Solo2', '192.0.2.92').p;
+          const EMB = 28;   // (the Embassy)
+          for (const q of [solo, other]){ const c0 = G.castlesOf(q)[0]; G.logic.level(c0, EMB) || (c0.buildings[99] = { typeId: EMB, level: 5, status: 0 }); c0.res.gold = 1e6; }
+          ar.memberCap = 1;
+          const made = AL.create(solo, G.castlesOf(solo)[0], 'SoloAl', G.now()), al = AL.of(solo);
+          const applied = al ? AL.apply(other, al.name, G.now()) : null, invited = al ? AL.invite(solo, other.name, G.now()) : null;
+          const joined = al ? AL.join(al, other, G.now()) : null, limitShown = al ? AL.memberLimit(al) : null;
+          G.items.add(solo, 'consume.hegemony.1', 1);
+          const pact = G.itemUse.use(solo, G.castlesOf(solo)[0], 'consume.hegemony.1', G.now()), keptItem = solo.items['consume.hegemony.1'];
+          const stillTwo = two ? two.members.length >= 2 : true;
+          ar.memberCap = 0;
+          const liftedLimit = al ? AL.memberLimit(al) : null, nowJoins = al ? AL.join(al, other, G.now()) : null;
+          ok(al && /limited to 1 member/.test(applied?.[1] || '') && /limited to 1 member/.test(invited?.[1] || '') && /limited to 1 member/.test(joined?.[1] || '') && limitShown === 1
+            && Array.isArray(pact) && /kept/.test(pact[1]) && keptItem === 1 && stillTwo && liftedLimit > 1 && !Array.isArray(nowJoins),
+            `alliances of one: applying, inviting and joining are refused ("${joined?.[1]}"), a Ritual of Pact is kept unused, nobody already in an alliance is put out, and memberCap 0 lifts it`);
+        }
         S.tries.clear(); S.db.tries = {};
       }
       // The admin page: the overview, a player's page, and an action (with the page's token only).

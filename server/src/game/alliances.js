@@ -55,12 +55,20 @@ class Alliances {
   embassy(p){ return Math.max(0, ...this.g.castlesOf(p).map(c => this.g.logic.level(c, EMBASSY))); }
   // 10 a level of the Host's best Embassy (at most 100); a Ritual of Pact makes it 100 ("Instantly increase alliance
   // member limit to 100"), and the Advanced, Premium and Ultimate ones 1,000 for 15, 30 or 90 days.
+  // rules.alliances.memberCap (Fox, Nov 28 2026: "for now, since the playerbase will be small, limit alliances to only
+  // 1 person"): a limit nothing raises, Embassy or Ritual of Pact; null or 0 lifts it. Nobody already in an alliance is
+  // put out by it: it only stops anyone more from joining.
+  cap(){ const c = Number(this.rules.memberCap); return c > 0 ? Math.floor(c) : 0; }
+  capNote(){ const c = this.cap(); return `Alliances are limited to ${c} member${c === 1 ? '' : 's'} on this server for now${c === 1 ? ': nobody can join one' : ''}.`; }
   memberLimit(a, now = this.g.now()){
     const max = this.rules.maxMembers ?? 100, per = this.rules.membersPerEmbassyLevel ?? 10;
     const base = per ? Math.min(max, Math.max(per, per * this.embassy(this.player(a.leader)))) : max;
-    return Math.max(base, a.limit || 0, (a.pactUntil || 0) > now ? (this.rules.pactMembers ?? 1000) : 0);
+    const limit = Math.max(base, a.limit || 0, (a.pactUntil || 0) > now ? (this.rules.pactMembers ?? 1000) : 0);
+    return this.cap() ? Math.min(this.cap(), limit) : limit;
   }
+  // (with memberCap set the item stays: it would do nothing)
   pact(p, itemId, now = this.g.now()){
+    if (this.cap()) return [-40, `${this.capNote()} A Ritual of Pact does nothing until that changes, so it was kept.`];
     const a = this.need(p, [RANK.HOST, RANK.VICE], 'use a Ritual of Pact'); if (Array.isArray(a)) return a;
     if (itemId === 'consume.hegemony.1'){
       if ((a.limit || 0) >= 100) return [-1, `${a.name}'s member limit is already 100.`];
@@ -119,7 +127,7 @@ class Alliances {
   }
   join(a, q, now, how){
     if (this.of(q)) return [-1, `${q.name} is already in an alliance.`];
-    if (a.members.length >= this.memberLimit(a)) return [-1, `${a.name} is full (${this.memberLimit(a)} members).`];
+    if (a.members.length >= this.memberLimit(a)) return [-1, a.members.length >= this.cap() && this.cap() ? this.capNote() : `${a.name} is full (${this.memberLimit(a)} members).`];
     this.dropPending(q);
     this.enter(a, q);
     this.event(a, how || `${q.name} has joined the alliance.`, now);
@@ -165,6 +173,7 @@ class Alliances {
     if (this.of(p)) return [-1, 'Quit your current alliance before you join another.'];
     if (this.embassy(p) < (this.rules.joinEmbassy ?? 1)) return [-1, 'Joining alliance: Embassy Level 1; creating alliance: Embassy Level 2'];
     const a = this.byName(name); if (!a) return [-1, `There is no alliance called ${String(name ?? '').trim()}.`];
+    if (this.cap() && a.members.length >= this.cap()) return [-1, this.capNote()];
     if (this.wanted(p)) return [-1, `You have already applied to ${this.wanted(p).name}. Cancel that application first.`];
     a.applications.push({ playerId: p.id, at: now });
     this.g.store.touch();
@@ -199,6 +208,7 @@ class Alliances {
   // ---------- invitations (the alliance asks) ----------
   invite(p, name, now = this.g.now()){
     const a = this.need(p, [RANK.HOST, RANK.VICE, RANK.PRESBYTER, RANK.OFFICER], 'invite lords'); if (Array.isArray(a)) return a;
+    if (this.cap() && a.members.length >= this.cap()) return [-1, this.capNote()];
     const q = this.lord(name); if (!q) return [-1, `There is no lord called ${String(name ?? '').trim()}.`];
     if (this.of(q)) return [-1, this.same(p, q) ? `${q.name} is already in your alliance.` : `${q.name} is already in an alliance.`];
     if (a.invites.some(x => x.playerId === q.id)) return [-1, `${q.name} has already been invited.`];

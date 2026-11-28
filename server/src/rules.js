@@ -808,7 +808,10 @@ const DEFAULTS = {
   // 2026), relationCooldownHours how often a relation can change. Members:
   // membersPerEmbassyLevel a level of the Host's best Embassy, at most maxMembers (UNVERIFIED: live shows 100 for
   // a big alliance; 0 gives every alliance maxMembers).
-  alliances: { createEmbassy: 2, joinEmbassy: 1, createGold: 10000, nameMax: 8, quitPrestigeRate: 0, relationCooldownHours: 24,
+  // memberCap (Fox, Nov 28 2026: "for now, since the playerbase will be small, limit alliances to only 1 person"): no
+  // alliance takes more than this many members, whatever its Embassy or a Ritual of Pact; nobody already in one is put
+  // out. Set it to 0 (or null) in data/rules.json to go back to the limits below.
+  alliances: { memberCap: 1, createEmbassy: 2, joinEmbassy: 1, createGold: 10000, nameMax: 8, quitPrestigeRate: 0, relationCooldownHours: 24,
     maxMembers: 100, membersPerEmbassyLevel: 10, rankLimits: { 5: 2, 6: 5, 7: 10 }, textMax: 500, eventsMax: 200 },
   // Beginner's Protection (the client's own check): 7 days from the lord's creation, or until one of his Town Halls
   // reaches level 5. No war can be declared on him, and he can't declare one.

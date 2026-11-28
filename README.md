@@ -214,6 +214,9 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   is good (once, within 5 minutes) before making the account. A script that skips the form, or a failed or expired
   check, is refused with a plain message, and noted under Activity, Refused sign-ups. If Cloudflare can't be
   reached, sign-ups wait rather than go through unchecked. On the server's own computer (localhost) it's skipped.
+- **Alliances of one, for now** (`rules.alliances.memberCap`, 1): while the playerbase is small nobody can apply to,
+  be invited to or join an alliance, whatever its Embassy or a Ritual of Pact (which is kept, not used up); nobody
+  already in one is put out. Set `memberCap` to 0 in `data/rules.json` to go back to the usual limits.
 - **Farming valleys** (`rules.battle.rangedOverCounter`): the valley guide's archers take valleys without losing any:
   50 / 100 / 200 archers for levels 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with 1
   Cavalry for levels 4-10, against every mix of troops a valley has, with research 10 (or Archery 7 and a hero of 300
