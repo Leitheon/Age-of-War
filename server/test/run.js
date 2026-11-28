@@ -4199,6 +4199,27 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
             && Array.isArray(pact) && /kept/.test(pact[1]) && keptItem === 1 && stillTwo && liftedLimit > 1 && !Array.isArray(nowJoins),
             `alliances of one: applying, inviting and joining are refused ("${joined?.[1]}"), a Ritual of Pact is kept unused, nobody already in an alliance is put out, and memberCap 0 lifts it`);
         }
+        // Gifts to everyone (gifts.js; Fox, Nov 28 2026: a holiday chest for every player, and for those who join in the
+        // next 30 days): every lord gets it at once with a System mail, a lord founded later gets it as he starts, each
+        // once; stopping it ends it for new lords; a Fresh start keeps it.
+        {
+          const GF = G.gifts, lordsNow = Object.values(G.db.players), chest = 'player.box.present.money.113';
+          const have = q => q.items?.[chest] || 0, before = new Map(lordsNow.map(q => [q.id, have(q)]));
+          const badItem = GF.send({ item: 'No Such Thing' }), badCount = GF.send({ item: chest, count: 0 }), twin = GF.send({ item: 'Gift of the Wise Mystics' });
+          const tab0 = String((await get('/admin?view=gifts')).body);
+          const sent = await post({ t: G.adminToken, action: 'gift', item: 'Christmas Chest', count: '2', days: '30', title: '', text: '' });
+          const note = new URLSearchParams(sent.location.split('?')[1]).get('note') || '', gift = GF.list.at(-1);
+          const all = lordsNow.every(q => have(q) === before.get(q.id) + 2 && (q.gifts || []).includes(gift.id) && (q.mails || []).some(m => m.title === 'Happy holidays!' && /2 × Christmas Chest/.test(m.content)));
+          const late = lord('GiftLate', '192.0.2.95').p, lateHas = have(late), again = GF.welcome(late);
+          GF.stop(gift.id); const later = lord('GiftLater', '192.0.2.96').p, laterHas = have(later);
+          const noNew = GF.send({ item: chest, count: 1, newDays: 0 }); const later2 = lord('GiftLater2', '192.0.2.97').p;
+          const keptOnWipe = G.freshWorld(G.db).gifts?.length === GF.list.length;
+          const tab = String((await get('/admin?view=gifts')).body);
+          ok(Array.isArray(badItem) && /no item called/.test(badItem[1]) && Array.isArray(badCount) && Array.isArray(twin) && /Several items/.test(twin[1])
+            && /<datalist id="aow-items">/.test(tab0) && /Christmas Chest/.test(tab0) && /Sent 2 × Christmas Chest to \d+ lord/.test(note) && all
+            && lateHas === 2 && again === 0 && laterHas === 0 && have(later2) === 0 && have(later) === 1 && gift.stopped && !Array.isArray(noNew) && keptOnWipe && /stopped/.test(tab) && /sent a gift to everyone/.test(S.db.audit.find(x => /gift to everyone/.test(x.action))?.action || ''),
+            `a gift to everyone ("${note}"): every lord gets it at once with a System mail, a lord founded within the 30 days gets it as he starts (once), none after it's stopped or with no days for new lords; a Fresh start keeps it`);
+        }
         S.tries.clear(); S.db.tries = {};
       }
       // The admin page: the overview, a player's page, and an action (with the page's token only).

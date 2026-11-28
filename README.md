@@ -217,6 +217,11 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
 - **Alliances of one, for now** (`rules.alliances.memberCap`, 1): while the playerbase is small nobody can apply to,
   be invited to or join an alliance, whatever its Embassy or a Ritual of Pact (which is kept, not used up); nobody
   already in one is put out. Set `memberCap` to 0 in `data/rules.json` to go back to the usual limits.
+- **Gifts to everyone** (the admin page's Gifts tab): sends an item, so many of each, to every lord at once (each
+  finds it in My Items, with a mail in his System box), and to every lord founded for up to 90 days after (30 by
+  default) as he starts. Each lord gets a gift once; one can be stopped for new lords early. The tab lists the game's
+  Christmas items with what opening each gives here (the Christmas Chest is one of five war chests). Gifts carry on
+  through a Fresh start, so one still open reaches everyone on the new world.
 - **Farming valleys** (`rules.battle.rangedOverCounter`): the valley guide's archers take valleys without losing any:
   50 / 100 / 200 archers for levels 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with 1
   Cavalry for levels 4-10, against every mix of troops a valley has, with research 10 (or Archery 7 and a hero of 300

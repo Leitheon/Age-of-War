@@ -26,6 +26,7 @@ const { Commission } = require('./commission');
 const { Friends } = require('./friends');
 const { Packages } = require('./packages');
 const { Charms } = require('./charms');
+const { Gifts } = require('./gifts');
 const { War } = require('./war');
 const { Captives } = require('./captives');
 const { Fame } = require('./fame');
@@ -139,6 +140,7 @@ class Game {
     this.friends = new Friends(this);
     this.packages = new Packages(this);
     this.charms = new Charms(this);
+    this.gifts = new Gifts(this);
     this.war = new War(this);
     this.captives = new Captives(this);
     this.fame = new Fame(this);
@@ -491,6 +493,7 @@ class Game {
     account.playerId = p.id;
     this.store.touch();
     this.log.info(`New lord ${p.name} founded ${c.name} at (${world.xy(c.fieldId).x}, ${world.xy(c.fieldId).y})`);
+    this.gifts.welcome(p, now);   // (gifts to the whole server still open to new lords: gifts.js)
     return p;
   }
   // ---------- the fresh start ----------
@@ -499,7 +502,7 @@ class Game {
   // in as before and found a new lord and city, as on their first day. Everything in the world goes: lords, cities,
   // heroes, troops, items and coins, alliances and their war reports, mail and reports, armies, colonies, the market,
   // the Hall of Fame and its votes, chat and the newsboard, valleys, NPC and Historic Cities (back as they started).
-  // Kept besides the accounts: the admin's side (bans of addresses and browsers, allowed pairs, notes, the audit log,
+  // Kept besides the accounts: the gifts to everyone (gifts.js), the admin's side (bans of addresses and browsers, allowed pairs, notes, the audit log,
   // the sign-up and password counts), the banner, sign-ins (sessions) and password reset links; and a lord's mute or
   // freeze goes to his next lord. newMap: a new map (the NPC cities, valleys and flats elsewhere); else the same one.
   freshWorld(db = this.db, { newMap = false, now = this.now() } = {}){
@@ -514,7 +517,8 @@ class Game {
     }
     const fresh = { version: db.version ?? 1, seq: db.seq ?? 100, seed: newMap ? (Math.random() * 2 ** 31) | 0 : db.seed, accounts, players: {}, castles: {}, tiles: {},
       wipedAt: now, wipes: [...(db.wipes || []), { at: now, newMap: !!newMap, accounts: Object.keys(accounts).length, lords: Object.keys(db.players || {}).length }] };
-    for (const k of ['security', 'sessions', 'resets', 'banner']) if (db[k] != null) fresh[k] = clone(db[k]);
+    // (and the gifts to the whole server: one still open reaches every new lord on the new world)
+    for (const k of ['security', 'sessions', 'resets', 'banner', 'gifts']) if (db[k] != null) fresh[k] = clone(db[k]);
     return fresh;
   }
   // Fresh start for real: the world as it was is saved in data/backups (world-before-wipe-<date>.json), the fresh

@@ -7,6 +7,7 @@
 //   Linked accounts: groups sharing a browser or an address; a pair can be marked allowed (a household).
 //   Activity: the activity log, by kind and lord. Bans: address and browser bans, allowed browsers and pairs.
 //   Audit log: every admin action.
+//   Gifts: an item to every lord at once, and to new lords for so many days (gifts.js).
 //   Backups: the automatic copies of the world (backups.js) and the ones made before a fresh start.
 //   Fresh start: wipe the world and keep the accounts (game.wipeWorld), with a copy of the old world kept.
 //   Banner (on the overview): the line scrolling across the top of the game and its link (game.banner).
@@ -17,6 +18,11 @@ const { netOf } = require('./security');
 const DUR = [['1h', '1 hour', 3600e3], ['6h', '6 hours', 6 * 3600e3], ['1d', '1 day', 86400e3], ['3d', '3 days', 3 * 86400e3],
   ['7d', '7 days', 7 * 86400e3], ['30d', '30 days', 30 * 86400e3], ['perm', 'Permanent', null]];
 const RES = ['food', 'wood', 'stone', 'iron', 'gold'];
+// The Christmas items the game has (the Gifts tab's list): each opens in Age of War (itemUse.js).
+const HOLIDAY_ITEMS = ['player.box.present.money.113', 'player.box.present.money.299', 'player.box.present.money.449', 'player.box.present.money.365',
+  'player.box.present.money.298', 'player.box.present.money.246', 'player.box.present.money.119', 'player.item.christmasgift2013', 'player.christmas.gift',
+  'player.box.present.christmas.a', 'player.box.present.christmas.b', 'player.box.present.christmas.c', 'player.box.present.money.22',
+  'player.box.present.money.23', 'player.box.present.money.36', 'player.santa.stoptoopsupkeep', 'player.snowball.pile'];
 const TYPES = [['', 'Everything'], ['signin,resume', 'Sign-ins'], ['signin-fail', 'Wrong passwords'], ['signup', 'Sign-ups'], ['signup-blocked,refused', 'Refused sign-ups'],
   ['autoban,probe', 'Automatic bans'], ['transport', 'Transports'], ['reinforce', 'Reinforcements'], ['market', 'Market trades'], ['policy', 'Policies'], ['battle', 'Battles']];
 const esc = s => String(s ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -177,6 +183,20 @@ class AdminPage {
         const b = g.setBanner(q.get('text'), link);
         S.audit('set the banner to', b.text + b.link);
         return back('Banner saved. Players see it the next time they load the game (or press F5).');
+      }
+      // A gift to everyone (gifts.js).
+      case 'gift': {
+        const g2 = g.gifts.send({ item: q.get('item'), count: q.get('count'), newDays: q.get('days'), title: q.get('title'), text: q.get('text') }, now);
+        if (Array.isArray(g2)) return { redirect: this.url({ view: 'gifts', item: q.get('item') || '', note: g2[1] }) };
+        const what = `${g2.count > 1 ? g2.count + ' × ' : ''}${g.gifts.name(g2.itemId)}`;
+        S.audit('sent a gift to everyone', what, `${g2.given} lord${g2.given === 1 ? '' : 's'} now${g2.newDays ? `, and new lords until ${when(g2.until)} UTC` : ''}`);
+        return { redirect: this.url({ view: 'gifts', note: `Sent ${what} to ${num(g2.given)} lord${g2.given === 1 ? '' : 's'}${g2.newDays ? `; new lords get it until ${when(g2.until)} UTC` : ''}.` }) };
+      }
+      case 'stopgift': {
+        const g2 = g.gifts.stop(q.get('id'), now);
+        if (Array.isArray(g2)) return { redirect: this.url({ view: 'gifts', note: g2[1] }) };
+        S.audit('stopped the gift to new lords', g.gifts.name(g2.itemId), `after ${g2.given} lords`);
+        return { redirect: this.url({ view: 'gifts', note: `New lords no longer get ${g.gifts.name(g2.itemId)}.` }) };
       }
       // The fresh start (game.wipeWorld): only with WIPE typed in the box. The server restarts on the new world.
       case 'wipe': {
@@ -397,6 +417,43 @@ class AdminPage {
         return `<tr><td>${what}</td><td>${when(v.at)}</td><td>${esc(v.note || '')}</td><td>${undo}</td></tr>`;
       }).join('')}</table>` : '<p class="dim">Nothing allowed yet: households sharing a computer or a network can be allowed from a player\'s page.</p>'}`;
   }
+  // ---------- gifts to everyone (gifts.js) ----------
+  // What a chest gives when opened here (itemUse's chest reader), in a line: its sets, or one random prize; a buff
+  // item says what it does.
+  holds(id){
+    const items = this.g.data.items || {}, sets = this.g.itemUse?.chests?.sets(id) || [];
+    const n = e => e.min == null ? '' : `${num(e.min)}${e.max != null && e.max !== e.min ? '–' + num(e.max) : ''} `;
+    const one = e => e.kind === 'res' ? `${n(e)}${e.key === 'wood' ? 'lumber' : e.key}` : e.kind === 'eachres' ? `${n(e)}of each resource` : e.kind === 'cents' ? `${n(e)}cents${this.g.rules.noCents !== false ? ' (paid as gold)' : ''}`
+      : e.kind === 'troop' ? `${n(e)}${e.key}` : e.kind === 'medal' ? `${n(e)}random medal` : `${e.count ?? e.min ?? 1} ${items[e.id]?.name || e.id}`;
+    if (sets.length) return (sets.length > 1 ? `One of ${sets.length}: ` : '') + sets.map(set => set.map(one).join(', ')).join('; or ');
+    if (/^player\.box\.|^player\.item\./.test(id)) return 'One random prize, as from an Amulet spin (gold, resources or an item).';
+    return String(items[id]?.desc || '').slice(0, 220);
+  }
+  giftsView(q, now){
+    const G2 = this.g.gifts, items = this.g.data.items || {}, lords = Object.keys(this.g.db.players || {}).length;
+    const pick = q.get('item') || '', picked = pick && items[pick] ? pick : '';
+    const days = [[0, 'nobody new'], [7, '7 days'], [14, '14 days'], [30, '30 days'], [60, '60 days'], [90, '90 days']];
+    const holiday = HOLIDAY_ITEMS.filter(id => items[id]);
+    const list = [...G2.list].reverse();
+    return `<h2>Gifts to everyone</h2>
+      <p>Sends an item to every lord at once (<b>${num(lords)}</b> now). Each one finds it in My Items, with a mail in his System box saying so. Lords founded in the days after get it too, when they start. Each lord gets a gift once. A gift still open to new lords carries on after a Fresh start.</p>
+      ${this.form('gift', {}, `<table class="facts">
+        <tr><td>Item</td><td><input name="item" list="aow-items" size="40" value="${esc(picked)}" placeholder="type a name, such as Christmas Chest" autocomplete="off">${picked ? ` <b>${esc(items[picked].name)}</b>` : ''}</td></tr>
+        <tr><td>How many</td><td><input name="count" type="number" min="1" max="1000" value="1" style="width:70px"> each</td></tr>
+        <tr><td>New lords</td><td>also get it for <select name="days">${days.map(([d, l]) => `<option value="${d}"${d === 30 ? ' selected' : ''}>${l}</option>`).join('')}</select> after today</td></tr>
+        <tr><td>Mail title</td><td><input name="title" size="40" maxlength="60" placeholder="Happy holidays!"></td></tr>
+        <tr><td>Mail text</td><td><textarea name="text" rows="3" cols="60" maxlength="600" placeholder="The Age of War team sends you (the item). You'll find it in My Items. Happy holidays!"></textarea></td></tr>
+      </table><button class="red">Send to everyone</button>`, { confirm: `Send this to all ${lords} lords now, and to new lords for the days chosen?` })}
+      <datalist id="aow-items">${Object.keys(items).sort((x, y) => String(items[x].name).localeCompare(String(items[y].name))).map(id => `<option value="${esc(id)}">${esc(items[id].name || id)}</option>`).join('')}</datalist>
+      <h3>Holiday items</h3>
+      <p class="dim">The Christmas items the game has, and what opening one gives. Choose one to put it in the form.</p>
+      <table><tr><th>Item</th><th>What opening one gives here</th><th></th></tr>${holiday.map(id => `<tr><td class="nw">${esc(items[id].name)}</td><td>${esc(this.holds(id))}</td><td>${this.link({ view: 'gifts', item: id }, 'Choose')}</td></tr>`).join('')}</table>
+      <h3>Sent</h3>
+      ${list.length ? `<table><tr><th>Item</th><th>Each</th><th>Sent (UTC)</th><th>New lords get it</th><th>Lords given</th><th></th></tr>${list.map(x => {
+        const open = !x.stopped && x.until > now;
+        return `<tr><td>${esc(G2.name(x.itemId))}</td><td>${num(x.count)}</td><td class="nw">${when(x.at)}</td><td class="nw">${open ? `until ${when(x.until)}` : x.stopped ? `stopped ${when(x.stoppedAt)}` : x.newDays ? `ended ${when(x.until)}` : 'no'}</td><td>${num(x.given)}</td>
+          <td>${open ? this.form('stopgift', { id: x.id }, '<button class="ghost">Stop for new lords</button>', { inline: true, confirm: 'New lords will no longer get this gift. Lords who have it keep it.' }) : ''}</td></tr>`; }).join('')}</table>` : '<p class="dim">Nothing sent yet.</p>'}`;
+  }
   // ---------- backups (backups.js) ----------
   backupDir(){ return this.g.backups?.dir || require('path').join(require('path').dirname(this.g.store.file), 'backups'); }
   backupsView(){
@@ -418,7 +475,7 @@ class AdminPage {
     return `<h2>Fresh start</h2>
       <p>Wipes the world for a new beginning and keeps every account. Players sign in with the same name and password as before and found a new lord and city, as on their first day.</p>
       <table class="facts">
-        <tr><td>Kept</td><td>${n(db.accounts, 'account')}: names, passwords, e-mails, sign-ins and bans. Your side too: banned addresses and browsers, allowed pairs, notes, the audit log, the banner and the sign-in background. A muted or frozen lord's next lord is muted or frozen for the time left.</td></tr>
+        <tr><td>Kept</td><td>${n(db.accounts, 'account')}: names, passwords, e-mails, sign-ins and bans. Your side too: banned addresses and browsers, allowed pairs, notes, the audit log, the banner and the sign-in background, and gifts to everyone (one still open to new lords reaches everyone on the new world). A muted or frozen lord's next lord is muted or frozen for the time left.</td></tr>
         <tr><td>Cleared</td><td>${n(db.players, 'lord')} and ${n(db.castles, 'city', 'cities')}, with their heroes, troops, items, coins, mail and reports; ${n(db.alliances, 'alliance')} and their war reports${armies ? `; ${n(db.armies, 'army', 'armies')} out` : ''}${colonies ? `; ${n(db.colonies, 'colony', 'colonies')}` : ''}; the market, the Hall of Fame and its votes, chat and the newsboard. Valleys, NPC cities and Historic Cities go back to how they started.</td></tr>
         <tr><td>Backup</td><td>Before anything is cleared, the whole world is copied to <b>${esc(b.dir)}</b>. To undo the wipe, stop the server, put that file in place of <b>${esc(world)}</b> (renamed to world.json), and start the server again.</td></tr>
         <tr><td>Restart</td><td>The server restarts on the new world. With the autostart (install-autostart.bat) it's back by itself in about 15 seconds. If you run it from start.bat, its window stops: close it and run start.bat again. Everyone online is signed out with a note to come back in a minute.</td></tr>
@@ -460,8 +517,8 @@ class AdminPage {
     }
     const view = q.get('view') || 'home';
     const body = view === 'accounts' ? this.accounts(q, now) : view === 'player' ? this.player(q, now) : view === 'alts' ? this.alts(now)
-      : view === 'activity' ? this.activity(q) : view === 'bans' ? this.bans(now) : view === 'audit' ? this.audit() : view === 'wipe' ? this.wipe() : view === 'backups' ? this.backupsView() : this.home(now);
-    const nav = [['home', 'Overview'], ['accounts', 'Accounts'], ['alts', 'Linked accounts'], ['activity', 'Activity'], ['bans', 'Bans'], ['audit', 'Audit log'], ['backups', 'Backups'], ['wipe', 'Fresh start']]
+      : view === 'activity' ? this.activity(q) : view === 'bans' ? this.bans(now) : view === 'audit' ? this.audit() : view === 'wipe' ? this.wipe() : view === 'backups' ? this.backupsView() : view === 'gifts' ? this.giftsView(q, now) : this.home(now);
+    const nav = [['home', 'Overview'], ['accounts', 'Accounts'], ['alts', 'Linked accounts'], ['activity', 'Activity'], ['bans', 'Bans'], ['audit', 'Audit log'], ['gifts', 'Gifts'], ['backups', 'Backups'], ['wipe', 'Fresh start']]
       .map(([v, l]) => this.link({ view: v }, l, v === view ? 'tab on' : 'tab')).join('');
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Server admin</title><style>
       body{font:14px Arial,sans-serif;background:#1d1a16;color:#eee;margin:0;padding:20px 24px 60px}h1{margin:0 0 4px;font-size:22px}h2{color:#e6c27a;font-size:18px;margin:26px 0 10px}h3{color:#e6c27a;font-size:15px;margin:22px 0 8px}
