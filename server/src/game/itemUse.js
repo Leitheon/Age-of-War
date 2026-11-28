@@ -21,6 +21,19 @@ const MEDAL_LOYALTY = { 'hero.loyalty.1': 5, 'hero.loyalty.2': 10, 'hero.loyalty
 const EXP_BOOKS = { 'player.experience.1.a': [1000, 0.08], 'player.experience.1.b': [10000, 0.3], 'player.experience.1.c': [100000, 1] };
 const STRENGTH_ITEMS = new Set(['hero.item.Tea', 'hero.item.Lugui_Wine', 'hero.item.Panax_ginseng', 'hero.item.Essential_Oil']);
 const LOCKBOX = { 'player.box.1': ['consume.key.1', [3, 4]], 'player.box.2': ['consume.key.2', [2, 3]], 'player.box.3': ['consume.key.3', [1, 2]] };
+// Keys the descriptions don't tie to their chests (Fox, Nov 28 2026: the Special Chest Key opened nothing, and the
+// Special chests opened without one). The event packages each hold a key for their Special chest: the Evony Happiness,
+// Thanksgiving and Evony War Packages a Special Chest Key, the Christmas Package its "Special Christmas Chest Key" (the
+// Secret Santa Key here: chests.js). The Special Chest Key also opens any Special chest, as its description says.
+const MORE_KEYS = {
+  'player.box.present.money.23': ['player.key.santa', 'player.key.special.chest'],   // Special Christmas Chest
+  'player.box.present.money.31': ['player.key.special.chest'],                       // Special Evony Happiness Chest
+  'player.box.present.money.35': ['player.key.special.chest'],                       // Special Thanksgiving Package
+  'player.box.present.money.49': ['player.key.special.chest'],                       // Evony War Chest
+  'player.box.present.money.25': ['player.key.special.chest'],                       // Special New Year Chest (and its own key)
+  'player.box.present.money.29': ['player.key.special.chest'],                       // Special Easter Chest (and its own key)
+  'player.box.present.money.43': ['player.key.special.chest'],                       // Special Easter Chest (and its own key)
+};
 const TOKEN_POOLS = {
   'player.box.present.money.108': ['player.box.present.money.70', 'player.box.present.money.71', 'player.box.present.money.72'],   // Treat Token: an Angel item
   'player.box.present.money.109': ['player.box.present.money.74', 'player.box.present.money.75', 'player.box.present.money.76', 'player.box.present.money.77'],   // Trick Token: a Devil item
@@ -81,6 +94,11 @@ class ItemUse {
       if (fit.length) this.keysFor.set(ch.id, fit.map(k => k.id));
     }
     for (const [box, [key]] of Object.entries(LOCKBOX)) this.keysFor.set(box, [key]);
+    for (const [box, more] of Object.entries(MORE_KEYS)){
+      if (!items[box]) continue;
+      const all = [...new Set([...(this.keysFor.get(box) || []), ...more.filter(k => items[k])])];
+      if (all.length) this.keysFor.set(box, all);
+    }
   }
   get items(){ return this.g.items; }
   name(id){ return this.items.name(id); }

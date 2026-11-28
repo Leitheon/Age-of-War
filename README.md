@@ -227,6 +227,11 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   opened here (and the key it needs), its gold-shop price, and a link to gift it to everyone. The list (or what a
   search found) downloads as a spreadsheet file (.csv) that Excel opens. It's read from the game file the server
   loads, so nothing from the game is in the release.
+- **Special chest keys**: the event Special chests need their keys, as the packages that hold the keys mean them
+  to. A Special Chest Key (in the Evony Happiness, Thanksgiving and Evony War Packages) opens the Special Evony
+  Happiness Chest, the Special Thanksgiving Package, the Evony War Chest and any other Special chest; the Christmas
+  Package's key (the Secret Santa Key) opens the Special Christmas Chest. A Silver Key still opens any of them, and
+  using a key from My Items says which chests it opens.
 - **Farming valleys** (`rules.battle.rangedOverCounter`): the valley guide's archers take valleys without losing any:
   50 / 100 / 200 archers for levels 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with 1
   Cavalry for levels 4-10, against every mix of troops a valley has, with research 10 (or Archery 7 and a hero of 300

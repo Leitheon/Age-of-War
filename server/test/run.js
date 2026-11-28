@@ -1561,6 +1561,22 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       give('consume.key.1');
       const lockYes = await c.call('shop.useGoods', { castleId: castle.id, itemId: 'player.box.1', num: 1 });
       ok(lockNo.ok < 0 && /Bronze Key/.test(lockNo.errorMsg) && lockYes.ok === 1 && me.items['consume.key.1'] <= 1 && !me.items['player.box.1'] && lockYes.itemBeans.some(b => b.count > 0), 'a Bronze Lockbox needs a Bronze Key, which it uses up');
+      // The Special chests need their keys (Fox, Nov 28 2026: the Special Chest Key opened nothing).
+      { const HAP = 'player.box.present.money.31', XM = 'player.box.present.money.23', SCK = 'player.key.special.chest', SANTA = 'player.key.santa';
+        for (const k of [SCK, SANTA, 'player.key.silver']) me.items[k] = 0;
+        me.items[HAP] = 1; me.items[XM] = 1;
+        const no = await c.call('shop.useGoods', { castleId: castle.id, itemId: HAP, num: 1 });
+        me.items[SCK] = 1;
+        const yes = await c.call('shop.useGoods', { castleId: castle.id, itemId: HAP, num: 1 });
+        const xmNo = await c.call('shop.useGoods', { castleId: castle.id, itemId: XM, num: 1 });
+        me.items[SANTA] = 1;
+        const xmYes = await c.call('shop.useGoods', { castleId: castle.id, itemId: XM, num: 1 });
+        me.items[SCK] = 1;
+        const what = await c.call('shop.useGoods', { castleId: castle.id, itemId: SCK, num: 1 });
+        ok(no.ok < 0 && /Special Chest Key/.test(no.errorMsg) && yes.ok === 1 && !me.items[HAP] && xmNo.ok < 0 && /Secret Santa Key/.test(xmNo.errorMsg) && xmYes.ok === 1 && !me.items[XM] && !me.items[SANTA]
+          && what.ok < 0 && /Special Evony Happiness Chest/.test(what.errorMsg) && /Evony War Chest/.test(what.errorMsg) && me.items[SCK] === 1,
+          `the Special chests need their keys: a Special Chest Key opens the Special Evony Happiness Chest, the Christmas Package's key the Special Christmas Chest, and the key says what it opens (${no.errorMsg} / ${what.errorMsg})`);
+        me.items[SCK] = 0; }
       const reader = G.itemUse.chests;
       const lords = reader.sets('player.box.present.4')[0] || [];
       ok(lords.some(e => e.kind === 'troop' && e.key === 'peasants' && e.min === 250) && lords.some(e => e.id === 'consume.changeflag.1') && lords.some(e => e.id === 'consume.1.a' && e.min === 40),
