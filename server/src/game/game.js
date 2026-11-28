@@ -780,7 +780,9 @@ class Game {
   // welcome.js: the banner and the gold a coin is worth, read by the web client when it loads.
   welcomeJs(){
     const b = this.banner();
-    return `window.AOW_WELCOME=${JSON.stringify(b.text)};window.AOW_LINK=${JSON.stringify(b.link)};window.AOW_GOLD_PER_COIN=${Number(this.goldFinishRate?.()) || 0};`;
+    // (and the sign-up form's Turnstile check, when it's on: turnstile.js)
+    return `window.AOW_WELCOME=${JSON.stringify(b.text)};window.AOW_LINK=${JSON.stringify(b.link)};window.AOW_GOLD_PER_COIN=${Number(this.goldFinishRate?.()) || 0};`
+      + (this.turnstile?.clientJs() || 'window.aowTurnstile=null;');
   }
   tickerFile(){ return path.join(this.dataDir, 'movingText.txt'); }
   ticker(){ try { return fs.readFileSync(this.tickerFile(), 'utf8').replace(/[\r\n]+/g, '   ').trim(); } catch (e){ return String(this.rules.newsTicker || ''); } }

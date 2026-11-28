@@ -41,6 +41,9 @@ The first start writes `server/config.json` with a random admin password.
   Discord invite; `""` turns the link off.
 - `adminPassword` — the admin page's password (user name `admin`).
 - `assetCdn` — where Evony art the art folders don't have comes from.
+- `turnstile` — `{ "siteKey": "...", "secretKey": "..." }` from a Cloudflare Turnstile widget made for the game's
+  hostname: the sign-up form then shows Cloudflare's "verify you are human" check, and the server asks Cloudflare
+  whether it was passed before making the account. Left out (or with one key missing), sign-up is as before.
 
 Game rules (speeds, prices, limits) are in `server/src/rules.js`; put the ones you change in
 `server/data/rules.json`, which is merged over them.
@@ -206,6 +209,11 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   and with Cloudflare's IP Geolocation on it also sees the visitors Cloudflare marks as Tor (T1). The admin page's Bans
   tab lists this week's e-mail domains and bans every account at one at once, with their browsers; refusals are in
   Activity, Refused sign-ups. (A confirmation e-mail wouldn't stop these bots: their agent reads its own inbox.)
+- **Cloudflare Turnstile on sign-up** (`turnstile` in `config.json`): the sign-up form shows Cloudflare's free
+  "verify you are human" check above Create Account and waits for it; the server asks Cloudflare whether the token
+  is good (once, within 5 minutes) before making the account. A script that skips the form, or a failed or expired
+  check, is refused with a plain message, and noted under Activity, Refused sign-ups. If Cloudflare can't be
+  reached, sign-ups wait rather than go through unchecked. On the server's own computer (localhost) it's skipped.
 - **Farming valleys** (`rules.battle.rangedOverCounter`): the valley guide's archers take valleys without losing any:
   50 / 100 / 200 archers for levels 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with 1
   Cavalry for levels 4-10, against every mix of troops a valley has, with research 10 (or Archery 7 and a hero of 300

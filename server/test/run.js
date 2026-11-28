@@ -4158,6 +4158,26 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           && banned.every(b => b && b.until == null) && devs.every(Boolean) && !S.banOf(G.db.accounts.realperson) && /banned every account at/.test(S.db.audit.at(-1).action),
           `the admin page's Bans tab lists this week's e-mail domains and bans every account at one at once, with their browsers ("${note}"); the Tor status is shown`);
         for (const n of [1, 2, 3]) S.unban(G.db.accounts['dombot' + n]); for (const d of botsAt) delete S.db.bans.device[d];
+        // Cloudflare Turnstile on sign-up (turnstile.js; Fox, Nov 28 2026). Off without keys; with them, /welcome hands the
+        // page the site key (never the secret), and a sign-up needs a token Cloudflare says is good (asked here of a
+        // stand-in that takes only the test token). Cloudflare not answering refuses; the server's own computer skips it.
+        const { Turnstile } = require('../src/turnstile.js'), keepTs = G.turnstile;
+        const offJs = G.welcomeJs();
+        const T2 = G.turnstile = new Turnstile({ siteKey: '1x00000000000000000000AA', secretKey: '1x0000000000000000000000000000000AA' }, { warn(){}, info(){} });
+        const onJs = G.welcomeJs(), realEmpty = await T2.verify('', '1.2.3.4'), realLong = await T2.verify('x'.repeat(3000));
+        const asked = [];
+        T2.verify = (token, ip) => { asked.push(ip); return Promise.resolve(token === 'XXXX.DUMMY.TOKEN.XXXX' ? { ok: true, codes: [] } : token === 'down' ? { ok: false, codes: ['unreachable'] } : token === 'old' ? { ok: false, codes: ['timeout-or-duplicate'] } : { ok: false, codes: token ? ['invalid-input-response'] : ['missing-input-response'] }); };
+        const signUp = async (n, token, local = false) => { const c0 = fake(local ? '127.0.0.1' : '192.0.2.8' + n, crypto.createHash('md5').update('ts' + n).digest('hex'), local); c0.got.length = 0;
+          G.handle(c0, 'auth.register', { username: 'TsUser' + n, email: `tsuser${n}@example.test`, password: 'secret12', ...(token != null ? { turnstile: token } : {}) });
+          await new Promise(r => setTimeout(r, 5)); return c0.got.find(m => m.cmd === 'auth.register')?.d || {}; };
+        const none = await signUp(1), forged = await signUp(2, 'forged'), down = await signUp(3, 'down'), old = await signUp(4, 'old'), passed = await signUp(5, 'XXXX.DUMMY.TOKEN.XXXX'), home = await signUp(6, null, true);
+        const tsEv = S.events({ types: ['refused'] }).find(e => /security check/.test(e.why || ''));
+        G.turnstile = keepTs;
+        ok(/window\.aowTurnstile=null/.test(offJs) && /1x00000000000000000000AA/.test(onJs) && /challenges\.cloudflare\.com\/turnstile\/v0\/api\.js\?render=explicit/.test(onJs) && !/1x0000000000000000000000000000000AA/.test(onJs)
+          && realEmpty.codes[0] === 'missing-input-response' && realLong.codes[0] === 'invalid-input-response'
+          && /Finish the security check/.test(none.errorMsg) && /Finish the security check/.test(forged.errorMsg) && /couldn't be confirmed/.test(down.errorMsg) && /ran out/.test(old.errorMsg)
+          && passed.ok === 1 && !!G.db.accounts.tsuser5 && !G.db.accounts.tsuser1 && !G.db.accounts.tsuser2 && home.ok === 1 && asked.length === 5 && asked[4] === '192.0.2.85' && /security check failed/.test(tsEv?.why || ''),
+          `Turnstile: off without keys; with them the page gets the site key (not the secret), and a sign-up without a good token is refused ("${none.errorMsg}"), as when Cloudflare can't be asked ("${down.errorMsg}"); a good one makes the account; the server's own computer skips it`);
         S.tries.clear(); S.db.tries = {};
       }
       // The admin page: the overview, a player's page, and an action (with the page's token only).

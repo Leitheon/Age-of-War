@@ -7,6 +7,7 @@ const { loadRules } = require('./rules');
 const { Store } = require('./store');
 const { Backups } = require('./backups');
 const { TorExits } = require('./tor');
+const { Turnstile } = require('./turnstile');
 const { Game } = require('./game/game');
 const { startPolicyServer, startGameServer } = require('./net');
 const { startHttp, createFacePool, createArtLog, findLoginMap } = require('./http');
@@ -96,6 +97,10 @@ function main(overrides = {}){
     '/welcome': () => ({ body: game.welcomeJs(), type: 'text/javascript; charset=utf-8' }),
     '/welcome.js': () => ({ body: game.welcomeJs(), type: 'text/javascript; charset=utf-8' }),
     '/movingText.txt': () => ({ body: game.ticker(), type: 'text/plain; charset=utf-8' }), ...require('./pages')(game) }, faces, art, perf, { onMessage, onClose });
+  // Cloudflare Turnstile on the sign-up form (turnstile.js): on when config.json has turnstile.siteKey and secretKey.
+  game.turnstile = new Turnstile(cfg.turnstile, log);
+  if (game.turnstile.on) log.info('Turnstile is on: sign-ups need Cloudflare\'s security check');
+  else if (cfg.turnstile && (cfg.turnstile.siteKey || cfg.turnstile.secretKey)) log.warn('config.json has only one of turnstile.siteKey and turnstile.secretKey: Turnstile is off until both are there');
   // Tor's exit list (tor.js), fetched now and every hour (not for the tests: they set it themselves).
   game.tor = new TorExits(path.join(dataDir, 'tor-exits.txt'), log);
   if (!overrides.embedded) game.tor.start();

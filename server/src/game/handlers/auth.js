@@ -100,6 +100,29 @@ module.exports = (game, H) => {
         return game.fail(conn, cmd, -11, 'This browser already has an account on this server. One account per player: sign in with that one.');
       }
     }
+    // Cloudflare Turnstile (turnstile.js), when config.json has its keys: the sign-up form's token must be good. The
+    // checks above are made again after asking Cloudflare, in case another sign-up took the name meanwhile.
+    const T = game.turnstile, make = t => makeAccount(conn, cmd, d, name, email, ipKey, t);
+    if (T?.on && !conn.local){
+      T.verify(d.turnstile, conn.ip).then(r => {
+        if (!r.ok){
+          const gone = r.codes.includes('timeout-or-duplicate'), down = r.codes.includes('unreachable') || r.codes.some(c => /secret|internal/.test(c));
+          S.activity({ type: 'refused', why: `security check ${down ? 'not confirmed' : 'failed'} (${r.codes.join(', ') || 'no reason'})`, account: name, ip: conn.ip, device: conn.device || undefined }, game.now());
+          return game.fail(conn, cmd, -11, down ? "The security check couldn't be confirmed just now. Try again in a minute."
+            : gone ? 'The security check ran out. Wait for it to finish again, then press Create Account.' : 'Finish the security check under the form (tick the box if it asks), then press Create Account.');
+        }
+        if (perDay > 0 && S.attempts(ipKey, DAY, game.now()) >= perDay) return game.fail(conn, cmd, -11, 'Too many accounts have been made from your network today. Try again tomorrow.');
+        if (findByName(name)) return game.fail(conn, cmd, -11, 'That user name is taken.');
+        if (Object.values(accounts()).some(x => x.email === email || (x.email && emailKey(x.email) === key))) return game.fail(conn, cmd, -11, 'That e-mail address already has an account.');
+        make(game.now());
+      });
+      return;
+    }
+    make(now);
+  };
+  // (auth.register, once every check has passed)
+  function makeAccount(conn, cmd, d, name, email, ipKey, now){
+    const S = game.security;
     const a = accounts()[name.toLowerCase()] = { name, email, createdAt: now, playerId: null };
     setPwd(a, d.password);
     if (!conn.local) S.attempts(ipKey, DAY, now, true);
