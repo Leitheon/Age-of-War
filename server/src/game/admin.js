@@ -12,12 +12,13 @@
 //   Banner (on the overview): the line scrolling across the top of the game and its link (game.banner).
 // Actions are forms POSTed with the page's token (t); each one is in the audit log, then the page reloads (303).
 const world = require('./world');
+const { netOf } = require('./security');
 
 const DUR = [['1h', '1 hour', 3600e3], ['6h', '6 hours', 6 * 3600e3], ['1d', '1 day', 86400e3], ['3d', '3 days', 3 * 86400e3],
   ['7d', '7 days', 7 * 86400e3], ['30d', '30 days', 30 * 86400e3], ['perm', 'Permanent', null]];
 const RES = ['food', 'wood', 'stone', 'iron', 'gold'];
 const TYPES = [['', 'Everything'], ['signin,resume', 'Sign-ins'], ['signin-fail', 'Wrong passwords'], ['signup', 'Sign-ups'], ['signup-blocked', 'Refused sign-ups'],
-  ['transport', 'Transports'], ['reinforce', 'Reinforcements'], ['market', 'Market trades'], ['policy', 'Policies'], ['battle', 'Battles']];
+  ['autoban', 'Automatic bans'], ['transport', 'Transports'], ['reinforce', 'Reinforcements'], ['market', 'Market trades'], ['policy', 'Policies'], ['battle', 'Battles']];
 const esc = s => String(s ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
 const when = t => t ? new Date(t).toISOString().slice(0, 16).replace('T', ' ') : '';
 const num = n => Math.floor(Number(n) || 0).toLocaleString('en-US');
@@ -69,6 +70,7 @@ class AdminPage {
       case 'resume': return `${acc(e.account)} came back (reload)${ip}${dev}`;
       case 'signin-fail': return `Wrong password for ${acc(e.account)} from${ip}${dev}`;
       case 'signup-blocked': return `<span class="bad">Sign-up of ${esc(e.account)} refused</span>: the browser already has ${(e.others || []).map(acc).join(', ')}${ip}${dev}`;
+      case 'autoban': return `<span class="bad">Banned ${esc(e.net)} automatically</span> ${e.until ? 'until ' + when(e.until) : 'for good'}: it tried ${num((e.names || []).length)} account names that don't exist (${esc((e.names || []).slice(0, 8).join(', '))}${(e.names || []).length > 8 ? ' ...' : ''})${(e.banned || []).length ? `; its new accounts banned too: ${e.banned.map(acc).join(', ')}` : ''}${ip}${dev}`;
       case 'transport': {
         const back = this.acctOfLord(e.to), q = { view: 'player', name: back?.name || '', tb_city: e.toCityId || '' };
         for (const [k, n] of Object.entries(e.res || {})) q['tb_' + k] = n;
@@ -101,7 +103,7 @@ class AdminPage {
       case 'ban': {
         S.ban(a, until, reason, now);
         const also = [];
-        if (q.get('ips')) for (const ip of Object.keys(a.seen?.ips || {})){ S.banKey('ip', ip, until, reason, now); also.push(ip); }
+        if (q.get('ips')) for (const ip of Object.keys(a.seen?.ips || {})){ const k = S.banKey('ip', ip, until, reason, now); if (!also.includes(k)) also.push(k); }
         if (q.get('devices')) for (const d of Object.keys(a.seen?.devices || {})){ S.banKey('device', d, until, reason, now); also.push('browser ' + short(d)); }
         S.audit('banned', a.name, `${span}${reason ? ': ' + reason : ''}${also.length ? `; also ${also.join(', ')}` : ''}`);
         return back(`${a.name} is banned ${span}${also.length ? `, with ${also.length} address${also.length === 1 ? '' : 'es and browsers'}` : ''}.`);
@@ -135,9 +137,9 @@ class AdminPage {
       case 'banip': case 'bandevice': {
         const kind = action === 'banip' ? 'ip' : 'device', key = String(q.get('key') || '').trim();
         if (!key || (kind === 'device' && !/^[0-9a-f]{32}$/.test(key))) return back(kind === 'ip' ? 'Enter an address.' : 'That is not a browser id.');
-        S.banKey(kind, key, until, reason, now);
-        S.audit(kind === 'ip' ? 'banned the address' : 'banned the browser', key, `${span}${reason ? ': ' + reason : ''}`);
-        return back(`${kind === 'ip' ? key : 'Browser ' + short(key)} is banned ${span}.`);
+        const k = S.banKey(kind, key, until, reason, now);   // (an IPv6 address: its /64)
+        S.audit(kind === 'ip' ? 'banned the address' : 'banned the browser', k, `${span}${reason ? ': ' + reason : ''}`);
+        return back(`${kind === 'ip' ? k : 'Browser ' + short(k)} is banned ${span}.`);
       }
       case 'unbanip': case 'unbandevice': {
         const kind = action === 'unbanip' ? 'ip' : 'device', key = String(q.get('key') || '');
@@ -189,7 +191,7 @@ class AdminPage {
     const S = this.S, accs = Object.values(this.g.db.accounts || {}), day = now - 86400e3;
     const banned = accs.filter(a => S.banOf(a, now)).length, ps = accs.map(a => a.playerId && this.g.db.players[a.playerId]).filter(Boolean);
     const groups = S.groups(now), recent = S.events({ max: 2000, months: 1 }).filter(e => e.t >= day);
-    const fails = recent.filter(e => e.type === 'signin-fail'), refused = recent.filter(e => e.type === 'signup-blocked');
+    const fails = recent.filter(e => e.type === 'signin-fail'), refused = recent.filter(e => e.type === 'signup-blocked'), autos = recent.filter(e => e.type === 'autoban');
     const byIp = new Map(); for (const e of fails) if (e.ip) byIp.set(e.ip, (byIp.get(e.ip) || 0) + 1);
     const noisy = [...byIp].filter(([, n]) => n >= 5).sort((x, y) => y[1] - x[1]);
     const stat = (n, l, q) => `<div class="stat">${q ? this.link(q, `<b>${num(n)}</b>`) : `<b>${num(n)}</b>`}<span>${l}</span></div>`;
@@ -201,6 +203,7 @@ class AdminPage {
       <h2>Needs a look</h2>
       ${groups.length ? `<p>${groups.filter(x => x.browsers).length} group${groups.filter(x => x.browsers).length === 1 ? '' : 's'} sharing a browser, ${groups.filter(x => !x.browsers).length} sharing only an address. ${this.link({ view: 'alts' }, 'See them')}.</p>
         <ul>${groups.slice(0, 5).map(gr => `<li>${gr.browsers ? '<span class="b bad">same browser</span> ' : '<span class="b warn">same address</span> '}${gr.names.map(n => this.who(this.acct(n))).join(', ')}</li>`).join('')}</ul>` : '<p class="dim">No accounts share a browser or an address.</p>'}
+      ${autos.length ? `<p class="bad"><b>${autos.length}</b> network${autos.length === 1 ? ' was' : 's were'} banned automatically today for guessing account names: ${autos.map(e => esc(e.net)).join(', ')}. ${this.link({ view: 'activity', type: 'autoban' }, 'See them')}.</p>` : ''}
       ${refused.length ? `<p><b>${refused.length}</b> sign-up${refused.length === 1 ? ' was' : 's were'} refused today for a browser that already has an account. ${this.link({ view: 'activity', type: 'signup-blocked' }, 'See them')}.</p>` : ''}
       ${noisy.length ? `<p class="bad">Many wrong passwords today from: ${noisy.map(([ip, n]) => `${esc(ip)} (${n})`).join(', ')}.</p>` : ''}
       <h2>Newest accounts</h2>${this.accountsTable(newest, now)}
@@ -284,11 +287,11 @@ class AdminPage {
     const reason = '<input name="reason" placeholder="Reason (the player sees it)" size="34">';
     const links = S.links(a, now);
     const ips = Object.entries(a.seen?.ips || {}).sort((x, y) => y[1].last - x[1].last), devs = Object.entries(a.seen?.devices || {}).sort((x, y) => y[1].last - x[1].last);
-    const ipRow = ([ip, e]) => { const b = S.live(S.db.bans.ip[ip], now) ? S.db.bans.ip[ip] : null;
+    const ipRow = ([ip, e]) => { const hit = S.ipBan(ip, now), b = hit?.[1], net = netOf(ip);
       const others = Object.values(g.db.accounts).filter(o => o !== a && o.seen?.ips?.[ip]);
       return `<tr><td>${esc(ip)}</td><td class="nw">${when(e.first)}</td><td class="nw">${when(e.last)}</td><td>${e.n}</td><td>${others.map(o => this.who(o)).join(', ')}</td>
-        <td>${b ? `<span class="b bad">banned ${b.until == null ? 'for good' : 'to ' + when(b.until)}</span> ${this.form('unbanip', { key: ip, name: a.name }, '<button>Lift</button>', { inline: true })}`
-        : this.form('banip', { key: ip, name: a.name }, `${this.durSelect('dur', '7d')}<input name="reason" placeholder="Reason" size="14"><button>Ban address</button>`, { inline: true, confirm: `Ban ${ip}? Everyone signing in from it is refused.` })}</td></tr>`; };
+        <td>${b ? `<span class="b bad">banned${hit[0] !== ip ? ' (' + esc(hit[0]) + ')' : ''} ${b.until == null ? 'for good' : 'to ' + when(b.until)}</span> ${this.form('unbanip', { key: hit[0], name: a.name }, '<button>Lift</button>', { inline: true })}`
+        : this.form('banip', { key: ip, name: a.name }, `${this.durSelect('dur', '7d')}<input name="reason" placeholder="Reason" size="14"><button>Ban address</button>`, { inline: true, confirm: net !== ip ? `Ban ${net}, the whole network this IPv6 address is in? Everyone signing in from it is refused.` : `Ban ${ip}? Everyone signing in from it is refused.` })}</td></tr>`; };
     const devRow = ([d, e]) => { const b = S.live(S.db.bans.device[d], now) ? S.db.bans.device[d] : null, others = S.othersOn(d, a.name), allowed = !!S.db.allow['device:' + d];
       return `<tr><td title="${esc(d)}">${esc(short(d))}</td><td class="nw">${when(e.first)}</td><td class="nw">${when(e.last)}</td><td>${e.n}</td><td>${others.map(n => this.who(this.acct(n))).join(', ')}</td>
         <td>${b ? `<span class="b bad">banned ${b.until == null ? 'for good' : 'to ' + when(b.until)}</span> ${this.form('unbandevice', { key: d, name: a.name }, '<button>Lift</button>', { inline: true })}`
@@ -344,11 +347,12 @@ class AdminPage {
   }
   bans(now){
     const S = this.S, live = obj => Object.entries(obj).filter(([, b]) => S.live(b, now));
-    const accountsOn = (kind, key) => Object.values(this.g.db.accounts).filter(a => kind === 'ip' ? a.seen?.ips?.[key] : a.seen?.devices?.[key]);
+    const accountsOn = (kind, key) => Object.values(this.g.db.accounts).filter(a => kind === 'ip' ? Object.keys(a.seen?.ips || {}).some(ip => ip === key || netOf(ip) === key) : a.seen?.devices?.[key]);
     const table = (kind, rows) => rows.length ? `<table><tr><th>${kind === 'ip' ? 'Address' : 'Browser'}</th><th>Until (UTC)</th><th>Reason</th><th>Accounts seen on it</th><th></th></tr>${rows.map(([k, b]) => `<tr><td title="${esc(k)}">${esc(kind === 'ip' ? k : short(k))}</td><td>${b.until == null ? 'for good' : when(b.until)}</td><td>${esc(b.reason)}</td>
       <td>${accountsOn(kind, k).map(a => this.who(a)).join(', ')}</td><td>${this.form(kind === 'ip' ? 'unbanip' : 'unbandevice', { key: k, back: 'bans' }, '<button>Lift</button>', { inline: true })}</td></tr>`).join('')}</table>` : '<p class="dim">None.</p>';
     const allows = Object.entries(S.db.allow);
     return `<h2>Banned addresses</h2>${table('ip', live(S.db.bans.ip))}${this.form('banip', { back: 'bans' }, `<input name="key" placeholder="address" size="20"> ${this.durSelect('dur', '7d')} <input name="reason" placeholder="Reason" size="24"> <button class="red">Ban address</button>`)}
+      <p class="dim">An IPv6 address is banned with its whole /64, the block one connection or one rented server is given (its owner can change the rest of the address at will). A network that tries ${num(this.g.rules.security?.autoBan?.unknownNames ?? 5)} account names that don't exist within ${num(this.g.rules.security?.autoBan?.minutes ?? 15)} minutes is banned automatically (rules.security.autoBan).</p>
       <h2>Banned browsers</h2>${table('device', live(S.db.bans.device))}
       <h2>Allowed</h2>${allows.length ? `<table><tr><th>What</th><th>Since (UTC)</th><th>Why</th><th></th></tr>${allows.map(([k, v]) => {
         const [kind, rest] = [k.slice(0, k.indexOf(':')), k.slice(k.indexOf(':') + 1)];

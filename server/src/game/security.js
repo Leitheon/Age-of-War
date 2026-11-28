@@ -30,6 +30,19 @@ const when = t => new Date(t).toISOString().slice(0, 16).replace('T', ' ');
 // believed only from this computer, where nobody else can set them.
 function loopback(ip){ return /^(127\.|::1$|::ffff:127\.)/.test(String(ip || '')); }
 function clean(ip){ return String(ip || '').trim().replace(/^::ffff:(?=\d+\.\d+\.\d+\.\d+$)/, ''); }
+// The network an address belongs to, for the limits and bans: an IPv4 address is itself; an IPv6 address stands for
+// its /64, the block one home connection or one rented server is given, inside which its owner can change address at
+// will (Nov 28 2026: the scanner came back from 2a02:c207:2362:2888::1, a rented server at Contabo). Written with the
+// first four groups, as 2a02:c207:2362:2888::/64; anything that isn't a plain address comes back as it was.
+function netOf(ip){
+  const s = clean(ip).toLowerCase().replace(/%.*$/, '');
+  if (!s.includes(':') || s.includes('/') || s.includes('.')) return s;
+  const halves = s.split('::'); if (halves.length > 2) return s;
+  const head = halves[0] ? halves[0].split(':') : [], tail = halves.length === 2 && halves[1] ? halves[1].split(':') : [];
+  const parts = halves.length === 2 ? [...head, ...Array(Math.max(0, 8 - head.length - tail.length)).fill('0'), ...tail] : head;
+  if (parts.length !== 8 || !parts.every(x => /^[0-9a-f]{1,4}$/.test(x))) return s;
+  return parts.slice(0, 4).map(x => parseInt(x, 16).toString(16)).join(':') + '::/64';
+}
 function clientOf(req, sockIp){
   const peer = clean(sockIp), h = req?.headers || {};
   const fwd = loopback(peer) ? (h['cf-connecting-ip'] || String(h['x-forwarded-for'] || '').split(',')[0]) : '';
@@ -123,8 +136,8 @@ class Security {
     const why = (what, b) => `${what} ${this.span(b)}${b.reason ? `. Reason: ${b.reason}` : '.'}`;
     const ab = a && this.banOf(a, now);
     if (ab) return why('This account is banned', ab);
-    const ib = conn?.ip && !conn.local ? this.db.bans.ip[conn.ip] : null;
-    if (this.live(ib, now)) return why('Your network address is banned', ib);
+    const ib = conn?.ip && !conn.local ? this.ipBan(conn.ip, now)?.[1] : null;
+    if (ib) return why('Your network address is banned', ib);
     const db = conn?.device ? this.db.bans.device[conn.device] : null;
     if (this.live(db, now)) return why('This browser is banned', db);
     return null;
@@ -145,15 +158,50 @@ class Security {
     const p = this.playerOf(a); if (p) delete p.banned;
     this.touch();
   }
-  // A ban on an address or a browser (kind 'ip' or 'device'); whoever is online on it is signed out.
+  // The live ban on address ip, on it or on its network (netOf: an IPv6 /64), as [key, ban]; or null.
+  ipBan(ip, now = this.g.now()){
+    for (const k of new Set([ip, netOf(ip)])) if (k && this.live(this.db.bans.ip[k], now)) return [k, this.db.bans.ip[k]];
+    return null;
+  }
+  // A ban on an address or a browser (kind 'ip' or 'device'); whoever is online on it is signed out. An IPv6 address
+  // is banned with its /64 (netOf). Returns the key it was banned under.
   banKey(kind, key, until, reason, now = this.g.now()){
+    if (kind === 'ip') key = netOf(key);
     const b = this.db.bans[kind][key] = { until: until ?? null, reason: String(reason || ''), at: now };
     for (const conn of [...this.g.online.values()]){
-      if ((kind === 'ip' ? conn.ip : conn.device) !== key || (kind === 'ip' && conn.local)) continue;
+      if ((kind === 'ip' ? netOf(conn.ip) : conn.device) !== key || (kind === 'ip' && conn.local)) continue;
       const a = this.accountOf(conn.player);
       if (a) this.kick(a, `${kind === 'ip' ? 'Your network address' : 'This browser'} is banned ${this.span(b)}${b.reason ? `. Reason: ${b.reason}` : '.'}`);
     }
     this.touch();
+    return key;
+  }
+  // Name guessing (rules.security.autoBan; Fox, Nov 28 2026: "can these be auto-banned?", of a scanner trying account
+  // names one after another: aowtest, victim_aow, xalgorix_a2, aowreset1 ...). Wrong passwords for unknownNames
+  // different names that have no account, from one network (netOf) within `minutes`, ban the network for `days`, and
+  // the accounts made from it in the last accountsHours with it. A player mistyping his own name doesn't come near it.
+  // Called for each sign-in with a name that has no account; returns what was banned, or null.
+  guessed(conn, name, now = this.g.now()){
+    const R = this.rules.autoBan || {}, need = R.unknownNames ?? 5;
+    if (!(need > 0) || !conn?.ip || conn.local) return null;
+    const net = netOf(conn.ip), ms = (R.minutes ?? 15) * 60e3, all = (this.db.guesses ??= {});
+    const list = [...(all[net] || []).filter(e => e.t > now - ms), { t: now, name: String(name || '').slice(0, 40) }].slice(-50);
+    all[net] = list; this.touch();
+    if (Math.random() < 0.05) for (const [k, v] of Object.entries(all)) if (!v.length || v[v.length - 1].t < now - ms) delete all[k];
+    const names = [...new Set(list.map(e => e.name))];
+    if (names.length < need || this.ipBan(conn.ip, now)) return null;
+    delete all[net];
+    const until = R.days > 0 ? now + R.days * 86400e3 : null, since = now - (R.accountsHours ?? 24) * 3600e3, accounts = [];
+    this.banKey('ip', net, until, 'Automatic: guessing account names', now);
+    for (const a of Object.values(this.g.db.accounts || {})){
+      if (!(a.createdAt > since) || this.banOf(a, now) || !Object.keys(a.seen?.ips || {}).some(ip => netOf(ip) === net)) continue;
+      this.ban(a, until, 'Automatic: made from a network guessing account names', now); accounts.push(a.name);
+    }
+    const shown = names.map(n => n || '(blank)'), list6 = shown.slice(0, 8).join(', ') + (shown.length > 8 ? ' ...' : '');
+    this.audit('automatically banned the address', net, `${this.span({ until })}, for trying ${names.length} account names that don't exist (${list6})${accounts.length ? `; its new accounts banned too: ${accounts.join(', ')}` : ''}`, now);
+    this.activity({ type: 'autoban', ip: conn.ip, net, names: shown.slice(0, 20), banned: accounts, until, device: conn.device || undefined }, now);
+    this.g.log.warn(`Banned ${net} automatically ${this.span({ until })}: it tried ${names.length} account names that don't exist (${list6})${accounts.length ? `; its new accounts ${accounts.join(', ')} too` : ''}`);
+    return { net, names, accounts, until };
   }
   unbanKey(kind, key){ delete this.db.bans[kind][key]; this.touch(); }
 
@@ -273,4 +321,4 @@ class Security {
   }
 }
 
-module.exports = { Security, clientOf, newDevice, deviceCookie, emailKey, DEVICE, loopback };
+module.exports = { Security, clientOf, newDevice, deviceCookie, emailKey, DEVICE, loopback, netOf };

@@ -6,7 +6,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
-const { clientOf, newDevice, deviceCookie } = require('./game/security');
+const { clientOf, newDevice, deviceCookie, netOf } = require('./game/security');
 const { BUFF_ICONS } = require('./buffIcons');
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.xml': 'text/xml; charset=utf-8', '.swf': 'application/x-shockwave-flash', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.js': 'text/javascript', '.css': 'text/css', '.txt': 'text/plain', '.mp3': 'audio/mpeg', '.json': 'application/json', '.wasm': 'application/wasm', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.map': 'application/json' };
@@ -158,13 +158,14 @@ function adminOk(cfg, req){
 // Wrong admin passwords (Nov 28 2026, after a security scanner's visit): an address that sends 10 in 15 minutes is
 // refused for the rest of the 15 minutes, and each is in the server window. (A request without a password, the
 // browser asking for one, doesn't count.) The answer doesn't say what the user name is or where the password is kept.
+// An IPv6 address counts as its /64 (netOf).
 const adminFails = new Map(), ADMIN_FAILS = 10, ADMIN_WINDOW = 15 * 60e3;
 function adminDenied(cfg, req, res, log){
-  const ip = clientOf(req, req.socket?.remoteAddress).ip || '?', now = Date.now();
-  const recent = (adminFails.get(ip) || []).filter(t => t > now - ADMIN_WINDOW);
-  if (recent.length >= ADMIN_FAILS){ adminFails.set(ip, recent); req.resume(); res.writeHead(429, { 'Content-Type': 'text/plain', 'Retry-After': '900' }); res.end('Too many wrong passwords. Try again in 15 minutes.'); return true; }
+  const ip = clientOf(req, req.socket?.remoteAddress).ip || '?', net = netOf(ip), now = Date.now();
+  const recent = (adminFails.get(net) || []).filter(t => t > now - ADMIN_WINDOW);
+  if (recent.length >= ADMIN_FAILS){ adminFails.set(net, recent); req.resume(); res.writeHead(429, { 'Content-Type': 'text/plain', 'Retry-After': '900' }); res.end('Too many wrong passwords. Try again in 15 minutes.'); return true; }
   if (adminOk(cfg, req)) return false;
-  if (req.headers.authorization){ recent.push(now); adminFails.set(ip, recent); log.warn(`Wrong admin password from ${ip} (${recent.length} in 15 minutes)`); }
+  if (req.headers.authorization){ recent.push(now); adminFails.set(net, recent); log.warn(`Wrong admin password from ${ip} (${recent.length} in 15 minutes)`); }
   if (adminFails.size > 1000) for (const [k, v] of adminFails) if (!v.some(t => t > now - ADMIN_WINDOW)) adminFails.delete(k);
   req.resume(); res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Server admin", charset="UTF-8"', 'Content-Type': 'text/plain' });
   res.end(cfg.adminPassword ? 'Admin password needed.' : 'Set adminPassword in config.json first.');

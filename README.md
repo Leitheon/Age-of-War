@@ -171,6 +171,12 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   (`world-auto-<date>-<time>.json`, UTC), and copies older than 3 days are deleted (a fresh start's copy stays). A
   restart doesn't start the count over, and a server that was off longer makes one as it starts. The admin page's
   **Backups** tab lists them, with the next one due and how to go back to one. `everyHours: 0` turns them off.
+- **IPv6 networks and automatic bans:** an IPv6 address counts as its whole /64 (the block one connection or one
+  rented server gets, whose owner can change the rest of the address at will) for the sign-up and wrong-password
+  limits, the admin page's lockout and bans; banning an IPv6 address bans its /64. A network that tries 5 account
+  names that don't exist within 15 minutes is banned for 7 days by itself, with any account made from it in the last
+  day (`rules.security.autoBan`); it's in the audit log, the activity log (Automatic bans) and the overview. A banned
+  network can't try passwords at all.
 - **Farming valleys** (`rules.battle.rangedOverCounter`): the valley guide's archers take valleys without losing any:
   50 / 100 / 200 archers for levels 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with 1
   Cavalry for levels 4-10, against every mix of troops a valley has, with research 10 (or Archery 7 and a hero of 300

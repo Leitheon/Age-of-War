@@ -881,7 +881,11 @@ const DEFAULTS = {
   // signupsPerDay: sign-ups an address may make a day; failsPer15Min: wrong passwords an address, or an account, may
   // have in 15 minutes before sign-ins stop for the rest of them (0 turns either off); linkDays: accounts that used
   // the same address within this many days are linked on the admin page; auditMax: admin actions kept.
-  security: { oneAccountPerBrowser: true, signupsPerDay: 3, failsPer15Min: 10, linkDays: 30, auditMax: 5000 },
+  // autoBan (Nov 28 2026, security.guessed): a network trying unknownNames account names that don't exist within
+  // `minutes` is banned for `days` (0: for good), with the accounts made from it in the last accountsHours;
+  // unknownNames 0 turns it off. (Limits and bans count an IPv6 address as its /64.)
+  security: { oneAccountPerBrowser: true, signupsPerDay: 3, failsPer15Min: 10, linkDays: 30, auditMax: 5000,
+    autoBan: { unknownNames: 5, minutes: 15, days: 7, accountsHours: 24 } },
   // Automatic backups (backups.js; Fox, Nov 28 2026: "backup every 3 hours, and save 3 days of backups"): a copy of
   // the world in data/backups every everyHours, those older than keepDays deleted. everyHours 0 turns them off.
   backups: { everyHours: 3, keepDays: 3 },

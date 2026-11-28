@@ -4019,6 +4019,39 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         ok(asked.status === 401 && !/config\.json|user name/i.test(asked.body) && wrong.every(r => r.status === 401) && locked.status === 429 && other.status === 200,
           `after 10 wrong admin passwords from an address it is refused for 15 minutes, even with the right one (${locked.status}); the answer names no user (${JSON.stringify(asked.body)}); another address still gets in`);
       }
+      // (Nov 28 2026, the scanner back from a rented server's IPv6 address) An IPv6 address counts as its /64 for the
+      // limits and bans; a network guessing account names that don't exist is banned by itself, with its new accounts.
+      {
+        const { netOf } = require('../src/game/security.js'), saved = JSON.stringify(S.db.bans.ip);
+        S.tries.clear(); S.db.tries = {}; S.db.guesses = {};
+        const at = (net, n, dev) => fake(`2001:db8:${net}::${n.toString(16)}`, (dev || 'e' + n.toString(16).padStart(2, '0')).padEnd(32, '7'));
+        const nets = [netOf('2a02:c207:2362:2888::1'), netOf('2A02:C207:2362:2888:ab::9'), netOf('2001:0db8:0000:0042::7334'), netOf('203.0.113.5'), netOf('::ffff:203.0.113.5')];
+        ok(nets.join(' ') === '2a02:c207:2362:2888::/64 2a02:c207:2362:2888::/64 2001:db8:0:42::/64 203.0.113.5 203.0.113.5', `an IPv6 address stands for its /64, an IPv4 address for itself (${nets.join(', ')})`);
+        const six = [1, 2, 3, 4].map(n => reg(at('aa:bb', n), 'SixNet' + n, `sixnet${n}@example.test`));
+        S.tries.clear(); S.db.tries = {};
+        const spread = [];
+        for (let i = 0; i < 10; i++) spread.push(login(at('aa:bb', 0x100 + i), 'SixNet' + (1 + i % 3), 'wrong-' + i));
+        const stopped = login(at('aa:bb', 0x200), 'SixNet1'), elsewhere = login(at('aa:bc', 1), 'SixNet1');
+        ok(six.slice(0, 3).every(r => r.ok === 1) && six[3].ok < 0 && /Too many accounts/.test(six[3].errorMsg) && /Too many wrong passwords/.test(stopped.errorMsg) && elsewhere.ok === 1,
+          'an IPv6 /64 is one network for the sign-up and wrong-password limits: changing the end of the address makes no 4th account and gets no 11th try (another /64 signs in)');
+        S.tries.clear(); S.db.tries = {};
+        const key = S.banKey('ip', '2001:db8:ab:cd:ee::5', null, 'Scanner'), banned6 = login(at('ab:cd', 0x77), 'SixNet2');
+        S.unbanKey('ip', key);
+        ok(key === '2001:db8:ab:cd::/64' && /network address is banned/.test(banned6.errorMsg), `banning an IPv6 address bans its /64 (${key}): another address in it is refused`);
+        // Name guessing, as the scanner did: an account made from the network first, then names that don't exist.
+        const probe = reg(at('cc:dd', 0x99), 'ProbeSix', 'probesix@example.test');
+        const g4 = ['aowtest', 'victim_aow', 'xalgorix_a2', 'aowuser1'].map((n, i) => login(at('cc:dd', 0x10 + i), n, 'x'));
+        const before = S.ipBan('2001:db8:cc:dd::1'), g5 = login(at('cc:dd', 0x20), 'aowreset1', 'x');
+        const after = S.ipBan('2001:db8:cc:dd::1'), right = login(at('cc:dd', 0x21), 'SixNet3'), pa = G.db.accounts.probesix;
+        const others = [1, 2, 3, 4].map(i => login(at('cc:de', i), 'nobody' + i, 'x')), notYet = S.ipBan('2001:db8:cc:de::1');
+        const ev = S.events({ types: ['autoban'] })[0], au = S.db.audit.at(-1), page = await get('/admin'), act = await get('/admin?view=activity&type=autoban');
+        ok(probe.ok === 1 && g4.every(r => /Wrong user name or password/.test(r.errorMsg)) && !before && /Wrong user name or password/.test(g5.errorMsg)
+          && after?.[0] === '2001:db8:cc:dd::/64' && after[1].until > G.now() + 6.9 * 86400e3 && /guessing account names/.test(after[1].reason) && /network address is banned/.test(right.errorMsg)
+          && S.banOf(pa) && !S.banOf(G.db.accounts.sixnet3) && !notYet && ev?.net === '2001:db8:cc:dd::/64' && ev.names.length === 5 && ev.banned.includes('ProbeSix')
+          && /automatically banned the address/.test(au.action) && /ProbeSix/.test(au.detail) && /banned automatically today/.test(String(page.body)) && /Banned 2001:db8:cc:dd::\/64 automatically/.test(String(act.body)),
+          `a network trying 5 account names that don't exist in 15 minutes is banned for 7 days by itself (not at 4), with the account it made (ProbeSix); it's in the audit log, the activity log and the overview ("${after?.[1].reason}")`);
+        S.db.bans.ip = JSON.parse(saved); S.unban(pa); S.tries.clear(); S.db.tries = {}; S.db.guesses = {};
+      }
       // The admin page: the overview, a player's page, and an action (with the page's token only).
       const home = await get('/admin'), page = await get('/admin?view=player&name=SecMain'), alts = await get('/admin?view=alts');
       const postAdmin = fields => new Promise((resolve, reject) => {

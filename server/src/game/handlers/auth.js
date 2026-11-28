@@ -6,7 +6,7 @@
 // holds nothing that signs anyone in. A local server sends no e-mail: a reset request writes a one-day reset link
 // in the server window for the admin to pass on, and `node tools/reset-link.js <name>` makes one on request.
 const crypto = require('crypto');
-const { emailKey } = require('../security');
+const { emailKey, netOf } = require('../security');
 
 const NAME = /^[A-Za-z0-9_][A-Za-z0-9_ .-]{1,14}[A-Za-z0-9_.]$/;          // 3 to 16 characters
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -71,7 +71,7 @@ module.exports = (game, H) => {
     if (bad) return game.fail(conn, cmd, -11, bad);
     const no = S.refusal(conn, null, now);
     if (no) return game.fail(conn, cmd, -2, no);
-    const perDay = R.signupsPerDay ?? 3, ipKey = `signup:${conn.ip}`;
+    const perDay = R.signupsPerDay ?? 3, ipKey = `signup:${netOf(conn.ip)}`;   // (an IPv6 address counts as its /64)
     if (!conn.local && perDay > 0 && S.attempts(ipKey, DAY, now) >= perDay) return game.fail(conn, cmd, -11, 'Too many accounts have been made from your network today. Try again tomorrow.');
     if (findByName(name)) return game.fail(conn, cmd, -11, 'That user name is taken.');
     const key = emailKey(email);
@@ -94,13 +94,16 @@ module.exports = (game, H) => {
   };
 
   // (the sign-in box takes the user name or the e-mail address)
-  // Wrong passwords: rules.security.failsPer15Min an address, and an account, in 15 minutes; after that sign-ins
-  // stop for the rest of the 15 minutes (each is in the activity log).
+  // Wrong passwords: rules.security.failsPer15Min an address (an IPv6 /64), and an account, in 15 minutes; after that
+  // sign-ins stop for the rest of the 15 minutes (each is in the activity log). A banned address or browser can't try
+  // at all, and one guessing names that have no account is banned (security.guessed).
   H['auth.login'] = (conn, d, cmd) => {
     const S = game.security, now = game.now(), limit = game.rules.security?.failsPer15Min ?? 10;
     const typed = String(d.username || '').trim().toLowerCase();
     const a = findByName(typed) || (typed.includes('@') ? Object.values(accounts()).find(x => x.email === typed) : null);
-    const ipKey = `fail:${conn.ip}`, acctKey = `failacct:${a ? a.name.toLowerCase() : typed}`;
+    const barred = S.refusal(conn, null, now);
+    if (barred) return game.fail(conn, cmd, -2, barred);
+    const ipKey = `fail:${netOf(conn.ip)}`, acctKey = `failacct:${a ? a.name.toLowerCase() : typed}`;
     if (limit > 0 && ((!conn.local && S.attempts(ipKey, MIN15, now) >= limit) || S.attempts(acctKey, MIN15, now) >= limit))
       return game.fail(conn, cmd, -1, 'Too many wrong passwords. Try again in 15 minutes.');
     if (!a || !checkPwd(a, d.password)){
@@ -108,6 +111,7 @@ module.exports = (game, H) => {
       S.attempts(acctKey, MIN15, now, true);
       const p = a?.playerId ? game.db.players[a.playerId] : null;
       S.activity({ type: 'signin-fail', account: a ? a.name : typed.slice(0, 40), ids: p ? [p.id] : [], ip: conn.ip, local: conn.local || undefined, device: conn.device || undefined }, now);
+      if (!a) S.guessed(conn, typed, now);
       return game.fail(conn, cmd, -1, 'Wrong user name or password.');
     }
     const no = S.refusal(conn, a, now);   // (no session for a banned account)
