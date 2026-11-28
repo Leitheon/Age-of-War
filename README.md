@@ -134,6 +134,13 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   stops at the room left on the Walls, counting what's queued; the order panel keeps Qty, Max, Demolish and Build on
   one row with the order's total (what you're short of in red) and any message below.
 - **Auto-heal and the city gate** keep their setting when their window is reopened (both showed the old one again).
+- **Buff icons** (`src/buffIcons.js`): the buff bar shows a picture for every buff. Its icons are pictures the Flash
+  client had built in or the shop's, which DoA's art has only as blank files, so a buff (Fleet Feet on the lord it was
+  used on, say) showed as an empty square with its time. The server now sends Age of War's own drawings for those when
+  the art folders, the cache and the Evony art server have no real one.
+- **Hero stats with their buffs**: the Feasting Hall, the hero's window and the other hero lists show each attribute as
+  it counts, with Excalibur and the other books, Alchemist's Amplifier, Poisoned Feast and Beauty Trap; the hero's
+  reward-buff list names them too.
 - **Farming valleys** (`rules.battle.rangedOverCounter`): the valley guide's archers take valleys without losing any:
   50 / 100 / 200 archers for levels 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with 1
   Cavalry for levels 4-10, against every mix of troops a valley has, with Archery 5 or more. Archers, ballistae and

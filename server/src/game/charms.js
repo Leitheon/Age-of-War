@@ -77,6 +77,18 @@ class Charms {
     return out;
   }
 
+  // What the hero screens list on a hero (heroes.bean): his share of Alchemist's Amplifier and Poisoned Feast.
+  heroBuffs(h, now = this.g.now()){
+    const out = [];
+    for (const [key, typeId, label, text] of [
+      ['amplifier', 'PlayerHeroStatsBuff', "Alchemist's Amplifier", n => `stats +${10 * n}%`],
+      ['poison', 'DevilPoison', 'Poisoned Feast', n => `stats -${20 * n}%`]]){
+      const ends = live(h?.charms?.[key], now);
+      if (ends.length) out.push({ typeId, endTime: Math.max(...ends), descName: `${label}${ends.length > 1 ? ` x${ends.length}` : ''}: ${text(ends.length)}` });
+    }
+    return out;
+  }
+
   protectedWhy(q, now){
     const w = this.g.war;
     if (w.beginner(q, now)) return `${q.name} is under Beginner's Protection.`;

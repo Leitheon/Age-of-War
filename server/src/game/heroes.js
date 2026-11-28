@@ -328,13 +328,20 @@ class HeroLogic {
   // ability: above 0 for a historic hero. The Flash client ignores it, but RoboEvony (written against the live
   // servers) reads it: a hero with ability goes to 150, a Ring hero (isHero 4) to 120, any other to 100, and
   // isHero 1 with ability 0 is a royal hero. With 0 it stopped levelling historic heroes at 100 (Fox, Oct 2026).
+  // The hero screens show each attribute as (points + gear) x (1 + its BuffAdded / 100): BuffAdded is sent as the
+  // share that makes that the attribute that counts (effective: the Excalibur-type items, Alchemist's Amplifier,
+  // Poisoned Feast, Beauty Trap), so a buffed or poisoned hero shows his stats as they stand (Fox, Nov 28 2026: "any
+  // buffs to hero stats should also show on the hero screens in the feasting hall"). buffs lists what's on him.
   bean(h, rules = this.rules){
     const now = Date.now(), g = this.gear(h), r1 = x => Math.round(x * 100) / 100;
     const buffs = Object.entries(h.buffs || {}).filter(([, end]) => end > now).map(([typeId, endTime]) => ({ typeId, endTime, descName: HERO_BUFF_NAMES[typeId] || typeId }));
+    if ((h.beautyTrap?.until || 0) > now) buffs.push({ typeId: 'BeautyTrap', endTime: h.beautyTrap.until, descName: `Beauty Trap: attack -${Math.round(h.beautyTrap.pct * 100)}%` });
+    if (this.charmBuffs) buffs.push(...this.charmBuffs(h, now));
+    const shown = k => { const raw = this.total(h, k) + (g[k] || 0), pct = raw > 0 ? (this.effective(h, k, now) / raw - 1) * 100 : 0; return Math.abs(pct) < 1e-9 ? 0 : Math.round(pct * 1e6) / 1e6; };
     return { id: h.id, name: h.name, level: h.level, experience: h.exp, upgradeExp: this.expToNext(h.level), status: this.statusOf ? this.statusOf(h) : h.status, loyalty: h.loyalty,
       management: this.total(h, 'pol'), power: this.total(h, 'atk'), stratagem: this.total(h, 'int'), politics: r1(g.pol), attack: r1(g.atk), intelligence: r1(g.int),
       managementAdded: h.added.pol, powerAdded: h.added.atk, stratagemAdded: h.added.int,
-      managementBuffAdded: this.buffPct(h, 'pol', now), powerBuffAdded: this.buffPct(h, 'atk', now), stratagemBuffAdded: this.buffPct(h, 'int', now),
+      managementBuffAdded: shown('pol'), powerBuffAdded: shown('atk'), stratagemBuffAdded: shown('int'),
       remainPoint: h.points, logoUrl: portraitUrl(h.face), isHero: h.king ? 2 : h.historic ? 1 : h.ringHero ? 4 : 0, npc_id: h.historic || 0, sex: !!h.sex, speed: r1(g.speed), stamina: 100, maxStrength: 100, morale: 100,
       leadership: this.leadership(h), leadershipAdded: this.leadership(h) * 10, ability: h.historic ? 1 : 0, defence: 0, fieldtype: 1, itemAmount: this.persuadeNeed(h)[1], itemId: this.persuadeNeed(h)[0], infro: h.infro || '', facebook_id: '', fbFriendName: '',
       buffs, equipmentbean: this.gearBeans ? this.gearBeans(h) : [] };

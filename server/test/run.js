@@ -361,6 +361,19 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           vcity.goOut = false;
         }
         {
+          // Fox (Nov 28 2026): the receiver saw no icons, and hero stat buffs belong on the hero screens. The icons the
+          // buff bar asks for are sent (our stand-ins where the art has none: DoA's are blank files); the hero bean's
+          // BuffAdded makes the stat the screens show the one that counts (Poisoned Feast above: 20% lower), and the
+          // hero lists his Amplifier and Poisoned Feast.
+          const icons = await Promise.all(['/flash/images/icon/shop/fleetfeet.png', '/flash/images/icon/shop/poisonedfeast.png', '/flash/images/EmbedImages/buffer/peace.png', '/flash/images/icon/aow/healbonus.png'].map(u => get(u)));
+          const bean = G.heroes.bean(hv), raw = hv.base.atk + hv.added.atk + (G.heroes.gear(hv).atk || 0);
+          const shown = Math.round(raw * (1 + bean.powerBuffAdded / 100)), real = G.heroes.effective(hv, 'atk');
+          const listed = bean.buffs.map(x => x.descName).join(' | ');
+          const parts = { icons: icons.every(r => r.status === 200 && /^<svg/.test(r.body.toString()) && /no-store/.test(r.headers?.['cache-control'] || 'no-store')),
+            stat: Math.abs(shown - real) <= 0.5 && bean.powerBuffAdded < 0, listed: /Poisoned Feast: stats -20%/.test(listed) };
+          ok(Object.values(parts).every(Boolean), `the buff bar's icons are sent (our own where the art has none), and a poisoned hero's screens show his attack as it counts (${shown}, ${listed}) ${JSON.stringify(parts)}`);
+        }
+        {
           // Camping (0.1.77), as the march window sends it: Camp sends restTime (seconds, at most 24 hours, fed an
           // hour's upkeep an hour); Arrive at sends arriveAt, and the army camps so that it gets there on that second,
           // or is refused if the march alone takes longer. An army recalled after its camp comes home in the time it

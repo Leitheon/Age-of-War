@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
 const { clientOf, newDevice, deviceCookie } = require('./game/security');
+const { BUFF_ICONS } = require('./buffIcons');
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.xml': 'text/xml; charset=utf-8', '.swf': 'application/x-shockwave-flash', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.js': 'text/javascript', '.css': 'text/css', '.txt': 'text/plain', '.mp3': 'audio/mpeg', '.json': 'application/json', '.wasm': 'application/wasm', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.map': 'application/json' };
 const typeOf = p => TYPES[path.extname(p).toLowerCase()] || 'application/octet-stream';
@@ -343,6 +344,17 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
     if (face) return heroPortrait(res, Number(face[1]));
     const artFile = path.join(artDir, rel);
     if (artFile.startsWith(artDir + path.sep) && fs.existsSync(artFile) && fs.statSync(artFile).isFile()) return sendFile(res, artFile);
+    // DoA's art folders keep the buff bar's icons a level or two up from where the client asks:
+    // /flash/images/icon/shop/fleetfeet.png as art/flash/shop/fleetfeet.png, /flash/images/EmbedImages/buffer/peace.png
+    // as art/flash/peace.png (in DoA's download those are blank 1-pixel files, which don't count).
+    const up = /^flash[\\/]images[\\/](?:icon|EmbedImages[\\/]buffer)[\\/](.+)$/.exec(rel);
+    if (up){ const f = path.join(artDir, 'flash', up[1]); if (f.startsWith(artDir + path.sep) && realFile(f)) return sendFile(res, f); }
+    // Else our own stand-in buff icons (buffIcons.js; Fox, Nov 28 2026: a lord given Fleet Feet saw no icon on his
+    // buff bar): at once for the pictures no art server has (the Flash client's built-in ones, and our own buffs), and
+    // for the shop's when the Evony art server hasn't got them either. Sent no-store, so the real one is used as soon
+    // as it turns up.
+    const standIn = BUFF_ICONS[rel.replace(/\\/g, '/').replace(/^flash\//, '')];
+    const sendStandIn = () => { const b = Buffer.from(standIn); res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Content-Length': b.length, 'Cache-Control': 'no-store' }); res.end(b); };
     // Not in art/: this client's /flash/... is the Evony client's own images/..., from the cache or the Evony art
     // server (assetCdn), the same as the Evony server's.
     // Nothing else goes there: any other address that isn't a file here is simply not found.
@@ -351,10 +363,11 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
     const cached = path.join(cache, rel);
     if (!cached.startsWith(cache + path.sep)) return send(res, 400, 'Bad path', 'text/plain');
     if (fs.existsSync(cached)){ if (perf) perf.art.cache++; return sendFile(res, cached); }
+    if (standIn && /^images[\\/](?:EmbedImages|icon[\\/]aow)[\\/]/.test(rel)) return sendStandIn();
     // Art the art server doesn't have (or couldn't be reached for, in the last 10 minutes) is answered at once
     // instead of asking it again every time the client wants that file.
-    if (art?.has(rel)){ if (perf) perf.art.missing++; return send(res, 404, 'Not found', 'text/plain'); }
-    if (!cfg.assetCdn){ art?.mark(rel, 'not cached, and no assetCdn is set'); if (perf) perf.art.missing++; return send(res, 404, 'Not found', 'text/plain'); }
+    if (art?.has(rel)){ if (perf) perf.art.missing++; return standIn ? sendStandIn() : send(res, 404, 'Not found', 'text/plain'); }
+    if (!cfg.assetCdn){ art?.mark(rel, 'not cached, and no assetCdn is set'); if (perf) perf.art.missing++; return standIn ? sendStandIn() : send(res, 404, 'Not found', 'text/plain'); }
     const fetchStart = perf?.now();
     try {
       if (!inflight.has(rel)){
@@ -369,7 +382,7 @@ function startHttp(cfg, root, log, pages = {}, faces = null, art = null, perf = 
       if (perf){ perf.art.missing++; perf.record('art', rel, perf.now() - fetchStart); }
       log.debug(`asset ${rel}: ${e.message}`);
       art?.mark(rel, `art server: ${e.message}`);
-      send(res, 404, 'Not found', 'text/plain');
+      if (standIn) sendStandIn(); else send(res, 404, 'Not found', 'text/plain');
     }
   });
   srv.on('error', e => { log.error(`Web server could not listen on port ${cfg.httpPort}: ${e.code || e.message}`); process.exitCode = 1; });

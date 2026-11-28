@@ -102,6 +102,7 @@ class Game {
     this.combat.heroLeadership = h => this.heroes.leadership(h);
     this.combat.playerBuff = p => ({ ...this.items.battleBuff(p), life: this.charms.lifeBonus(p) });
     this.heroes.charmFactor = (h, now) => this.charms.heroFactor(h, now);
+    this.heroes.charmBuffs = (h, now) => this.charms.heroBuffs(h, now);
     this.research.mayorBonus = c => this.heroes.mayorBonus(c, 'points:int');
     const hist = historic.build(data.historicNames || [], rules);
     for (const h of hist.values()) h.intro = data.historicIntros?.[h.name.trim()] || '';   // (the field window's description)

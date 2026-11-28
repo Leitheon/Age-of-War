@@ -9,7 +9,8 @@ module.exports = (game, H) => {
     return {
       serverTime: now, castles: castles.map(c => b.castle(c, p)), cityOrder: p.cityOrder || '',
       items: game.items.itemBeans(p), selfArmys: game.armies.beans(p), enemyArmys: game.armies.enemies(p),
-      declaredWarBeans: game.war.beans(p, now), playerBuffs: game.items.buffBeans(p, now),
+      // (Gundulf's Compass is kept as doubleBuilding, the Flash client's name; the web client's icon is DoubleBuildingBuff's)
+      declaredWarBeans: game.war.beans(p, now), playerBuffs: game.items.buffBeans(p, now).map(x => x.typeId === 'doubleBuilding' ? { ...x, typeId: 'DoubleBuildingBuff' } : x),
       ...b.reportCounts(p), ...b.mailCounts(p),
       // (the web client's last tab is Other, where its Automation tab was: webreports.js)
       newReportCount_automation: game.reports.unread(p).other_count,
