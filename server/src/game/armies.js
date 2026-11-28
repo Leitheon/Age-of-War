@@ -774,7 +774,8 @@ class ArmyLogic {
     // (rules.reports.outcomeInTitle, Fox: "Victory at Barbarian's city(263,597)", "Defeat: your army was beaten at ...")
     const out = g.rules.reports?.outcomeInTitle, mine = r.attackerWon ? 'Victory' : 'Defeat', theirs = r.attackerWon ? 'Defeat' : 'Victory';
     const atkTitle = plain ? (out ? `${mine} at ${here}` : 'Attack Reports') : `${out ? mine + ': your' : 'Your'} army ${verb}${note}`;
-    report(p, { type: REPORT_TYPE.ARMY, title: atkTitle, content: battleXml({ ...body, injuredPer, autoHeal: this.healXml(attHeal, c), isAttack: true, won: r.attackerWon, honor: hon?.att, prestige: prestige || undefined, items: found.length ? found.map(f => (f.n > 1 ? `${f.id}=${f.n}` : f.id)).join(',') : undefined }) });
+    const attXml = battleXml({ ...body, injuredPer, autoHeal: this.healXml(attHeal, c), isAttack: true, won: r.attackerWon, honor: hon?.att, prestige: prestige || undefined, items: found.length ? found.map(f => (f.n > 1 ? `${f.id}=${f.n}` : f.id)).join(',') : undefined });
+    report(p, { type: REPORT_TYPE.ARMY, title: atkTitle, content: attXml });
     if (won) this.conquestReports(p, won, here);
     if (conquest?.freed) this.heroReports(p, conquest.freed, here);
     // The allied troops' lords get the battle too; an army with nobody left, or in a city that changed hands, goes home.
@@ -785,7 +786,10 @@ class ArmyLogic {
       g.pushArmies(gp);
     }
     if (guests.length) g.pushFriends(dp);
-    if (dp) report(dp, { type: REPORT_TYPE.ARMY, attack: false, title: (out ? theirs + ': ' : '') + (won ? `${p.name} conquered ${dc.name}` : parked ? `${p.name} is colonizing ${dc.name}` : colony ? `${p.name} suppressed ${dc.name}'s uprising` : heroSeized ? `${p.name} attacked ${dc.name}; you captured ${hero.name}` : `${p.name} attacked ${dc.name}`), content: battleXml({ ...body, injuredPer: defInjuredPer, autoHeal: this.healXml(defHeal, dc), isAttack: false, won: r.attackerWon, back: null, honor: hon?.def }) });
+    const defXml = dp ? battleXml({ ...body, injuredPer: defInjuredPer, autoHeal: this.healXml(defHeal, dc), isAttack: false, won: r.attackerWon, back: null, honor: hon?.def }) : null;
+    if (dp) report(dp, { type: REPORT_TYPE.ARMY, attack: false, title: (out ? theirs + ': ' : '') + (won ? `${p.name} conquered ${dc.name}` : parked ? `${p.name} is colonizing ${dc.name}` : colony ? `${p.name} suppressed ${dc.name}'s uprising` : heroSeized ? `${p.name} attacked ${dc.name}; you captured ${hero.name}` : `${p.name} attacked ${dc.name}`), content: defXml });
+    // The alliances' War Reports keep the battle, from each side (alliances.recordBattle).
+    if (p) g.alliances.recordBattle({ at: now, attacker: p, defender: dp, historic: !!tile.historic, startPos: c ? this.placeName(c.fieldId) : '', targetPos: here, time: stamp(now), attXml, defXml });
     if (dp) this.logBattle(a.mission === MISSION.COLONIZE ? 'colonize' : 'attack', p, c, dp, dc, r, before, { loot: loot || undefined, conquered: won ? true : undefined }, now);
     g.log.info(`${p.name} attacked ${here}: ${r.attackerWon ? 'won' : 'lost'} in ${r.round} round${r.round > 1 ? 's' : ''}${loot ? `, loot ${Object.values(loot).reduce((x, y) => x + y, 0)}` : ''}${captured ? ', valley taken' : ''}${conquest ? `, loyalty ${conquest.loyalty}` : ''}${found.length ? `, found ${foundText}` : ''}`);
     // Live (Fox): a lost attack doesn't march home; what is left of the army is home at once (arrive()).

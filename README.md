@@ -141,6 +141,10 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
 - **Hero stats with their buffs**: the Feasting Hall, the hero's window and the other hero lists show each attribute as
   it counts, with Excalibur and the other books, Alchemist's Amplifier, Poisoned Feast and Beauty Trap; the hero's
   reward-buff list names them too.
+- **Alliance War Reports** (`rules.allianceWarReports`): the alliance keeps its own record of its members' battles,
+  written as they happen (it was made from the members' reports each time, so a deleted report or a member who left took
+  battles out). Kept 30 days or 300 pages, whichever ends first; a battle with a lord in no alliance is in it, either
+  way round, as are colonizations and uprisings.
 - **Farming valleys** (`rules.battle.rangedOverCounter`): the valley guide's archers take valleys without losing any:
   50 / 100 / 200 archers for levels 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with 1
   Cavalry for levels 4-10, against every mix of troops a valley has, with Archery 5 or more. Archers, ballistae and

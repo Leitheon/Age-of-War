@@ -3550,12 +3550,14 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       c.send('common.allianceChat', { msg: 'Hello, pack', languageType: 0 });
       const heard = (await ally.x.wait('server.AllianceChatMsg', 4000)).data;
       const lone = await rival.x.call('common.allianceChat', { msg: 'hi', languageType: 0 });
-      G.reports.add(me, { type: 1, startPos: 'Home(1,1)', targetPos: 'Nest(2,2)', title: 'Battle', content: `<reportData><battleReport isAttack="true"><attackTroop king="${me.name}"/><defendTroop king="Rivalor"/></battleReport></reportData>` });
+      // (the War Reports are the alliance's own record, kept as battles happen: recordBattle)
+      const meXml = `<reportData><battleReport isAttack="true"><attackTroop king="${me.name}"/><defendTroop king="Rivalor"/></battleReport></reportData>`;
+      G.alliances.recordBattle({ at: G.now(), attacker: me, defender: rival.q, startPos: 'Home(1,1)', targetPos: 'Nest(2,2)', time: 'now', attXml: meXml, defXml: meXml });
       // A member's battle at an NPC Historic City (no lord on its side) is listed too; one at a barbarian city isn't.
-      { const [hid, hc] = [...world.historicEntries()][0], { x: hx, y: hy } = world.xy(hid), npcRep = (pos, t) => G.reports.add(ally.q, { type: 1, startPos: 'Den(3,3)', targetPos: pos, title: 'Attack Reports',
-          content: `<reportData><battleReport isAttack="true" isAttackSuccess="${t}"><attackTroop king="Allyson"/><defendTroop king=""/></battleReport></reportData>` });
+      { const [hid, hc] = [...world.historicEntries()][0], { x: hx, y: hy } = world.xy(hid), npcRep = (pos, t, historic) => G.alliances.recordBattle({ at: G.now(), attacker: ally.q, defender: null, historic, startPos: 'Den(3,3)', targetPos: pos, time: 'now',
+          attXml: `<reportData><battleReport isAttack="true" isAttackSuccess="${t}"><attackTroop king="Allyson"/><defendTroop king=""/></battleReport></reportData>` });
         let bx = 0, by = 0; for (; bx < 800 && world.historicAt(world.idOf(bx, by)); bx++);
-        npcRep(`Barbarian's city(${bx},${by})`, false); npcRep(`${hc.name}(${hx},${hy})`, true);
+        npcRep(`Barbarian's city(${bx},${by})`, false, false); npcRep(`${hc.name}(${hx},${hy})`, true, true);
         const npcSit = await c.call('alliance.getMilitarySituationList', { pageNo: 1, pageSize: 10 }), rows = npcSit.situations;
         const hcRow = rows.find(b => b.eventName === `Allyson Attack ${hc.name}(${hx},${hy})`);
         ok(hcRow && hcRow.otherAllianceName === '[HISTORIC CITY]' && /isAttackSuccess="true"/.test(hcRow.xml_data)
@@ -3566,13 +3568,36 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         const webRow = wr.find(r => r.cmd === 'alliance.getMilitarySituationList')?.data?.situations?.find(b => b.eventName === hcRow?.eventName);
         ok(webRow && /<isAttackSuccess>true<\/isAttackSuccess>/.test(webRow.xml_data) && /<attackTroop king="Allyson"><king>Allyson<\/king>/.test(webRow.xml_data),
           'the web client gets the Military Situation\'s reports in its own form (values as child elements), so a won battle shows as won');
-        G.reports.list(ally.q).splice(0, 2); }
+        G.alliances.warLog(G.alliances.of(me)).shift(); }
       const sit = await c.call('alliance.getMilitarySituationList', { pageNo: 1, pageSize: 10 });
       const mailed = await c.call('alliance.messagesForAllianceMember', { title: 'Orders', message: 'Hold the line', type: 11 });
       const s0 = sit.situations[0];
       ok(heard.msg === 'Hello, pack' && heard.fromUser === G.fame.chatName(me) && lone.ok === 1 && s0 && s0.eventName === `${me.name} Attack Nest(2,2)` && s0.otherAllianceName === 'Crows' && s0.attack === true
         && mailed.ok === 1 && G.mail.list(ally.q).some(m => /Orders/.test(m.title)),
         'alliance chat reaches the members online, the Military Situation lists the members\' battles with lords, and the Host can mail every member');
+      {
+        // Fox (Nov 28 2026): the War Reports are kept 30 days or 300 pages, whichever ends first, whatever happens to the
+        // members' own reports; a battle with a lord in no alliance is in them, either way round.
+        const al = G.alliances.of(me), log = G.alliances.warLog(al), was = log.slice(), loner = G.createPlayer({ name: 'Lonewolf' });
+        const xml = who => `<reportData><battleReport isAttack="true"><attackTroop king="${who}"/><defendTroop king="x"/></battleReport></reportData>`;
+        G.alliances.recordBattle({ at: G.now(), attacker: me, defender: loner, startPos: 'Home(1,1)', targetPos: 'Lair(5,5)', time: 'now', attXml: xml(me.name), defXml: xml(me.name) });
+        G.alliances.recordBattle({ at: G.now(), attacker: loner, defender: ally.q, startPos: 'Lair(5,5)', targetPos: 'Den(3,3)', time: 'now', attXml: xml('Lonewolf'), defXml: xml('Lonewolf') });
+        const reportsWere = G.reports.list(me).length; G.reports.list(me).length = 0;
+        const rows = (await c.call('alliance.getMilitarySituationList', { pageNo: 1, pageSize: 10 })).situations;
+        const theirs = G.alliances.of(loner);
+        const hit = rows.find(b => b.eventName === `${me.name} Attack Lair(5,5)`), hitBack = rows.find(b => b.eventName === 'Lonewolf Attack Den(3,3)');
+        // 31 days old: gone; the 3,001st newest: gone.
+        log.push({ at: G.now() - 31 * 86400000, attack: true, eventName: 'old', startPos: '', targetPos: '', other: '', time: '', xml: '' });
+        G.alliances.pruneWar(al); const oldGone = !log.some(x => x.eventName === 'old');
+        const filler = Array.from({ length: 3005 }, (_, i) => ({ at: G.now() - i, attack: true, eventName: 'f' + i, startPos: '', targetPos: '', other: '', time: '', xml: '' }));
+        log.splice(0, log.length, ...filler); G.alliances.pruneWar(al); const capped = log.length === 3000 && log[2999].eventName === 'f2999';
+        const pages = (await c.call('alliance.getMilitarySituationList', { pageNo: 1, pageSize: 10 })).totalPage;
+        log.splice(0, log.length, ...was);
+        ok(hit && hit.attack === true && hit.otherAllianceName === '' && hitBack && hitBack.attack === false && hitBack.otherAllianceName === '' && !theirs
+          && oldGone && capped && pages === 300,
+          `the War Reports keep a battle with a lord in no alliance, either way round, after the member's own report is gone, for 30 days or 300 pages (${pages}), whichever ends first`);
+        G.reports.list(me).length = 0; void reportsWere;
+      }
       {
         // m3.80: the Alliance quests' flags, and alliance chat from a lord on a member's blocklist.
         const blk = await ally.x.call('friend.addBlock', { player: me.name });

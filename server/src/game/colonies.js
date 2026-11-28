@@ -151,10 +151,11 @@ class Colonies {
       lead.troops[k] += left - given;
     }
     const colony = { isSuppress: true };
-    g.reports.add(p, { type: REPORT_TYPE.ARMY, armyType: MISSION_COLONIZE, startPos: this.place(home), targetPos: this.place(dc), title: b.won ? `${dc.name} is now your Protectorate` : `Colonization of ${dc.name} failed`,
-      content: battleXml({ ...b.body, isAttack: true, won: b.won, colony, injuredPer: b.injuredPer, autoHeal: g.armies.healXml(b.attHeal, home), honor: b.honor?.att }) });
-    g.reports.add(dp, { type: REPORT_TYPE.ARMY, armyType: MISSION_COLONIZE, attack: false, startPos: this.place(home), targetPos: this.place(dc), title: b.won ? `${dc.name} became ${p.name}'s Protectorate` : `${dc.name} resisted ${p.name}'s colonization`,
-      content: battleXml({ ...b.body, isAttack: false, won: b.won, colony, injuredPer: b.defInjuredPer, autoHeal: g.armies.healXml(b.defHeal, dc), honor: b.honor?.def }) });
+    const attXml = battleXml({ ...b.body, isAttack: true, won: b.won, colony, injuredPer: b.injuredPer, autoHeal: g.armies.healXml(b.attHeal, home), honor: b.honor?.att });
+    const defXml = battleXml({ ...b.body, isAttack: false, won: b.won, colony, injuredPer: b.defInjuredPer, autoHeal: g.armies.healXml(b.defHeal, dc), honor: b.honor?.def });
+    g.reports.add(p, { type: REPORT_TYPE.ARMY, armyType: MISSION_COLONIZE, startPos: this.place(home), targetPos: this.place(dc), title: b.won ? `${dc.name} is now your Protectorate` : `Colonization of ${dc.name} failed`, content: attXml });
+    g.reports.add(dp, { type: REPORT_TYPE.ARMY, armyType: MISSION_COLONIZE, attack: false, startPos: this.place(home), targetPos: this.place(dc), title: b.won ? `${dc.name} became ${p.name}'s Protectorate` : `${dc.name} resisted ${p.name}'s colonization`, content: defXml });
+    g.alliances.recordBattle({ at: now, attacker: p, defender: dp, startPos: this.place(home), targetPos: this.place(dc), time: stamp(now), attXml, defXml });
     for (const a of armies) this.sendHome(a, now);
     if (b.won){
       Object.assign(rec, { status: STATUS.OCCUPIED, since: now, startTime: now, endTime: 0, armies: [] });
@@ -246,10 +247,11 @@ class Colonies {
     for (const [k, n] of Object.entries(b.left)) if (n > 0) sc.troops[k] = addTroops(sc.troops[k], n);
     g.pushTroops(sc);
     const colony = { isUprising: true };
-    g.reports.add(sp, { type: REPORT_TYPE.ARMY, startPos: this.place(sc), targetPos: this.place(dc), title: b.won ? `Uprising in ${dc.name} suppressed` : `${dc.name} won its uprising`,
-      content: battleXml({ ...b.body, isAttack: true, won: b.won, colony, injuredPer: b.injuredPer, autoHeal: g.armies.healXml(b.attHeal, sc), honor: b.honor?.att }) });
-    g.reports.add(dp, { type: REPORT_TYPE.ARMY, attack: false, startPos: this.place(sc), targetPos: this.place(dc), title: b.won ? `${dc.name}'s uprising was suppressed` : `${dc.name} regained its freedom`,
-      content: battleXml({ ...b.body, isAttack: false, won: b.won, colony, injuredPer: b.defInjuredPer, autoHeal: g.armies.healXml(b.defHeal, dc), honor: b.honor?.def }) });
+    const attXml = battleXml({ ...b.body, isAttack: true, won: b.won, colony, injuredPer: b.injuredPer, autoHeal: g.armies.healXml(b.attHeal, sc), honor: b.honor?.att });
+    const defXml = battleXml({ ...b.body, isAttack: false, won: b.won, colony, injuredPer: b.defInjuredPer, autoHeal: g.armies.healXml(b.defHeal, dc), honor: b.honor?.def });
+    g.reports.add(sp, { type: REPORT_TYPE.ARMY, startPos: this.place(sc), targetPos: this.place(dc), title: b.won ? `Uprising in ${dc.name} suppressed` : `${dc.name} won its uprising`, content: attXml });
+    g.reports.add(dp, { type: REPORT_TYPE.ARMY, attack: false, startPos: this.place(sc), targetPos: this.place(dc), title: b.won ? `${dc.name}'s uprising was suppressed` : `${dc.name} regained its freedom`, content: defXml });
+    g.alliances.recordBattle({ at: now, attacker: sp, defender: dp, startPos: this.place(sc), targetPos: this.place(dc), time: stamp(now), attXml, defXml });
     g.log.info(`Uprising war at ${dc.name}: ${b.won ? `suppressed by ${sp.name}` : 'the colony won'}`);
     if (b.won) return this.suppressed(rec, now);
     this.drop(rec, true);

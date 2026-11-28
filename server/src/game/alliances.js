@@ -345,10 +345,46 @@ class Alliances {
     return this.members(a).sort((x, y) => this.rank(x) - this.rank(y) || (y.prestige || 0) - (x.prestige || 0))
       .map(q => ({ ...this.g.beans.playerInfo(q, this.g.castlesOf(q)), accountName: q.id === viewer?.id ? q.account : '' }));
   }
-  // The members' battles with other lords and with NPC Historic Cities (Military Situation), newest first. A battle
-  // at an NPC city has no lord on the defending side; a Historic City's is told by its spot (Fox, Nov 25 2026: alliance
-  // reports didn't show hitting an NPC Historic City). Barbarian cities and valleys stay out.
+  // The War Reports (Military Situation): the alliance's own record of its members' battles, kept when they happen
+  // (Fox, Nov 28 2026: "Alliance War reports should be persistent. Either up to 30 days or up to 300 pages, whichever
+  // comes first. And alliance reports should also generate from an alliance hitting someone that is not in an
+  // alliance, and vice versa"). Each side's alliance gets the battle from its side, whoever is on the other: a lord
+  // in another alliance, in none, or an NPC Historic City. A member's later deleting his report, or leaving, doesn't
+  // take it out. Kept rules.allianceWarReports.keepDays days, and at most maxPages pages of pageSize.
+  // b: { at, attacker, defender (a lord, or null at an NPC city), historic, startPos, targetPos, time, attXml, defXml }
+  recordBattle(b){
+    const r = this.g.rules.allianceWarReports || {}; if (r.enabled === false) return;
+    const sides = [[this.of(b.attacker), true, b.attXml, b.defender], [b.defender ? this.of(b.defender) : null, false, b.defXml, b.attacker]];
+    if (!b.defender && !b.historic) return;   // (barbarian cities and valleys stay out)
+    for (const [a, attack, xml, other] of sides){
+      if (!a || !xml) continue;
+      const ob = other ? this.of(other) : null;
+      this.warLog(a).unshift({ at: b.at, attack, eventName: `${b.attacker.name} Attack ${b.targetPos}`, startPos: b.startPos, targetPos: b.targetPos,
+        other: ob ? ob.name : other ? '' : '[HISTORIC CITY]', time: b.time, xml });
+      this.pruneWar(a, b.at);
+    }
+    this.g.store.touch();
+  }
+  warLimit(){ const r = this.g.rules.allianceWarReports || {}; return { days: r.keepDays ?? 30, max: (r.maxPages ?? 300) * (r.pageSize ?? 10) }; }
+  pruneWar(a, now = this.g.now()){
+    const { days, max } = this.warLimit(), log = this.warLog(a), from = now - days * 24 * HOUR;
+    let n = log.length; while (n > 0 && log[n - 1].at < from) n--;
+    log.length = Math.min(n, max);
+  }
+  // The alliance's record; an alliance from before 0.1.85 starts from its members' reports still kept.
+  warLog(a){
+    if (!a.warLog){ a.warLog = this.fromReports(a); this.pruneWar(a); }
+    return a.warLog;
+  }
   situations(a){
+    this.pruneWar(a);
+    // (each row its own id: the client keys the table's rows by it)
+    return this.warLog(a).map((x, i) => ({ id: i + 1, type: 1, attack: x.attack, eventName: x.eventName, startPos: x.startPos, targetPos: x.targetPos,
+      otherAllianceName: x.other, time: x.time, xml_data: x.xml }));
+  }
+  // Before 0.1.85 the list was made from the members' reports each time: a battle at an NPC city has no lord on the
+  // defending side; a Historic City's is told by its spot. Barbarian cities and valleys stay out.
+  fromReports(a){
     const seen = new Set(), out = [];
     for (const q of this.members(a)){
       for (const r of this.g.reports.list(q)){
@@ -358,12 +394,11 @@ class Alliances {
         const key = `${r.at}|${atk}|${def}|${r.targetPos}`; if (seen.has(key)) continue; seen.add(key);
         // (Other alliance: the lord's alliance; an NPC Historic City's is "[HISTORIC CITY]", as RoboEvony shows live's, Fox, Nov 25 2026)
         const other = def ? this.lord(r.attack ? def : atk) : null, ob = other && this.of(other);
-        out.push({ at: r.at, bean: { id: 0, type: 1, attack: !!r.attack, eventName: `${atk} Attack ${r.targetPos}`, startPos: r.startPos, targetPos: r.targetPos,
-          otherAllianceName: ob ? ob.name : def ? '' : '[HISTORIC CITY]', time: r.eventTime, xml_data: r.content } });
+        out.push({ at: r.at, attack: !!r.attack, eventName: `${atk} Attack ${r.targetPos}`, startPos: r.startPos, targetPos: r.targetPos,
+          other: ob ? ob.name : def ? '' : '[HISTORIC CITY]', time: r.eventTime, xml: r.content });
       }
     }
-    // (each row its own id: the client keys the table's rows by it)
-    return out.sort((x, y) => y.at - x.at).map((x, i) => ({ ...x.bean, id: i + 1 }));
+    return out.sort((x, y) => y.at - x.at);
   }
   // Whether a report's place, "Name(x,y)", is a Historic City's spot.
   historicSpot(pos){

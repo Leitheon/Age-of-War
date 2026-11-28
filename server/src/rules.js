@@ -848,6 +848,9 @@ const DEFAULTS = {
   // an alliance you dont see a notification in world chat/system for the entire server to see. The server should also
   // see historic city captures"): an alliance setting another hostile, a Historic City taken (from the NPCs or a lord).
   announce: { allianceWar: true, historicCity: true },
+  // An alliance's War Reports (Military Situation) are its own record, kept keepDays days and at most maxPages pages
+  // of pageSize, whichever ends first (Fox, Nov 28 2026: 30 days or 300 pages).
+  allianceWarReports: { keepDays: 30, maxPages: 300, pageSize: 10 },
   // Accounts (security.js; Fox, Nov 27 2026: no alt accounts, and an admin page to investigate and punish):
   // oneAccountPerBrowser: a browser that already has an account can't sign up another (the admin can allow one);
   // signupsPerDay: sign-ups an address may make a day; failsPer15Min: wrong passwords an address, or an account, may
