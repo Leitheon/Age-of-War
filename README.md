@@ -115,8 +115,6 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   Champions; your own: under Enter). It lists the stratagems that work there with what each does, how many you hold
   or what one costs (its worth in gold without cents), how long one still runs on your city or when it can be used on
   that city again, and a Use button. The Stratagem quests are offered again.
-- **Starting resources** (`rules.start.resources`, `rules.buildCity.start.resources`): a new lord's first city, a
-  city built on a flat and an Amulet's city start with 50,000 food, lumber, stone and iron (live: 5,000).
 - **Historic Cities** show their introductions from the client's own city list. Each of the 16 states has its capital,
   8 level 14s and 121 level 12s (every 18 tiles from 9,9: Olathe at 99,99 beside Washington, D.C.), and every Historic
   City has flats on all sides, except where another Historic City is (`rules.historic.flatRing`).
