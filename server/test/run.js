@@ -1838,10 +1838,10 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         'Population Increase', 'Wealthy Society', 'Prestige Building', 'Item Purchase', 'Promotion', 'Battlefield', 'Guidelines', 'Military Operation', 'The Medals',
         'Be an Evonian', 'Stratagem', 'Achievement', 'Uprising', 'Hero Gear', 'Daily Amulet'];
       const at = names.map(n => WIKI.indexOf(n));
-      // (Uprising and Stratagem are off: the web client has no screens for them; Fox, Nov 28 2026)
-      ok(at.every((v, i) => v >= 0 && (i === 0 || v > at[i - 1])) && ['Colony', 'Scouting', 'Wealthy Society', 'Battlefield', 'Correspondence', 'Military Operation', 'Achievement'].every(n => names.includes(n))
-        && !names.includes('Uprising') && !names.includes('Stratagem'),
-        'the categories follow the wiki\'s order; Correspondence (mail), Military Operation (wounded troops) and Achievement show; Uprising and Stratagem don\'t');
+      // (Uprising is off: the web client has no screens for uprisings or commissions; Fox, Nov 28 2026)
+      ok(at.every((v, i) => v >= 0 && (i === 0 || v > at[i - 1])) && ['Colony', 'Scouting', 'Wealthy Society', 'Battlefield', 'Correspondence', 'Military Operation', 'Achievement', 'Stratagem'].every(n => names.includes(n))
+        && !names.includes('Uprising'),
+        'the categories follow the wiki\'s order; Correspondence (mail), Military Operation (wounded troops), Achievement and Stratagem show; Uprising doesn\'t');
       const listOf = async name => (await c.call('quest.getQuestList', { castleId: castle.id, typeId: types.types.find(t => t.name === name)?.typeId })).quests || [];
       const queenQ = await listOf('Queen');
       ok(queenQ.length === 1 && queenQ[0].questId === 601 && queenQ[0].targets[0].name.startsWith('Prestige reaches 1,000'), 'the Queen chain starts with Prestige 1,000, as on the wiki');
@@ -3365,6 +3365,21 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
       const wrongPlace = await use(city.fieldId, 0, 'player.trick.yyhz');
       ok(empty.ok === 1 && small >= 100 && small <= 200 && bushes.ok === 1 && me.coins === 95 && big >= 5000 && big <= 10000 && !city.tricks.kcj && wrongPlace.ok < 0 && G.quests.state(me).flags.stratagemOwn,
         `on your own city, Empty City shows scouts 10-20% of the troops (${small} of 1,000) and Regard Bushes and Trees as Soldiers 5-10 times (${big}); one without the item is bought for its price`);
+      {
+        // The web client's Stratagem window (Fox, Nov 28 2026): stratagem.list names what works on the city, and without
+        // cents one not held is bought for its worth in gold.
+        const own = await c.call('stratagem.list', { fieldId: city.fieldId });
+        const kc = own.list?.find(x => x.itemId === 'player.trick.kcj'), cm = own.list?.find(x => x.itemId === 'player.trick.cmjb');
+        const nc = G.rules.noCents, rate = G.rules.webShop.goldPerCoin, price = G.data.items['player.trick.cmjb'].price;
+        G.rules.noCents = true; me.items['player.trick.cmjb'] = 0;
+        const gold0 = G.goldPool(me), viaGold = await use(city.fieldId, 0, 'player.trick.cmjb'), gold1 = G.goldPool(me);
+        const listed = await c.call('stratagem.list', { fieldId: city.fieldId });
+        G.rules.noCents = nc;
+        const none = await c.call('stratagem.list', { fieldId: city.fieldId + 1 });
+        ok(own.ok === 1 && own.own === true && own.list.length === 5 && kc && !kc.count && cm.activeUntil > Date.now() && viaGold.ok === 1 && Math.abs(gold0 - gold1 - price * rate) < 50
+          && listed.list.find(x => x.itemId === 'player.trick.cmjb').gold === true && none.ok < 0,
+          `the Stratagem window lists the five used on your own city, with how long each runs; without cents one not held costs its worth in gold (${Math.round(gold0 - gold1)})`);
+      }
       // Another lord's city.
       const vp = G.createPlayer({ name: 'Mark' }, { userName: 'Mark' }), vc = G.castlesOf(vp)[0];
       const bornWas = me.createdAt; vp.createdAt = 0; me.createdAt = 0;   // (no Beginner's Protection on either side)
@@ -4885,8 +4900,8 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
         G.rules.alliances.memberCap = 1; const capped = [Q.offered(five), Q.offered(ten)];
         G.rules.alliances.memberCap = 5; const five5 = [Q.offered(five), Q.offered(ten)];
         G.rules.alliances.memberCap = cap;
-        ok(capped.join() === 'false,false' && five5.join() === 'true,false' && Q.offered(five) && [660, 661, 680, 681].every(id => !Q.offered(Q.defs.get(id))),
-          'Member Enrichment is offered only up to the alliance member cap, and the stratagem, uprising and commission quests aren\'t offered');
+        ok(capped.join() === 'false,false' && five5.join() === 'true,false' && Q.offered(five) && [680, 681].every(id => !Q.offered(Q.defs.get(id))) && [660, 661].every(id => Q.offered(Q.defs.get(id))),
+          'Member Enrichment is offered only up to the alliance member cap; the uprising and commission quests aren\'t offered, the stratagem ones are');
       }
       const ships = B.ask('market.getMarket', {}).shipments;
       G.items.add(B.p, 'consume.transaction.1', 1);

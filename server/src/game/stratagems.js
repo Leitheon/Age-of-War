@@ -14,6 +14,7 @@
 // him now. Wartime ends at ... You can apply Truce Agreement to counteract this stratagem.").
 // A stratagem you don't hold is bought for its price in cents, as the client's list (Price, Use) suggests.
 const { REPORT_TYPE, scoutXml } = require('./reports');
+const { centsRate, centsText, fmt } = require('./nocents');
 const world = require('./world');
 const pad = n => String(n).padStart(2, '0');
 // Report times as live writes them ("Wartime ends at 2026-10-24 16:26:49").
@@ -74,18 +75,41 @@ class Stratagems {
       else { if (!OTHER_CITY.has(key)) return [-40, `${it.name} is used on your own city.`]; r = this.otherCity(p, c, q, key, it, now); }
     }
     if (Array.isArray(r)) return r;
-    // Pay: the item, or its price in cents.
+    // Pay: the item, or its price in cents (without cents, its worth in gold from the lord's cities: nocents.js).
     let bought = 0;
     if (!g.items.take(p, id)){
-      const price = it.price || 0;
-      if (!(price > 0) || (p.coins || 0) < price){ r.undo?.(); return [-28, `You need ${it.name} (${price} cents); you have ${p.coins || 0} cents.`]; }
-      p.coins -= price; bought = price;
+      const price = it.price || 0, rate = centsRate(g.rules), gold = price * rate;
+      if (rate){
+        if (!(price > 0) || !g.goldPool || g.goldPool(p) < gold){ r.undo?.(); return [-28, `You need ${it.name}, or ${fmt(gold)} gold to buy one.`]; }
+        g.payGold(p, gold, null, it.name); bought = gold;
+      } else {
+        if (!(price > 0) || (p.coins || 0) < price){ r.undo?.(); return [-28, `You need ${it.name} (${price} cents); you have ${p.coins || 0} cents.`]; }
+        p.coins -= price; bought = price;
+      }
     }
     r.apply?.();
     g.quests.flag(p, r.own ? 'stratagemOwn' : 'stratagemOther');
     g.store.touch();
     g.log.info(`${p.name} used ${it.name}${r.on ? ` on ${r.on}` : ''}`);
     return { bought, item: id };
+  }
+  // The web client's Stratagem window (a city's field window; Fox, Nov 28 2026: "The Strategem button is not showing
+  // when clicking on player cities"): the stratagems that work on the lord's city at fieldId, with how many he holds,
+  // what one costs without (gold without cents), and on his own city how long each still runs, on another's when it
+  // can be used on that city again.
+  listFor(p, fieldId, now = this.g.now()){
+    if (!this.enabled()) return [-40, 'Stratagems are turned off on this server.'];
+    const g = this.g, t = world.tileAt(g.store, Number(fieldId)), c = t.type === world.T.CASTLE ? g.db.castles[t.castleId] : null;
+    const q = c ? g.db.players[c.playerId] : null;
+    if (!q) return t.type === world.T.NPC ? [-41, 'Stratagems are used on lords\' cities.'] : [-51, 'There is no city there.'];
+    const own = q.id === p.id, rate = centsRate(g.rules);
+    const list = [...(own ? OWN_CITY : OTHER_CITY)].map(key => {
+      const id = `player.trick.${key}`, it = g.data.items[id]; if (!it) return null;
+      const desc = String(it.desc || '').replace(/\r/g, '').trim();
+      return { itemId: id, name: it.name, desc: rate ? centsText(desc, rate) : desc, count: p.items?.[id] || 0, price: (it.price || 0) * (rate || 1), gold: !!rate,
+        activeUntil: own ? this.live(c, key, now)?.until || 0 : 0, coolUntil: own ? 0 : this.cooling(c, key, now) };
+    }).filter(Boolean);
+    return { own, cityName: c.name, lordName: q.name, serverTime: now, list };
   }
   report(q, title, content){ this.g.reports.add(q, { type: REPORT_TYPE.OTHER, attack: false, title, content }); }
   victim(q, p, it, more){ this.report(q, `Victim of ${it.name}`, `Player ${p.name} has applied ${it.name} to you.${more ? ' ' + more : ''}`); }

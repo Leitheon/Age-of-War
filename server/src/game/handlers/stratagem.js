@@ -1,10 +1,17 @@
 'use strict';
-// Stratagems (stratagems.js): the Stratagem button of a city's or an army's window.
+// Stratagems (stratagems.js): the Stratagem button of a city's or an army's window (the web client's: a city's).
 module.exports = (game, H) => {
   H['shop.useTrickItem'] = (conn, d, cmd) => {
     const p = conn.player, r = game.stratagems.use(p, d.castleId, d.armyid, d.itemId, game.now());
     if (Array.isArray(r)) return game.fail(conn, cmd, r[0], r[1]);
     game.reply(conn, cmd, {});
     game.pushItems(p, [r.item]);
+    game.questNotice?.(p);
+  };
+  // The web client's Stratagem window (patch-stratagem.py): what can be used on the city at fieldId.
+  H['stratagem.list'] = (conn, d, cmd) => {
+    const r = game.stratagems.listFor(conn.player, d.fieldId, game.now());
+    if (Array.isArray(r)) return game.fail(conn, cmd, r[0], r[1]);
+    game.reply(conn, cmd, r);
   };
 };

@@ -108,9 +108,13 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   client sends.
 - **Every quest offered can be finished**: trading in the web market completes Sell Resources (giving food, lumber,
   stone or iron) and Buy Resources (getting one). Member Enrichment is offered only up to the alliance member cap
-  (`rules.alliances.memberCap`). The stratagem, uprising and commission quests are off, since the web client has no
-  screens for those (`rules.quests.systems`: true offers them again).
+  (`rules.alliances.memberCap`). The uprising and commission quests are off, since the web client has no screens for
+  those (`rules.quests.systems`: true offers them again).
 - **Statistics** has no World Boss Rank tab (there's no world boss).
+- **Stratagems in the web client**: a lord's city window has a Stratagem button (another lord's city: under Scout and
+  Champions; your own: under Enter). It lists the stratagems that work there with what each does, how many you hold
+  or what one costs (its worth in gold without cents), how long one still runs on your city or when it can be used on
+  that city again, and a Use button. The Stratagem quests are offered again.
 - **Historic Cities** show their introductions from the client's own city list. Each of the 16 states has its capital,
   8 level 14s and 121 level 12s (every 18 tiles from 9,9: Olathe at 99,99 beside Washington, D.C.), and every Historic
   City has flats on all sides, except where another Historic City is (`rules.historic.flatRing`).
