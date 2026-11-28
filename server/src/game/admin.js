@@ -17,7 +17,7 @@ const { netOf } = require('./security');
 const DUR = [['1h', '1 hour', 3600e3], ['6h', '6 hours', 6 * 3600e3], ['1d', '1 day', 86400e3], ['3d', '3 days', 3 * 86400e3],
   ['7d', '7 days', 7 * 86400e3], ['30d', '30 days', 30 * 86400e3], ['perm', 'Permanent', null]];
 const RES = ['food', 'wood', 'stone', 'iron', 'gold'];
-const TYPES = [['', 'Everything'], ['signin,resume', 'Sign-ins'], ['signin-fail', 'Wrong passwords'], ['signup', 'Sign-ups'], ['signup-blocked', 'Refused sign-ups'],
+const TYPES = [['', 'Everything'], ['signin,resume', 'Sign-ins'], ['signin-fail', 'Wrong passwords'], ['signup', 'Sign-ups'], ['signup-blocked,refused', 'Refused sign-ups'],
   ['autoban,probe', 'Automatic bans'], ['transport', 'Transports'], ['reinforce', 'Reinforcements'], ['market', 'Market trades'], ['policy', 'Policies'], ['battle', 'Battles']];
 const esc = s => String(s ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
 const when = t => t ? new Date(t).toISOString().slice(0, 16).replace('T', ' ') : '';
@@ -70,6 +70,7 @@ class AdminPage {
       case 'resume': return `${acc(e.account)} came back (reload)${ip}${dev}`;
       case 'signin-fail': return `Wrong password for ${acc(e.account)} from${ip}${dev}`;
       case 'signup-blocked': return `<span class="bad">Sign-up of ${esc(e.account)} refused</span>: the browser already has ${(e.others || []).map(acc).join(', ')}${ip}${dev}`;
+      case 'refused': return `<span class="bad">Refused ${esc(e.account || '?')}</span>: ${esc(e.why || '')}${ip}${dev}`;
       case 'probe': return `<span class="bad">Banned a security scanner</span>${e.account ? ` (${acc(e.account)})` : ''}: it sent ${esc(e.host)} (${esc(e.cmd)}); its network ${esc(e.net || '?')}${e.device ? ' and browser' : ''} banned${ip}${dev}`;
       case 'autoban': return `<span class="bad">Banned ${esc(e.net)} automatically</span> ${e.until ? 'until ' + when(e.until) : 'for good'}: it tried ${num((e.names || []).length)} account names that don't exist (${esc((e.names || []).slice(0, 8).join(', '))}${(e.names || []).length > 8 ? ' ...' : ''})${(e.banned || []).length ? `; its new accounts banned too: ${e.banned.map(acc).join(', ')}` : ''}${ip}${dev}`;
       case 'transport': {
@@ -110,6 +111,19 @@ class AdminPage {
         return back(`${a.name} is banned ${span}${also.length ? `, with ${also.length} address${also.length === 1 ? '' : 'es and browsers'}` : ''}.`);
       }
       case 'unban': S.unban(a); S.audit('lifted the ban on', a.name); return back(`${a.name} can sign in again.`);
+      // Every account at an e-mail domain (Fox, Nov 28 2026: ten bot accounts @agentmail.to), with their browsers.
+      case 'bandomain': {
+        const dom = String(q.get('domain') || '').trim().toLowerCase().replace(/^.*@/, '');
+        if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(dom)) return back('Enter an e-mail domain, such as agentmail.to.');
+        const hit = this.atDomain(dom).filter(x => !S.banOf(x, now));
+        let browsers = 0;
+        for (const x of hit){
+          S.ban(x, until, reason || `E-mail at ${dom}`, now);
+          if (q.get('devices')) for (const d of Object.keys(x.seen?.devices || {})){ S.banKey('device', d, until, reason || `E-mail at ${dom}`, now); browsers++; }
+        }
+        S.audit('banned every account at', dom, `${hit.length} account${hit.length === 1 ? '' : 's'} ${span}${browsers ? `, with ${browsers} browser${browsers === 1 ? '' : 's'}` : ''}${reason ? ': ' + reason : ''}${hit.length ? ` (${hit.slice(0, 30).map(x => x.name).join(', ')}${hit.length > 30 ? ' ...' : ''})` : ''}`);
+        return back(hit.length ? `Banned ${hit.length} account${hit.length === 1 ? '' : 's'} at ${dom} ${span}${browsers ? `, with ${browsers} browser${browsers === 1 ? '' : 's'}` : ''}.` : `No account at ${dom} is left to ban.`);
+      }
       case 'mute': S.mute(p, until, reason, now); S.audit('muted', a.name, `${span}${reason ? ': ' + reason : ''}`); return back(`${p.name} is muted ${span}.`);
       case 'unmute': S.unmute(p); S.audit('unmuted', a.name); return back(`${p.name} can chat again.`);
       case 'freeze': S.freeze(p, until, reason, now); S.audit('froze', a.name, `${span}${reason ? ': ' + reason : ''}`); return back(`${p.name} is frozen ${span}: no transports, reinforcements or market trades with other lords.`);
@@ -192,7 +206,7 @@ class AdminPage {
     const S = this.S, accs = Object.values(this.g.db.accounts || {}), day = now - 86400e3;
     const banned = accs.filter(a => S.banOf(a, now)).length, ps = accs.map(a => a.playerId && this.g.db.players[a.playerId]).filter(Boolean);
     const groups = S.groups(now), recent = S.events({ max: 2000, months: 1 }).filter(e => e.t >= day);
-    const fails = recent.filter(e => e.type === 'signin-fail'), refused = recent.filter(e => e.type === 'signup-blocked'), autos = recent.filter(e => e.type === 'autoban'), probes = recent.filter(e => e.type === 'probe');
+    const fails = recent.filter(e => e.type === 'signin-fail'), refused = recent.filter(e => e.type === 'signup-blocked' || e.type === 'refused'), autos = recent.filter(e => e.type === 'autoban'), probes = recent.filter(e => e.type === 'probe');
     const byIp = new Map(); for (const e of fails) if (e.ip) byIp.set(e.ip, (byIp.get(e.ip) || 0) + 1);
     const noisy = [...byIp].filter(([, n]) => n >= 5).sort((x, y) => y[1] - x[1]);
     const stat = (n, l, q) => `<div class="stat">${q ? this.link(q, `<b>${num(n)}</b>`) : `<b>${num(n)}</b>`}<span>${l}</span></div>`;
@@ -206,7 +220,7 @@ class AdminPage {
         <ul>${groups.slice(0, 5).map(gr => `<li>${gr.browsers ? '<span class="b bad">same browser</span> ' : '<span class="b warn">same address</span> '}${gr.names.map(n => this.who(this.acct(n))).join(', ')}</li>`).join('')}</ul>` : '<p class="dim">No accounts share a browser or an address.</p>'}
       ${probes.length ? `<p class="bad"><b>${probes.length}</b> security scanner${probes.length === 1 ? ' was' : 's were'} banned automatically today for sending a testing service's address: ${probes.map(e => esc(e.account || e.net || e.ip || '?')).join(', ')}. ${this.link({ view: 'activity', type: 'autoban,probe' }, 'See them')}.</p>` : ''}
       ${autos.length ? `<p class="bad"><b>${autos.length}</b> network${autos.length === 1 ? ' was' : 's were'} banned automatically today for guessing account names: ${autos.map(e => esc(e.net)).join(', ')}. ${this.link({ view: 'activity', type: 'autoban,probe' }, 'See them')}.</p>` : ''}
-      ${refused.length ? `<p><b>${refused.length}</b> sign-up${refused.length === 1 ? ' was' : 's were'} refused today for a browser that already has an account. ${this.link({ view: 'activity', type: 'signup-blocked' }, 'See them')}.</p>` : ''}
+      ${refused.length ? `<p><b>${refused.length}</b> sign-up${refused.length === 1 ? ' or sign-in was' : 's or sign-ins were'} refused today (a browser that already has an account, a throwaway e-mail, Tor). ${this.link({ view: 'activity', type: 'signup-blocked,refused' }, 'See them')}.</p>` : ''}
       ${noisy.length ? `<p class="bad">Many wrong passwords today from: ${noisy.map(([ip, n]) => `${esc(ip)} (${n})`).join(', ')}.</p>` : ''}
       <h2>Newest accounts</h2>${this.accountsTable(newest, now)}
       ${this.bannerForm()}`;
@@ -347,8 +361,21 @@ class AdminPage {
     return `<h2>Activity</h2><form class="inline"><input type="hidden" name="view" value="activity"><select name="type">${TYPES.map(([v, l]) => `<option value="${v}"${v === type ? ' selected' : ''}>${l}</option>`).join('')}</select>
       <input name="who" value="${esc(who)}" placeholder="account or lord"> <select name="max">${[100, 300, 1000, 2000].map(n => `<option${n === max ? ' selected' : ''}>${n}</option>`).join('')}</select> <button>Show</button></form>${this.eventsTable(list)}`;
   }
+  // Accounts whose e-mail is at domain dom, or a domain under it.
+  atDomain(dom){ return Object.values(this.g.db.accounts || {}).filter(a => { const d = String(a.email || '').toLowerCase().split('@').pop(); return d === dom || d.endsWith('.' + dom); }); }
+  // E-mail domains of the accounts made in the last week, most first (the Bans tab): [domain, made, banned, blocked].
+  domains(now){
+    const count = new Map();
+    for (const a of Object.values(this.g.db.accounts || {})){
+      if (!(a.createdAt > now - 7 * 86400e3) || !a.email) continue;
+      const d = a.email.toLowerCase().split('@').pop(), c = count.get(d) || [0, 0];
+      c[0]++; if (this.S.banOf(a, now)) c[1]++; count.set(d, c);
+    }
+    return [...count].sort((x, y) => y[1][0] - x[1][0]).slice(0, 12).map(([d, [n, b]]) => [d, n, b, this.S.emailBlocked('x@' + d)]);
+  }
   bans(now){
     const S = this.S, live = obj => Object.entries(obj).filter(([, b]) => S.live(b, now));
+    const doms = this.domains(now), tor = this.g.tor, torMode = this.g.rules.security?.blockTor ?? 'all';
     const accountsOn = (kind, key) => Object.values(this.g.db.accounts).filter(a => kind === 'ip' ? Object.keys(a.seen?.ips || {}).some(ip => ip === key || netOf(ip) === key) : a.seen?.devices?.[key]);
     const table = (kind, rows) => rows.length ? `<table><tr><th>${kind === 'ip' ? 'Address' : 'Browser'}</th><th>Until (UTC)</th><th>Reason</th><th>Accounts seen on it</th><th></th></tr>${rows.map(([k, b]) => `<tr><td title="${esc(k)}">${esc(kind === 'ip' ? k : short(k))}</td><td>${b.until == null ? 'for good' : when(b.until)}</td><td>${esc(b.reason)}</td>
       <td>${accountsOn(kind, k).map(a => this.who(a)).join(', ')}</td><td>${this.form(kind === 'ip' ? 'unbanip' : 'unbandevice', { key: k, back: 'bans' }, '<button>Lift</button>', { inline: true })}</td></tr>`).join('')}</table>` : '<p class="dim">None.</p>';
@@ -356,6 +383,12 @@ class AdminPage {
     return `<h2>Banned addresses</h2>${table('ip', live(S.db.bans.ip))}${this.form('banip', { back: 'bans' }, `<input name="key" placeholder="address" size="20"> ${this.durSelect('dur', '7d')} <input name="reason" placeholder="Reason" size="24"> <button class="red">Ban address</button>`)}
       <p class="dim">An IPv6 address is banned with its whole /64, the block one connection or one rented server is given (its owner can change the rest of the address at will). A network that tries ${num(this.g.rules.security?.autoBan?.unknownNames ?? 5)} account names that don't exist within ${num(this.g.rules.security?.autoBan?.minutes ?? 15)} minutes is banned automatically (rules.security.autoBan).</p>
       <h2>Banned browsers</h2>${table('device', live(S.db.bans.device))}
+      <h2>E-mail domains</h2>
+      <p>Sign-ups with a throwaway e-mail service are refused (${num((this.g.rules.security?.blockedEmailDomains || []).length + (this.g.rules.security?.moreBlockedEmailDomains || []).length)} domains, such as agentmail.to: rules.security.blockedEmailDomains; add more as moreBlockedEmailDomains in data/rules.json). Accounts made before that are still there: ban them here.</p>
+      ${doms.length ? `<table><tr><th>Domain (accounts made this week)</th><th>Accounts</th><th>Banned</th><th></th></tr>${doms.map(([d, n, b, blocked]) => `<tr><td>${esc(d)}${blocked ? ' <span class="b bad">throwaway</span>' : ''}</td><td>${num(n)}</td><td>${num(b)}</td><td>${n > b && (blocked || n - b >= 2) && !/^(gmail|googlemail|yahoo|outlook|hotmail|live|icloud|me|aol|proton|protonmail)\./.test(d) ? this.form('bandomain', { domain: d, dur: 'perm', devices: '1', back: 'bans' }, `<button class="red">Ban all ${num(n - b)}</button>`, { inline: true, confirm: `Ban every account with an e-mail at ${d} (${n - b}) for good, with their browsers?` }) : ''}</td></tr>`).join('')}</table>` : '<p class="dim">No accounts were made this week.</p>'}
+      ${this.form('bandomain', { back: 'bans' }, `<input name="domain" placeholder="e-mail domain, such as agentmail.to" size="30"> ${this.durSelect('dur', 'perm')} <input name="reason" placeholder="Reason" size="20"> <label><input type="checkbox" name="devices" value="1" checked> and their browsers</label> <button class="red">Ban every account at it</button>`, { confirm: 'Ban every account with an e-mail at this domain?' })}
+      <h2>Tor</h2>
+      <p>${torMode ? `Tor can't ${torMode === 'signup' ? 'make accounts here (it can still sign in)' : 'sign up or sign in here'}` : '<span class="bad">Tor is let in</span>'} (rules.security.blockTor: 'all', 'signup' or false). The server knows <b>${num(tor?.size || 0)}</b> Tor exit addresses${tor?.at ? `, from ${when(tor.at)} UTC` : ''}; it fetches Tor's own list every hour. With Cloudflare's IP Geolocation on (Network in its dashboard), it also sees the visitors Cloudflare marks as Tor.</p>
       <h2>Allowed</h2>${allows.length ? `<table><tr><th>What</th><th>Since (UTC)</th><th>Why</th><th></th></tr>${allows.map(([k, v]) => {
         const [kind, rest] = [k.slice(0, k.indexOf(':')), k.slice(k.indexOf(':') + 1)];
         const what = kind === 'device' ? `Browser ${esc(short(rest))} may hold more accounts` : `${rest.split('|').map(n => this.who(this.acct(n), n)).join(' &amp; ')} may share`;

@@ -78,8 +78,15 @@ module.exports = (game, H) => {
     if (!EMAIL.test(email) || email.length > 120) return game.fail(conn, cmd, -11, 'Enter a valid e-mail address.');
     const bad = pwdProblem(d.password);
     if (bad) return game.fail(conn, cmd, -11, bad);
-    const no = S.refusal(conn, null, now);
-    if (no) return game.fail(conn, cmd, -2, no);
+    const no = S.refusal(conn, null, now, true);
+    if (no){ if (S.isTor(conn)) S.activity({ type: 'refused', why: 'Tor', account: name, ip: conn.ip, device: conn.device || undefined }, now); return game.fail(conn, cmd, -2, no); }
+    // (throwaway e-mail: security.emailBlocked)
+    const thrown = S.emailBlocked(email);
+    if (thrown){
+      S.activity({ type: 'refused', why: `throwaway e-mail (${thrown})`, account: name, ip: conn.ip, device: conn.device || undefined }, now);
+      game.log.info(`Sign-up of ${name} refused: ${thrown} is a throwaway e-mail service`);
+      return game.fail(conn, cmd, -11, "That e-mail service isn't accepted here. Use your own e-mail address.");
+    }
     const perDay = R.signupsPerDay ?? 3, ipKey = `signup:${netOf(conn.ip)}`;   // (an IPv6 address counts as its /64)
     if (!conn.local && perDay > 0 && S.attempts(ipKey, DAY, now) >= perDay) return game.fail(conn, cmd, -11, 'Too many accounts have been made from your network today. Try again tomorrow.');
     if (findByName(name)) return game.fail(conn, cmd, -11, 'That user name is taken.');
@@ -111,7 +118,10 @@ module.exports = (game, H) => {
     const typed = String(d.username || '').trim().toLowerCase();
     const a = findByName(typed) || (typed.includes('@') ? Object.values(accounts()).find(x => x.email === typed) : null);
     const barred = S.refusal(conn, null, now);
-    if (barred) return game.fail(conn, cmd, -2, barred);
+    if (barred){
+      if (S.isTor(conn) && !conn.torNoted){ conn.torNoted = true; S.activity({ type: 'refused', why: 'Tor', account: typed.slice(0, 40), ids: a?.playerId ? [a.playerId] : [], ip: conn.ip, device: conn.device || undefined }, now); }
+      return game.fail(conn, cmd, -2, barred);
+    }
     const ipKey = `fail:${netOf(conn.ip)}`, acctKey = `failacct:${a ? a.name.toLowerCase() : typed}`;
     if (limit > 0 && ((!conn.local && S.attempts(ipKey, MIN15, now) >= limit) || S.attempts(acctKey, MIN15, now) >= limit))
       return game.fail(conn, cmd, -1, 'Too many wrong passwords. Try again in 15 minutes.');

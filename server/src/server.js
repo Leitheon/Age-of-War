@@ -6,6 +6,7 @@ const gamedata = require('./gamedata');
 const { loadRules } = require('./rules');
 const { Store } = require('./store');
 const { Backups } = require('./backups');
+const { TorExits } = require('./tor');
 const { Game } = require('./game/game');
 const { startPolicyServer, startGameServer } = require('./net');
 const { startHttp, createFacePool, createArtLog, findLoginMap } = require('./http');
@@ -95,6 +96,9 @@ function main(overrides = {}){
     '/welcome': () => ({ body: game.welcomeJs(), type: 'text/javascript; charset=utf-8' }),
     '/welcome.js': () => ({ body: game.welcomeJs(), type: 'text/javascript; charset=utf-8' }),
     '/movingText.txt': () => ({ body: game.ticker(), type: 'text/plain; charset=utf-8' }), ...require('./pages')(game) }, faces, art, perf, { onMessage, onClose });
+  // Tor's exit list (tor.js), fetched now and every hour (not for the tests: they set it themselves).
+  game.tor = new TorExits(path.join(dataDir, 'tor-exits.txt'), log);
+  if (!overrides.embedded) game.tor.start();
   // Automatic backups (backups.js): checked every minute, the first time a few seconds after start-up.
   const backups = game.backups = new Backups(store, rules.backups || {}, log);
   const backupTimer = setInterval(() => backups.tick(), 60e3), firstBackup = setTimeout(() => backups.tick(), 5000);
@@ -103,7 +107,7 @@ function main(overrides = {}){
   if (cfg.speed !== 1) log.info(`Game speed is ${cfg.speed}x`);
   perf.reset();   // start measuring now: loading the client's data and placing the map held things up, as it should
 
-  const close = () => { clearInterval(ticker); clearInterval(backupTimer); clearTimeout(firstBackup); try { perf.loop?.disable(); } catch (e){} clearInterval(store.timer); for (const s of [policySrv, gameSrv, httpSrv]) try { s.close(); } catch (e){} try { store.flush(); } catch (e){} };
+  const close = () => { clearInterval(ticker); clearInterval(backupTimer); clearTimeout(firstBackup); game.tor?.stop(); try { perf.loop?.disable(); } catch (e){} clearInterval(store.timer); for (const s of [policySrv, gameSrv, httpSrv]) try { s.close(); } catch (e){} try { store.flush(); } catch (e){} };
   // The admin page's Fresh start (game.wipeWorld) ends the program on the new world; run-server.bat (the autostart)
   // starts it again.
   game.restart = overrides.embedded ? null : () => { close(); process.exit(0); };

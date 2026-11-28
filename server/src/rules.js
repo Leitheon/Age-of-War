@@ -889,7 +889,20 @@ const DEFAULTS = {
     // probeBan (Nov 28 2026, security.probe): a message with a testing service's address in it (a scanner's probe, as
     // https://<random>.oast.me in world chat) bans the sender's network for networkDays (0: for good), and his
     // browser and account for good.
-    probeBan: { networkDays: 30 } },
+    probeBan: { networkDays: 30 },
+    // Tor (Nov 28 2026, tor.js): 'all' (no sign-ups or sign-ins through Tor), 'signup' (only sign-ups), false (off).
+    blockTor: 'all',
+    // Throwaway e-mail services (Nov 28 2026, security.emailBlocked): no sign-up with an address at one of these or a
+    // domain under it. To add more, put them in moreBlockedEmailDomains in data/rules.json (this list stays).
+    blockedEmailDomains: ['agentmail.to', 'mailinator.com', 'guerrillamail.com', 'guerrillamail.net', 'guerrillamail.org',
+      'guerrillamail.de', 'guerrillamailblock.com', 'sharklasers.com', 'grr.la', 'pokemail.net', 'spam4.me', '10minutemail.com',
+      '10minutemail.net', 'temp-mail.org', 'temp-mail.io', 'tempmail.com', 'tempmail.dev', 'tempmailo.com', 'tmpmail.org',
+      'tmpmail.net', 'tempail.com', 'yopmail.com', 'yopmail.net', 'yopmail.fr', 'trashmail.com', 'trashmail.de', 'getnada.com',
+      'nada.email', 'dispostable.com', 'maildrop.cc', 'mailsac.com', 'mohmal.com', 'emailondeck.com', 'fakeinbox.com',
+      'throwawaymail.com', 'mintemail.com', 'tempr.email', 'discard.email', 'mail.tm', 'mail.gw', 'emltmp.com',
+      'inboxkitten.com', '1secmail.com', '1secmail.net', '1secmail.org', 'burnermail.io', 'mytemp.email', 'tempinbox.com',
+      'moakt.com', 'mailnesia.com', 'mailcatch.com', 'harakirimail.com', 'mailpoof.com', 'spamgourmet.com'],
+    moreBlockedEmailDomains: [] },
   // Automatic backups (backups.js; Fox, Nov 28 2026: "backup every 3 hours, and save 3 days of backups"): a copy of
   // the world in data/backups every everyHours, those older than keepDays deleted. everyHours 0 turns them off.
   backups: { everyHours: 3, keepDays: 3 },

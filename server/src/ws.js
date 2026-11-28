@@ -137,7 +137,7 @@ function attachSocketBridge(httpSrv, host, port, log, json = null){
 // A /json client: JSON {cmd, data} text frames to and from the game.
 function jsonSocket(sock, first, req, log, json, who = clientOf(req, req.socket?.remoteAddress || sock.remoteAddress)){
   const conn = new JsonConnection(sock, who.ip, json.onMessage, json.onClose, log, json.perf);
-  conn.local = who.local; conn.device = who.device; conn.ua = who.ua;
+  conn.local = who.local; conn.device = who.device; conn.ua = who.ua; conn.country = who.country || '';
   let buf = Buffer.alloc(0);
   const close = () => { if (!sock.destroyed) try { sock.end(frame(0x8, Buffer.alloc(0))); } catch (e){} conn.closed_(); };
   sock.on('close', () => conn.closed_()); sock.on('error', close);

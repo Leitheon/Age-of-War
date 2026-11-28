@@ -4118,6 +4118,46 @@ const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
           && pev?.host?.toLowerCase() === 'abc123.oast.me' && /Banned a security scanner/.test(String(probeTab.body)),
           'a message with a testing service\'s address (an oast.me link in chat, an oast.fun e-mail at sign-up) is refused, and the sender\'s account and browser are banned for good, his network for 30 days; such lines already in the chat history and mail are removed; the server\'s own computer is never banned');
         S.unban(a2); S.unbanKey('ip', '192.0.2.32'); S.unbanKey('ip', '192.0.2.37'); delete S.db.bans.device[A2.conn.device]; delete S.db.bans.device['af'.repeat(16)];
+        // (Nov 28 2026: ten bot accounts in ten minutes, each @agentmail.to and from another Tor exit.) Throwaway e-mail
+        // services can't sign up; Tor can't sign up or sign in (or only not sign up, or is let in); and the admin page
+        // bans every account at an e-mail domain at once, with their browsers.
+        S.tries.clear(); S.db.tries = {};
+        const dev = n => crypto.createHash('md5').update('bot' + n).digest('hex');
+        const t1 = reg(fake('192.0.2.50', dev(1)), 'AgentBot1', 'idbtrcffs0vr@agentmail.to'), t2 = reg(fake('192.0.2.51', dev(2)), 'AgentBot2', 'x@inbox.mailinator.com');
+        R.security = { ...keep.sec, moreBlockedEmailDomains: ['badmail.example'] };
+        const t3 = reg(fake('192.0.2.52', dev(3)), 'AgentBot3', 'x@badmail.example'), t4 = reg(fake('192.0.2.53', dev(4)), 'RealPerson', 'real.person@example.test');
+        R.security = { ...keep.sec };
+        const refusedEv = S.events({ types: ['refused'] })[0];
+        ok([t1, t2, t3].every(r => r.ok < 0 && /e-mail service isn't accepted/.test(r.errorMsg)) && t4.ok === 1 && !G.db.accounts.agentbot1 && /throwaway e-mail \(badmail\.example\)/.test(refusedEv?.why || ''),
+          `a sign-up with a throwaway e-mail service (agentmail.to, a mailinator.com subdomain, one the admin added) is refused ("${t1.errorMsg}"), and noted in the activity log; an ordinary address signs up`);
+        const torPath = path.join(dataDir, 'tor-test.txt'); fs.writeFileSync(torPath, '# exits\n192.0.2.60\n2001:db8:99::7\nnot-an-address\n');
+        const { TorExits } = require('../src/tor.js'), T = new TorExits(torPath, { info(){}, warn(){} }), keepTor = G.tor;
+        G.tor = T;
+        const viaTor = () => fake('192.0.2.60', dev(9)), viaCf = () => Object.assign(fake('192.0.2.61', dev(10)), { country: 'T1' });
+        const all = [reg(viaTor(), 'TorUser', 'tor.user@example.test'), login(viaTor(), 'RealPerson'), login(viaCf(), 'RealPerson')];
+        R.security = { ...keep.sec, blockTor: 'signup' };
+        const signupOnly = [reg(viaTor(), 'TorUser', 'tor.user@example.test'), login(viaTor(), 'RealPerson')];
+        R.security = { ...keep.sec, blockTor: false };
+        const off = login(viaTor(), 'RealPerson');
+        R.security = { ...keep.sec }; G.tor = keepTor;
+        ok(T.size === 2 && T.has('192.0.2.60') && T.has('::ffff:192.0.2.60') && !T.has('192.0.2.61')
+          && all.every(r => /through Tor/.test(r.errorMsg)) && /through Tor/.test(signupOnly[0].errorMsg) && signupOnly[1].ok === 1 && off.ok === 1 && !G.db.accounts.toruser,
+          `Tor (its exit list, kept in a file, or Cloudflare's T1): no sign-up and no sign-in ("${all[1].errorMsg}"); with blockTor 'signup' it may sign in but not sign up; with false it's let in`);
+        const botsAt = [1, 2, 3].map(n => { const c0 = fake('192.0.2.7' + n, dev(20 + n)); reg(c0, 'DomBot' + n, `dombot${n}@botmail.example`); return c0.device; });
+        const post = fields => new Promise((resolve, reject) => {
+          const body = new URLSearchParams(fields).toString();
+          const rq = http.request({ host: '127.0.0.1', port: PORTS.httpPort, path: '/admin', method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body), Authorization: 'Basic ' + Buffer.from('admin:' + ADMIN.pw).toString('base64') } },
+            res => { res.resume(); res.on('end', () => resolve({ status: res.statusCode, location: res.headers.location || '' })); });
+          rq.on('error', reject); rq.end(body);
+        });
+        const tabBefore = String((await get('/admin?view=bans')).body);
+        const done = await post({ t: G.adminToken, action: 'bandomain', domain: '@botmail.example', dur: 'perm', devices: '1', back: 'bans' });
+        const note = new URLSearchParams(done.location.split('?')[1]).get('note') || '';
+        const banned = [1, 2, 3].map(n => S.banOf(G.db.accounts['dombot' + n])), devs = botsAt.map(d => S.db.bans.device[d]);
+        ok(/botmail\.example/.test(tabBefore) && /Ban all 3/.test(tabBefore) && /Tor exit addresses/.test(tabBefore) && /Banned 3 accounts at botmail\.example permanently, with 3 browsers/.test(note)
+          && banned.every(b => b && b.until == null) && devs.every(Boolean) && !S.banOf(G.db.accounts.realperson) && /banned every account at/.test(S.db.audit.at(-1).action),
+          `the admin page's Bans tab lists this week's e-mail domains and bans every account at one at once, with their browsers ("${note}"); the Tor status is shown`);
+        for (const n of [1, 2, 3]) S.unban(G.db.accounts['dombot' + n]); for (const d of botsAt) delete S.db.bans.device[d];
         S.tries.clear(); S.db.tries = {};
       }
       // The admin page: the overview, a player's page, and an action (with the page's token only).

@@ -60,7 +60,9 @@ function clientOf(req, sockIp){
   const ip = clean(fwd) || peer;
   const device = (String(h.cookie || '').match(/(?:^|;\s*)aow_d=([0-9a-f]{32})/) || [])[1] || null;
   const https = /https/i.test(String(h['x-forwarded-proto'] || '')) || /https/i.test(String(h['cf-visitor'] || ''));
-  return { ip, local: loopback(peer) && !clean(fwd), device, ua: String(h['user-agent'] || '').slice(0, 300), https };
+  // (Cloudflare's country for the visitor, T1 for Tor, only when it came through the tunnel: tor.js)
+  const country = loopback(peer) && clean(fwd) ? String(h['cf-ipcountry'] || '').trim().toUpperCase().slice(0, 2) : '';
+  return { ip, local: loopback(peer) && !clean(fwd), device, ua: String(h['user-agent'] || '').slice(0, 300), https, country };
 }
 const newDevice = () => crypto.randomBytes(16).toString('hex');
 const deviceCookie = (id, https) => `aow_d=${id}; Max-Age=315360000; Path=/; SameSite=Lax; HttpOnly${https ? '; Secure' : ''}`;
@@ -142,9 +144,26 @@ class Security {
     for (const a of Object.values(this.g.db.accounts || {})) if (a.playerId && this.banOf(a, now)) out.add(a.playerId);
     return out;
   }
-  // Why connection conn may not sign in as account a (a null: sign up), or null.
-  refusal(conn, a, now = this.g.now()){
+  // Through Tor (tor.js): its exit list, or Cloudflare's T1 country (ws.js notes it as conn.country).
+  isTor(conn){ return !!conn && !conn.local && (conn.country === 'T1' || !!this.g.tor?.has(conn.ip)); }
+  // Throwaway e-mail (Fox, Nov 28 2026: the bots' boxes were all @agentmail.to, a mail service made for AI agents,
+  // whose inboxes their agent reads itself, so a confirmation mail wouldn't stop them): the domain, or one under it,
+  // in rules.security.blockedEmailDomains or moreBlockedEmailDomains. Returns the domain matched, or null.
+  emailBlocked(email){
+    const d = String(email || '').toLowerCase().split('@').pop().trim();
+    if (!d) return null;
+    for (const x of [...(this.rules.blockedEmailDomains || []), ...(this.rules.moreBlockedEmailDomains || [])]){
+      const b = String(x).toLowerCase().trim().replace(/^@/, '');
+      if (b && (d === b || d.endsWith('.' + b))) return b;
+    }
+    return null;
+  }
+  // Why connection conn may not sign in as account a (a null: not known yet), or null. signup: making an account.
+  // rules.security.blockTor: 'all' (Tor can't sign up or sign in), 'signup' (only sign-ups), false (off).
+  refusal(conn, a, now = this.g.now(), signup = false){
     const why = (what, b) => `${what} ${this.span(b)}${b.reason ? `. Reason: ${b.reason}` : '.'}`;
+    const tor = this.rules.blockTor ?? 'all';
+    if (tor && (tor !== 'signup' || signup) && this.isTor(conn)) return "This server can't be played through Tor. Turn Tor off and try again.";
     const ab = a && this.banOf(a, now);
     if (ab) return why('This account is banned', ab);
     const ib = conn?.ip && !conn.local ? this.ipBan(conn.ip, now)?.[1] : null;

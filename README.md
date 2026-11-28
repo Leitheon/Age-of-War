@@ -198,6 +198,14 @@ heroes, marches and battles, valleys, NPC and Historic Cities, colonies, allianc
   and browser are banned for good, his network for 30 days (`rules.security.probeBan`). Lines with such an address
   already kept (the chat's history, mail, alliance texts) are removed, also when the server starts. Never the
   server's own computer. Shown on the admin overview and under Activity, Automatic bans.
+- **Bot sign-ups** (Nov 28 2026: ten bot accounts in ten minutes, each with an `@agentmail.to` box, a mail service made
+  for AI agents, and each from another Tor exit): sign-ups with a throwaway e-mail service are refused
+  (`rules.security.blockedEmailDomains`, about 50 such as agentmail.to and mailinator.com; add more as
+  `moreBlockedEmailDomains` in `data/rules.json`). Tor can't sign up or sign in (`rules.security.blockTor`: `'all'`,
+  `'signup'` or `false`): the server fetches Tor's list of exit addresses every hour (kept in `data/tor-exits.txt`),
+  and with Cloudflare's IP Geolocation on it also sees the visitors Cloudflare marks as Tor (T1). The admin page's Bans
+  tab lists this week's e-mail domains and bans every account at one at once, with their browsers; refusals are in
+  Activity, Refused sign-ups. (A confirmation e-mail wouldn't stop these bots: their agent reads its own inbox.)
 - **Farming valleys** (`rules.battle.rangedOverCounter`): the valley guide's archers take valleys without losing any:
   50 / 100 / 200 archers for levels 1-3, and 400 / 800 / 1,600 / 3,200 / 10,000 / 20,000 / 20,000 archers with 1
   Cavalry for levels 4-10, against every mix of troops a valley has, with research 10 (or Archery 7 and a hero of 300
